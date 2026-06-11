@@ -437,7 +437,11 @@ body.mobile .brand-burn { display:none; }
 body.mobile { height:auto; min-height:100vh; overflow-y:auto; }
 
 /* the dock isn't needed when everything just scrolls */
-body.mobile .rightM { display:none; }
+/* mobile: the dock becomes a horizontal toggle bar below the record player */
+body.mobile .rightM {
+  display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:8px;
+  position:static; width:100%; margin:4px 0 10px; padding:0 8px;
+}
 
 /* deck wrapper stacks normally; turntable dominates the first screen */
 body.mobile > .flex.flex1 { display:block; flex:0 0 auto; }
@@ -446,10 +450,11 @@ body.mobile #deck {
   display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:visible;
 }
 /* shrink the record responsively but keep the video at its required 200x200 */
-body.mobile #deck .plinth { width:min(88vw,360px); height:min(88vw,360px); margin:0; }
+body.mobile #deck .plinth { width:min(88vw,360px); height:min(88vw,360px); margin:0 0 118px; }
 body.mobile #deck .turntable { width:88%; height:88%; }
 body.mobile #deck .platter { width:82%; height:82%; }
-body.mobile #deck .np-area { width:90%; }
+/* controls move below the record on small screens — the shrunken platter leaves no room over it */
+body.mobile #deck .np-area { width:90%; top:100%; bottom:auto; margin-top:10px; }
 
 /* panels become in-flow, full-width cards stacked under the deck */
 body.mobile .panel {
@@ -468,8 +473,7 @@ body.mobile .st-results { flex:none !important; max-height:none !important; over
 /* touch has no hover, so keep delete visible; handle is the touch reorder grip */
 body.mobile .del-btn { opacity:.55; }
 body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }
-/* mobile shows all panels as scroll cards with no dock to reopen, so closing is disabled */
-body.mobile .panel-close { display:none; }
+/* the mobile toggle bar can reopen panels, so closing is allowed there too */
 </style>
 </head>
 <body>
@@ -2330,11 +2334,6 @@ var dock = {
     if (!bar) return;
     bar.innerHTML = '';
 
-    if (this.mobile){
-      this.items.forEach(it => { if (it.el) it.el.classList.remove('is-hidden'); });
-      return;
-    }
-
     this.items.forEach(it => {
       if (!it.el) return;
       const btn = document.createElement('button');
@@ -2342,11 +2341,11 @@ var dock = {
       btn.title = it.label;
       if (it.iconSvg) btn.innerHTML = it.iconSvg; else btn.textContent = it.icon;
       btn.setAttribute('aria-label', it.label);
-      btn.setAttribute('aria-pressed', String(!it.startHidden));
       it.btn = btn;
-      const startHidden = !!it.startHidden;
-      it.el.classList.toggle('is-hidden', startHidden);
-      btn.classList.toggle('active', !startHidden);
+      if (!it._init){ it._init = true; it.el.classList.toggle('is-hidden', !!it.startHidden); }
+      const hidden = it.el.classList.contains('is-hidden');
+      btn.classList.toggle('active', !hidden);
+      btn.setAttribute('aria-pressed', String(!hidden));
       btn.onclick = () => {
         if (it.el.classList.contains('is-hidden')) this.openPanel(it.el);
         else this.setHidden(it.el, true);
@@ -2366,6 +2365,8 @@ var dock = {
       if (this.isPlaced(el)) this.ensureVisible(el);
       else this.autoPlace(el);
       bringToFront(el);
+    } else if (el.scrollIntoView){
+      el.scrollIntoView({ behavior:'smooth', block:'nearest' });
     }
     this.saveLayoutSoon();
   },
@@ -2434,10 +2435,30 @@ var dock = {
 
   setMode(isMobile){
     this.mobile = isMobile;
-    this.items.forEach(it => { if (it.el) it.el.classList.remove('is-hidden'); });
     this.render();
-    // re-assert the saved desktop layout (positions/visibility) after rebuilding the bar
-    if (this._data) this.applyLayout(this._data);
+    if (!isMobile){
+      // re-assert positions after a mode switch: saved layout if any, else the near-dock defaults
+      if (this._data) this.applyLayout(this._data);
+      else if (this._ready) this.applyDefaultLayout();
+      this.ensureAllVisible();
+    }
+  },
+
+  // the designed default: panels anchored near the dock (right-side columns), like a fresh install
+  applyDefaultLayout(){
+    if (this.mobile) return;
+    const pos = {
+      'Tracks':           { right:'400px', top:'120px' },
+      'Playlists':        { right:'92px',  top:'110px' },
+      'Current Playlist': { right:'150px', top:'480px' }
+    };
+    this.items.forEach(it => {
+      const p = pos[it.label];
+      if (!p || !it.el) return;
+      it.el.style.left = 'auto';
+      it.el.style.right = p.right;
+      it.el.style.top = p.top;
+    });
     this.ensureAllVisible();
   },
 
@@ -2511,6 +2532,7 @@ var dock = {
         try { this._data = JSON.parse(raw); } catch(e){ this._data = null; }
         if (this._data) this.applyLayout(this._data);
       }
+      if (!this._data && !this.mobile) this.applyDefaultLayout();
       this.ensureAllVisible();
       done();
     }).catch(done);

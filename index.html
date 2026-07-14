@@ -3,485 +3,589 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a13">
 <title>riffrolled</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2048%2048%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%271%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%238a7bff%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%2346e0ff%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cg%20transform%3D%27rotate%2814%2033.5%2015.5%29%27%3E%3Crect%20x%3D%2723%27%20y%3D%275%27%20width%3D%2721%27%20height%3D%2721%27%20rx%3D%275.5%27%20fill%3D%27%2315152e%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%2F%3E%3Ccircle%20cx%3D%2727.2%27%20cy%3D%279.2%27%20r%3D%271.25%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ccircle%20cx%3D%2739.8%27%20cy%3D%2721.8%27%20r%3D%271.25%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Cellipse%20cx%3D%2731.4%27%20cy%3D%2719.6%27%20rx%3D%272.9%27%20ry%3D%272.2%27%20fill%3D%27url%28%23g%29%27%20transform%3D%27rotate%28-20%2031.4%2019.6%29%27%2F%3E%3Cpath%20d%3D%27M34%2019.2%20L34%2010.6%20C36.6%2011.4%2037.6%2013%2036.8%2015.6%27%20fill%3D%27none%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%27rotate%28-8%2016%2028%29%27%3E%3Crect%20x%3D%274.5%27%20y%3D%2716.5%27%20width%3D%2723%27%20height%3D%2723%27%20rx%3D%275.5%27%20fill%3D%27%230e0e1c%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%2F%3E%3Ccircle%20cx%3D%279.2%27%20cy%3D%2721.2%27%20r%3D%271.35%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ccircle%20cx%3D%2722.8%27%20cy%3D%2734.8%27%20r%3D%271.35%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Cellipse%20cx%3D%2713.6%27%20cy%3D%2732.6%27%20rx%3D%273.2%27%20ry%3D%272.4%27%20fill%3D%27url%28%23g%29%27%20transform%3D%27rotate%28-20%2013.6%2032.6%29%27%2F%3E%3Cpath%20d%3D%27M16.5%2032.1%20L16.5%2022.4%20C19.4%2023.3%2020.5%2025.1%2019.6%2028%27%20fill%3D%27none%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- ================================================================= -->
-<!-- ==  STYLES  (was: index.html inline <style>)                   == -->
-<!-- ================================================================= -->
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ================================================================= */
+/* ==  DESIGN TOKENS                                              == */
+/* ================================================================= */
+:root{
+  --bg:#0a0a13;
+  --panel:#15151f;
+  --panel-2:#1c1c2b;
+  --raise:rgba(255,255,255,0.05);
+  --raise-2:rgba(255,255,255,0.10);
+  --line:rgba(255,255,255,0.08);
+  --line-2:rgba(255,255,255,0.15);
+  --text:#eceaf6;
+  --dim:rgba(236,234,246,0.58);
+  --faint:rgba(236,234,246,0.32);
+  --vio:#8a7bff;
+  --vio-soft:rgba(138,123,255,0.16);
+  --vio-line:rgba(138,123,255,0.42);
+  --vio-text:#c8bcff;
+  --cyan:#46e0ff;
+  --ok:#5ab88a;  --ok-soft:rgba(90,184,138,0.14);
+  --err:#e06767; --err-soft:rgba(224,103,103,0.14);
+  --warn:#d8a657;
+  --grad:linear-gradient(90deg,var(--vio),var(--cyan));
+  --r-s:8px; --r-m:12px; --r-l:16px;
+  --shadow:0 14px 44px rgba(0,0,0,0.55);
+  --navh:60px;
+  --npbarh:54px;
+  --font:'Space Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  --tap:44px;
+}
 
-/* ── PLAYER ── */
-.deck { display:flex; align-items:center; justify-content:center; position:relative; z-index:60; pointer-events:none; }
-/* re-enable clicks only on the interactive bits so panels behind the deck's empty areas stay usable */
-.deck .screen, .deck .np-area, .deck .np-area * { pointer-events:auto; }
-.plinth {
-  width:36rem; height:36rem;
- box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
- margin:2em;
-  border-radius:1rem;
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html{ height:100%; }
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  background-image:
+    radial-gradient(1000px 600px at 18% 22%, rgba(138,123,255,0.10), transparent 60%),
+    radial-gradient(900px 700px at 85% 80%, rgba(70,224,255,0.06), transparent 60%);
+  color:var(--text);
+  height:100vh;
+  overflow-x:hidden; overflow-y:auto;
+  position:relative;
+  display:flex; flex-direction:column;
+  overscroll-behavior-y:none;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:rgba(138,123,255,0.35); }
+
+:focus-visible{ outline:2px solid var(--vio); outline-offset:2px; border-radius:4px; }
+button{ font-family:inherit; touch-action:manipulation; }
+
+/* layout utils (kept from original markup) */
+.flex{display:flex;} .flexMe{display:flex;align-items:center;justify-content:center;}
+.alignMe{align-items:center;} .justMe{justify-content:center;}
+.column{flex-direction:column;} .flex1{flex:1;min-height:0;}
+.fs1em{font-size:1em;} .w100p{width:100%;} .w3em{width:3em;}
+.marLAuto{margin-left:auto;} .pad0p5em{padding:.5em} .pad1em{padding:1em} .bgTrans{background:transparent;}
+
+/* ================================================================= */
+/* ==  DECK / TURNTABLE                                           == */
+/* ================================================================= */
+.deck{ display:flex; align-items:center; justify-content:center; position:relative; z-index:60; pointer-events:none; }
+.deck .screen, .deck .np-area, .deck .np-area *{ pointer-events:auto; }
+.plinth{
+  width:36rem; height:36rem; margin:2em;
+  border-radius:var(--r-l);
+  background:linear-gradient(160deg,#181826 0%,#101019 55%,#0c0c15 100%);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05);
   display:flex; align-items:center; justify-content:center;
   position:relative;
 }
-.turntable { width:30rem; height:30rem; border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
-.platter {
+.turntable{ width:30rem; height:30rem; border-radius:50%; background:#0a0a0a; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; }
+.platter{
   width:28rem; height:28rem; border-radius:50%;
   background:
     repeating-radial-gradient(circle at center, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px),
     radial-gradient(circle, #1c1c1c 0 18%, #0d0d0d 18% 70%, #000 70%);
   animation:spin 3.2s linear infinite; animation-play-state:paused;
 }
-.platter.playing { animation-play-state:running; }
-@keyframes spin { to { transform:rotate(360deg); } }
+.platter.playing{ animation-play-state:running; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
 
-/* Video player — exactly 200x200, upright, unobscured (YouTube API requirement) */
-.screen {
+/* video: exactly 200x200, upright, unobscured (YouTube API requirement) */
+.screen{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:200px; height:200px; border-radius:4px; overflow:hidden;
+  width:200px; height:200px; border-radius:6px; overflow:hidden;
   background:#000; z-index:3;
   box-shadow:0 0 0 7px #0a0a0a, 0 10px 30px rgba(0,0,0,0.65);
 }
-.screen #ytFrame, .screen iframe { width:200px; height:200px; display:block; border:0; }
-/* idle placeholder: shows YouTube's red play button over the (empty) player, like older versions; hidden once a track loads */
-.screen-ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; z-index:4; pointer-events:none; }
+.screen #ytFrame, .screen iframe{ width:200px; height:200px; display:block; border:0; }
+.screen-ph{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; z-index:4; pointer-events:none; }
 
-/* Arm */
-.arm { position:absolute; top:18px; right:28px; width:80px; height:150px; transform-origin:68px 16px; transform:rotate(-30deg); transition:transform 0.6s ease; pointer-events:none; }
-.arm.playing { transform:rotate(-10deg); }
-.arm-pivot { position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:#333; border:1px solid #555; }
-.arm-rod   { position:absolute; top:16px; right:15px; width:3px; height:120px; background:linear-gradient(to bottom,#999,#555); border-radius:2px; transform:rotate(4deg); transform-origin:top center; }
-.arm-head  { position:absolute; bottom:8px; right:8px; width:14px; height:5px; background:#444; border-radius:1px; }
+.arm{ position:absolute; top:18px; right:28px; width:80px; height:150px; transform-origin:68px 16px; transform:rotate(-30deg); transition:transform .6s ease; pointer-events:none; }
+.arm.playing{ transform:rotate(-10deg); }
+.arm-pivot{ position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:#333; border:1px solid #555; }
+.arm-rod{ position:absolute; top:16px; right:15px; width:3px; height:120px; background:linear-gradient(to bottom,#999,#555); border-radius:2px; transform:rotate(4deg); transform-origin:top center; }
+.arm-head{ position:absolute; bottom:8px; right:8px; width:14px; height:5px; background:#444; border-radius:1px; }
 
-/* Transport */
-.np-area { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); width:28rem; max-width:92vw; display:flex; flex-direction:column; align-items:center; gap:7px; z-index:5; }
-.np-title { font-size:12px; color:rgba(255,255,255,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
-#npTitle { display:flex; align-items:center; justify-content:center; gap:6px; }
-#npTitle .np-ico { width:14px; height:14px; flex-shrink:0; color:#8a7bff; opacity:.9; }
-#npTitle .np-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
-.np-meta { display:flex; gap:6px; width:100%; }
-.np-meta input { flex:1; min-width:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); border-radius:7px; padding:5px 9px; font-size:12px; }
-.np-meta input:focus { outline:none; border-color:rgba(122,162,247,0.5); }
-.np-react { display:flex; gap:8px; }
-.react-btn { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.7); border-radius:8px; padding:5px 13px; font-size:13px; cursor:pointer; transition:all 0.15s; }
-.react-btn.react-like:hover { border-color:rgba(90,184,138,0.55); color:#7fd6a6; }
-.react-btn.react-dislike:hover { border-color:rgba(212,96,96,0.55); color:#e08585; }
-.react-btn .count { font-variant-numeric:tabular-nums; opacity:0.85; }
-/* Current Track panel body (same elements, laid out for a panel instead of the deck) */
-.ct-body { display:flex; flex-direction:column; gap:11px; padding:12px 13px; }
-.ct-body .np-title { font-size:14px; color:rgba(255,255,255,0.92); font-weight:600; white-space:normal; text-align:left; line-height:1.35; }
-.ct-body .np-meta { flex-direction:column; gap:8px; }
-.ct-body .np-react { gap:9px; }
-.ct-titlebar { display:flex; flex-direction:column; gap:3px; }
-.ct-tlabel { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
-.ct-title-edit { font-size:14px; font-weight:600; color:#fff; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:7px; padding:6px 8px; width:100%; }
-.ct-autopop { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(255,255,255,0.6); cursor:pointer; margin-top:2px; }
-.ct-autopop input { accent-color:#8a7bff; }
-/* About & Legal panel */
-.info-tabs { display:flex; gap:4px; padding:10px 12px 0; flex:0 0 auto; }
-.info-tab { flex:1; font-size:12px; padding:6px 4px; border-radius:7px 7px 0 0; background:transparent; border:0; color:rgba(255,255,255,0.5); cursor:pointer; }
-.info-tab.active { color:#fff; background:rgba(140,123,255,0.18); }
-.info-content { padding:12px 14px; flex:1; overflow:auto; font-size:12px; line-height:1.5; color:rgba(255,255,255,0.75); }
-.info-content h4 { color:#fff; font-size:13px; margin:2px 0 6px; }
-.info-content p { margin:0 0 9px; }
-.info-content ul { margin:0 0 9px; padding-left:18px; }
-.info-content li { margin:0 0 4px; }
-.info-content a { color:#8a7bff; }
-.info-meta { font-size:10px; color:rgba(255,255,255,0.4); margin-top:4px; }
+/* transport */
+.np-area{ position:absolute; bottom:22px; left:50%; transform:translateX(-50%); width:28rem; max-width:92vw; display:flex; flex-direction:column; align-items:center; gap:9px; z-index:5; }
+.np-title{ font-size:12px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
+#npTitle{ display:flex; align-items:center; justify-content:center; gap:6px; }
+#npTitle .np-ico{ width:14px; height:14px; flex-shrink:0; color:var(--vio); opacity:.9; }
+#npTitle .np-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.transport{ display:flex; gap:12px; align-items:center; }
+.t-btn{
+  background:var(--raise); border:1px solid var(--line-2); color:var(--dim);
+  border-radius:50%; width:44px; height:44px; font-size:15px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s,transform .08s; flex-shrink:0;
+}
+.t-btn:hover{ background:var(--raise-2); color:#fff; }
+.t-btn:active{ transform:scale(.94); }
+.t-btn.play{ width:56px; height:56px; font-size:20px; background:var(--vio-soft); border-color:var(--vio-line); color:var(--vio-text); }
+.t-btn.play:hover{ background:rgba(138,123,255,0.28); color:#fff; }
 
-/* ── RIFFROLLED: roll feature + brand accents ── */
-.riff-brand { display:flex; align-items:center; gap:8px; padding:10px 12px 2px; }
-.riff-brand svg { width:30px; height:30px; flex-shrink:0; }
-/* the logo dice tumble like they're mid-roll; each die pivots about its own centre */
-.riff-logo .riff-die { transform-box:fill-box; transform-origin:center; }
-.riff-logo .d1 { transform:rotate(-10deg); animation:riffTumbleA 2.4s ease-in-out infinite; }
-.riff-logo .d2 { transform:rotate(12deg);  animation:riffTumbleB 2.8s ease-in-out infinite; }
-@keyframes riffTumbleA { 0%,100%{ transform:rotate(-10deg) translateY(0);} 30%{ transform:rotate(7deg) translateY(-1px);} 62%{ transform:rotate(-4deg) translateY(0.5px);} }
-@keyframes riffTumbleB { 0%,100%{ transform:rotate(12deg) translateY(0);} 34%{ transform:rotate(-6deg) translateY(-1px);} 66%{ transform:rotate(5deg) translateY(0.5px);} }
-/* a real roll: dice spin fully */
-.riff-brand.rolling .d1 { animation:riffSpinDie .5s linear infinite; }
-.riff-brand.rolling .d2 { animation:riffSpinDie .58s linear infinite reverse; }
-@keyframes riffSpinDie { from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
-@media (prefers-reduced-motion: reduce){ .riff-logo .riff-die { animation:none !important; } }
-.riff-wordmark { font-weight:800; letter-spacing:1.5px; font-size:15px; background:linear-gradient(90deg,#8a7bff,#46e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.riff-body { display:flex; flex-direction:column; align-items:center; gap:12px; padding:8px 14px 16px; }
-.riff-portal { position:relative; width:124px; height:124px; border-radius:50%; border:0; cursor:pointer; overflow:hidden;
+/* now-playing meta (shared by deck + Current Track panel) */
+.np-meta{ display:flex; gap:6px; width:100%; }
+.np-meta input{ flex:1; min-width:0; }
+.np-react{ display:flex; gap:8px; }
+.react-btn{
+  display:flex; align-items:center; gap:6px; background:var(--raise); border:1px solid var(--line-2);
+  color:var(--dim); border-radius:var(--r-s); padding:8px 14px; font-size:13px; cursor:pointer;
+  min-height:38px; transition:all .15s;
+}
+.react-btn.react-like:hover, .react-btn.react-like:active{ border-color:rgba(90,184,138,0.55); color:#7fd6a6; }
+.react-btn.react-dislike:hover, .react-btn.react-dislike:active{ border-color:rgba(224,103,103,0.55); color:#e08585; }
+.react-btn .count{ font-variant-numeric:tabular-nums; opacity:.85; }
+
+/* spin switch */
+.spin-toggle{ display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dim); user-select:none; cursor:pointer; margin-top:6px; }
+.spin-toggle input{ position:absolute; opacity:0; width:0; height:0; }
+.spin-track{ position:relative; width:46px; height:24px; border-radius:999px; flex-shrink:0; background:var(--raise-2); border:1px solid var(--line-2); transition:background .2s,border-color .2s,box-shadow .2s; }
+.spin-thumb{ position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#cfcfcf; color:#333; font-size:10px; display:flex; align-items:center; justify-content:center; transition:left .2s,background .2s; }
+.spin-thumb::before{ content:'♪'; }
+.spin-toggle input:checked + .spin-track{ background:linear-gradient(90deg,#6c5ce7,var(--vio)); border-color:var(--vio-line); box-shadow:0 0 10px rgba(140,123,255,0.5); }
+.spin-toggle input:checked + .spin-track .spin-thumb{ left:24px; background:#fff; animation:thumbspin 2.4s linear infinite; }
+.spin-toggle input:focus-visible + .spin-track{ outline:2px solid var(--vio); outline-offset:2px; }
+@keyframes thumbspin{ to{ transform:rotate(360deg); } }
+.spin-label{ letter-spacing:.03em; }
+
+/* ================================================================= */
+/* ==  PANELS                                                     == */
+/* ================================================================= */
+.panel{
+  position:absolute; background:var(--panel); border-radius:var(--r-m);
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:var(--shadow); border:1px solid var(--line);
+  min-width:220px; min-height:120px; resize:both;
+}
+.panel-header{
+  padding:11px 13px; background:rgba(255,255,255,0.04); cursor:move;
+  font-size:13px; font-weight:600; letter-spacing:.02em; user-select:none;
+  display:flex; align-items:center; gap:7px; flex-shrink:0; border-bottom:1px solid var(--line);
+}
+.panel-header .sub{ margin-left:auto; font-size:11px; font-weight:normal; color:var(--faint); }
+.panel-close{ margin-left:auto; background:transparent; border:0; color:var(--faint); font-size:15px; line-height:1; padding:6px 8px; cursor:pointer; border-radius:6px; flex-shrink:0; }
+.panel-header .sub + .panel-close{ margin-left:8px; }
+.panel-close:hover{ color:#fff; background:var(--raise-2); }
+
+.mainC{ display:flex; flex-direction:column; min-height:0; overflow-y:auto; flex:1; }
+.mainC > .sec{ flex:0 0 auto; }
+
+input[type=text], input[type=password], input[type=number], select{
+  background:rgba(255,255,255,0.04); border:1px solid var(--line-2); border-radius:var(--r-s);
+  color:var(--text); font-size:13px; padding:9px 11px; outline:none; font-family:inherit;
+  transition:border-color .15s, background .15s;
+}
+input:focus, select:focus{ border-color:var(--vio-line); background:rgba(255,255,255,0.06); }
+input::placeholder{ color:var(--faint); }
+
+button{
+  background:var(--raise); border:1px solid var(--line-2); border-radius:var(--r-s);
+  color:var(--dim); font-size:12px; padding:8px 10px; cursor:pointer;
+  transition:background .15s,color .15s; white-space:nowrap;
+}
+button:hover{ background:var(--raise-2); color:#fff; }
+button:active{ background:var(--raise-2); }
+.icon-btn{ width:34px; height:34px; padding:0; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+.scrollable{ flex:1; overflow-y:auto; min-height:0; padding:6px; -webkit-overflow-scrolling:touch; }
+
+.scrollable, .active-pl-tracks, .lk-add-results, .mainC{ scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+.scrollable::-webkit-scrollbar, .active-pl-tracks::-webkit-scrollbar, .lk-add-results::-webkit-scrollbar, .mainC::-webkit-scrollbar{ width:6px; }
+.scrollable::-webkit-scrollbar-thumb, .active-pl-tracks::-webkit-scrollbar-thumb, .lk-add-results::-webkit-scrollbar-thumb, .mainC::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.18); border-radius:4px; }
+.scrollable::-webkit-scrollbar-track, .active-pl-tracks::-webkit-scrollbar-track, .lk-add-results::-webkit-scrollbar-track, .mainC::-webkit-scrollbar-track{ background:transparent; }
+
+.status-bar{ padding:6px 4px 2px; font-size:11px; color:var(--faint); flex-shrink:0; min-height:20px; }
+.status-bar.ok{ color:var(--ok); } .status-bar.err{ color:var(--err); }
+.status-bar:empty{ min-height:0; padding:0; }
+
+.empty{ text-align:center; padding:28px 14px; font-size:13px; color:var(--faint); line-height:1.6; }
+.row{ display:flex; gap:7px; padding:6px 8px; align-items:center; }
+.row.wrap{ flex-wrap:wrap; }
+.row input[type=text]{ flex:1; min-width:0; }
+
+.del-btn{ background:none; border:none; color:rgba(255,255,255,0.18); font-size:13px; cursor:pointer; padding:6px 8px; border-radius:6px; opacity:0; flex-shrink:0; transition:opacity .12s; min-width:30px; min-height:30px; }
+.del-btn:hover{ color:var(--err) !important; background:var(--err-soft) !important; }
+
+.sec{ padding:10px; }
+.sec-head{ font-size:10px; font-weight:600; letter-spacing:.09em; color:var(--faint); padding:2px 4px 9px; text-transform:uppercase; }
+
+.act-btn{ flex:1; padding:9px 4px; font-size:12px; min-height:var(--tap); }
+.act-btn.primary{ border-color:var(--vio-line); color:var(--vio-text); background:var(--vio-soft); }
+.act-btn.primary:hover{ background:rgba(140,123,255,0.26); }
+.other-row{ display:none; gap:6px; padding:6px 4px 2px; align-items:center; }
+.other-row.open{ display:flex; }
+.other-row select{ flex:1; min-width:0; }
+.other-row select option{ background:var(--panel); }
+
+.row-item{
+  display:flex; align-items:center; gap:8px; padding:9px 8px; border-radius:var(--r-s);
+  cursor:pointer; font-size:13px; border:1px solid transparent; margin-bottom:2px; min-height:var(--tap);
+}
+.row-item:hover{ background:rgba(255,255,255,0.06); }
+.row-item:hover .del-btn{ opacity:1; }
+.row-item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row-item.active{ background:var(--vio-soft); border-color:rgba(140,123,255,0.35); }
+
+/* ── Current Track panel body ── */
+.ct-body{ display:flex; flex-direction:column; gap:12px; padding:13px 14px; }
+.ct-body .np-title{ font-size:14px; color:var(--text); font-weight:600; white-space:normal; text-align:left; line-height:1.35; }
+.ct-body .np-meta{ flex-direction:column; gap:8px; }
+.ct-body .np-react{ gap:9px; }
+.ct-titlebar{ display:flex; flex-direction:column; gap:4px; }
+.ct-tlabel{ font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--faint); }
+.ct-title-edit{ font-size:14px; font-weight:600; color:#fff; width:100%; }
+.ct-autopop{ display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dim); cursor:pointer; margin-top:2px; min-height:32px; }
+.ct-autopop input{ accent-color:var(--vio); width:16px; height:16px; }
+
+/* ── About & Legal ── */
+.info-tabs{ display:flex; gap:4px; padding:10px 12px 0; flex:0 0 auto; }
+.info-tab{ flex:1; font-size:12px; padding:9px 4px; border-radius:8px 8px 0 0; background:transparent; border:0; color:var(--dim); cursor:pointer; }
+.info-tab.active{ color:#fff; background:var(--vio-soft); }
+.info-content{ padding:13px 15px; flex:1; overflow:auto; font-size:12.5px; line-height:1.55; color:var(--dim); }
+.info-content h4{ color:#fff; font-size:13px; margin:2px 0 6px; }
+.info-content p{ margin:0 0 9px; }
+.info-content ul{ margin:0 0 9px; padding-left:18px; }
+.info-content li{ margin:0 0 4px; }
+.info-content a{ color:var(--vio); }
+.info-meta{ font-size:10px; color:var(--faint); margin-top:4px; }
+
+/* ── Roll the Riff ── */
+.riff-brand{ display:flex; align-items:center; gap:8px; padding:10px 12px 2px; }
+.riff-brand svg{ width:30px; height:30px; flex-shrink:0; }
+.riff-logo .riff-die{ transform-box:fill-box; transform-origin:center; }
+.riff-logo .d1{ transform:rotate(-10deg); animation:riffTumbleA 2.4s ease-in-out infinite; }
+.riff-logo .d2{ transform:rotate(12deg); animation:riffTumbleB 2.8s ease-in-out infinite; }
+@keyframes riffTumbleA{ 0%,100%{ transform:rotate(-10deg) translateY(0);} 30%{ transform:rotate(7deg) translateY(-1px);} 62%{ transform:rotate(-4deg) translateY(.5px);} }
+@keyframes riffTumbleB{ 0%,100%{ transform:rotate(12deg) translateY(0);} 34%{ transform:rotate(-6deg) translateY(-1px);} 66%{ transform:rotate(5deg) translateY(.5px);} }
+.riff-brand.rolling .d1{ animation:riffSpinDie .5s linear infinite; }
+.riff-brand.rolling .d2{ animation:riffSpinDie .58s linear infinite reverse; }
+@keyframes riffSpinDie{ from{ transform:rotate(0);} to{ transform:rotate(360deg);} }
+.riff-wordmark{ font-weight:700; letter-spacing:1.5px; font-size:15px; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.riff-body{ display:flex; flex-direction:column; align-items:center; gap:13px; padding:8px 14px 16px; }
+.riff-portal{ position:relative; width:128px; height:128px; border-radius:50%; border:0; cursor:pointer; overflow:hidden;
   background:radial-gradient(circle at 50% 50%, #15152b 0 37%, transparent 38%), conic-gradient(from 0deg, #8a7bff, #46e0ff, #d56bff, #8a7bff);
   box-shadow:0 0 22px rgba(120,110,255,0.45), inset 0 0 18px rgba(0,0,0,0.6);
   display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .2s; }
-.riff-portal:hover { transform:scale(1.04); box-shadow:0 0 34px rgba(120,140,255,0.7), inset 0 0 18px rgba(0,0,0,0.6); }
-.riff-portal::before { content:''; position:absolute; inset:0; border-radius:50%;
-  background:conic-gradient(from 0deg, transparent, rgba(255,255,255,0.4), transparent 30%); animation:riffSpin 6s linear infinite; opacity:.45; }
-.riff-portal .riff-label { position:relative; z-index:2; font-weight:800; letter-spacing:1px; font-size:15px; color:#fff; text-shadow:0 1px 5px rgba(0,0,0,0.7); }
-.riff-portal.rolling { animation:riffPulse .5s ease-in-out infinite; pointer-events:none; }
-.riff-portal.rolling::before { animation:riffSpin .5s linear infinite; opacity:1; }
-.riff-portal.rolling .riff-label { opacity:.4; }
-@keyframes riffSpin { to { transform:rotate(360deg); } }
-@keyframes riffPulse { 0%,100%{ box-shadow:0 0 22px rgba(120,110,255,0.5),inset 0 0 18px rgba(0,0,0,0.6);} 50%{ box-shadow:0 0 48px rgba(90,220,255,0.9),inset 0 0 18px rgba(0,0,0,0.6);} }
-.riff-hint { font-size:11px; color:rgba(255,255,255,0.4); text-align:center; line-height:1.4; }
-.riff-result { width:100%; border-radius:10px; padding:12px; background:rgba(255,255,255,0.04);
+.riff-portal:hover{ transform:scale(1.04); box-shadow:0 0 34px rgba(120,140,255,0.7), inset 0 0 18px rgba(0,0,0,0.6); }
+.riff-portal:active{ transform:scale(.97); }
+.riff-portal::before{ content:''; position:absolute; inset:0; border-radius:50%; background:conic-gradient(from 0deg, transparent, rgba(255,255,255,0.4), transparent 30%); animation:riffSpin 6s linear infinite; opacity:.45; }
+.riff-portal .riff-label{ position:relative; z-index:2; font-weight:700; letter-spacing:2px; font-size:15px; color:#fff; text-shadow:0 1px 5px rgba(0,0,0,0.7); }
+.riff-portal.rolling{ animation:riffPulse .5s ease-in-out infinite; pointer-events:none; }
+.riff-portal.rolling::before{ animation:riffSpin .5s linear infinite; opacity:1; }
+.riff-portal.rolling .riff-label{ opacity:.4; }
+@keyframes riffSpin{ to{ transform:rotate(360deg);} }
+@keyframes riffPulse{ 0%,100%{ box-shadow:0 0 22px rgba(120,110,255,0.5),inset 0 0 18px rgba(0,0,0,0.6);} 50%{ box-shadow:0 0 48px rgba(90,220,255,0.9),inset 0 0 18px rgba(0,0,0,0.6);} }
+.riff-hint{ font-size:11px; color:var(--faint); text-align:center; line-height:1.4; }
+.riff-result{ width:100%; border-radius:10px; padding:12px; background:rgba(255,255,255,0.04);
   border:1px solid var(--rar,#9aa0b5); box-shadow:0 0 18px -5px var(--rar,#9aa0b5);
   opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s; }
-.riff-result:empty { display:none; }
-.riff-result.show { opacity:1; transform:none; }
-.riff-rarity { font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--rar,#9aa0b5); }
-.riff-rname { font-size:14px; font-weight:600; margin:3px 0 2px; color:#fff; word-break:break-word; }
-.riff-rmeta { font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:9px; }
-.riff-result .riff-play { font-size:12px; padding:5px 12px; border-radius:7px; }
-.riff-opts { width:100%; display:flex; flex-direction:column; gap:8px; }
-.riff-target { display:flex; flex-direction:column; gap:5px; }
-.riff-target label { display:flex; align-items:center; gap:7px; font-size:12px; color:rgba(255,255,255,0.75); cursor:pointer; }
-.riff-target input { accent-color:#8a7bff; }
-.riff-newname { font-size:12px; padding:6px 8px; }
-.riff-row { display:flex; gap:8px; align-items:center; }
-.riff-field { display:flex; align-items:center; gap:6px; font-size:12px; color:rgba(255,255,255,0.6); flex-shrink:0; }
-.riff-count { width:48px; font-size:12px; padding:5px 6px; text-align:center; }
-.riff-tags { flex:1; font-size:12px; padding:6px 8px; }
-.riff-list { list-style:none; margin:8px 0 0; padding:0; max-height:160px; overflow:auto; display:flex; flex-direction:column; gap:5px; }
-.riff-list li { display:flex; align-items:center; gap:8px; font-size:12px; color:rgba(255,255,255,0.85); }
-.riff-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.riff-li-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.transport { display:flex; gap:10px; align-items:center; }
-.t-btn { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.65); border-radius:50%; width:36px; height:36px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
-.t-btn:hover { background:rgba(255,255,255,0.14); color:white; }
-.t-btn.play { width:46px; height:46px; font-size:18px; }
+.riff-result:empty{ display:none; }
+.riff-result.show{ opacity:1; transform:none; }
+.riff-rarity{ font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--rar,#9aa0b5); }
+.riff-rname{ font-size:14px; font-weight:600; margin:3px 0 2px; color:#fff; word-break:break-word; }
+.riff-rmeta{ font-size:11px; color:var(--dim); margin-bottom:9px; }
+.riff-result .riff-play{ font-size:12px; padding:8px 14px; border-radius:8px; min-height:38px; }
+.riff-opts{ width:100%; display:flex; flex-direction:column; gap:9px; }
+.riff-target{ display:flex; flex-direction:column; gap:2px; }
+.riff-target label{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--dim); cursor:pointer; min-height:36px; }
+.riff-target input{ accent-color:var(--vio); width:16px; height:16px; }
+.riff-newname{ font-size:12px; padding:8px 9px; }
+.riff-row{ display:flex; gap:8px; align-items:center; }
+.riff-field{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim); flex-shrink:0; }
+.riff-count{ width:54px; font-size:12px; padding:8px 6px; text-align:center; }
+.riff-tags{ flex:1; min-width:0; font-size:12px; padding:8px 9px; }
+.riff-list{ list-style:none; margin:8px 0 0; padding:0; max-height:160px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+.riff-list li{ display:flex; align-items:center; gap:8px; font-size:12px; color:rgba(255,255,255,0.85); }
+.riff-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.riff-li-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* ── PANELS ── */
-.panel { position:absolute; background:#1a1a2e; border-radius:0.6rem; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.08); min-width:220px; min-height:120px; resize:both; }
+/* ── Current Playlist ── */
+.active-pl{ display:flex; flex-direction:column; flex:1; min-height:0; }
+.active-pl-header{ padding:9px 13px 2px; font-size:11px; }
+.pl-status{ font-weight:600; }
+.active-pl-name-row{ padding:2px 13px 9px; border-bottom:1px solid var(--line); }
+.active-pl-name{ width:100%; font-size:16px; font-weight:700; background:transparent; border:none !important; outline:none; color:#fff; padding:0; border-radius:0; }
+.active-pl-name:focus{ border-bottom:1px solid var(--vio-line) !important; }
+.active-pl-sub{ display:flex; align-items:center; gap:8px; padding:8px 11px; font-size:12px; color:var(--dim); border-bottom:1px solid var(--line); }
+.active-pl-sub .count{ color:var(--faint); }
+.active-pl-msg{ padding:6px 13px 0; font-size:11px; min-height:0; color:var(--dim); transition:color .15s; }
+.active-pl-msg:not(:empty){ padding-bottom:2px; }
+.active-pl-filter-row{ padding:9px 10px; flex-shrink:0; border-top:1px solid var(--line); }
+.active-pl-filter-row input{ width:100%; }
+.active-pl-tracks{ flex:1; overflow-y:auto; min-height:0; padding:6px; -webkit-overflow-scrolling:touch; }
 
-.panel-header { padding:10px 12px; background:rgba(255,255,255,0.05); cursor:move; font-size:13px; font-weight:600; user-select:none; display:flex; align-items:center; gap:6px; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,0.07); }
-.panel-header .sub { margin-left:auto; font-size:11px; font-weight:normal; color:rgba(255,255,255,0.3); }
-.panel-close { margin-left:auto; background:transparent; border:0; color:rgba(255,255,255,0.4); font-size:14px; line-height:1; padding:2px 4px; cursor:pointer; border-radius:5px; flex-shrink:0; }
-.panel-header .sub + .panel-close { margin-left:8px; }
-.panel-close:hover { color:#fff; background:rgba(255,255,255,0.12); }
+.track-handle{ color:rgba(255,255,255,0.22); cursor:grab; font-size:14px; flex-shrink:0; line-height:1; touch-action:none; padding:6px 2px; }
+.row-item:hover .track-handle{ color:rgba(255,255,255,0.5); }
+.track-num{ color:var(--faint); font-size:11px; min-width:16px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.row-item.dragging{ opacity:.35; }
+.row-item.drop-into{ box-shadow:inset 0 2px 0 0 var(--vio); }
+.now-dot{ color:var(--vio); flex-shrink:0; font-size:11px; }
 
-/* the body of every panel is now a real flex column so inner lists can fill + scroll */
-.mainC { display:flex; flex-direction:column; min-height:0; overflow-y:auto; }
-.mainC > .sec { flex:0 0 auto; }
+/* ── Playlists ── */
+.pl-tools{ padding:9px; display:flex; flex-direction:column; gap:8px; border-bottom:1px solid var(--line); flex-shrink:0; }
+.pl-create-row{ display:flex; gap:6px; align-items:center; }
+.pl-create-row input{ flex:1; min-width:0; }
+.pl-create-row .createPl{ background:var(--vio-soft); border:1px solid var(--vio-line); color:var(--vio-text); }
+.pl-create-row .createPl:hover{ background:rgba(140,123,255,0.28); }
+.pl-search-input{ width:100%; }
+.pl-list{ padding:6px; }
+.pl-item-count{ font-size:11px; color:var(--faint); flex-shrink:0; font-variant-numeric:tabular-nums; }
+.pl-footer{ display:flex; gap:6px; padding:9px; border-top:1px solid var(--line); flex-shrink:0; }
+.pl-footer button{ flex:1; min-height:38px; }
 
-input[type=text], select { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:5px; color:white; font-size:13px; padding:7px 10px; outline:none; transition:border-color .15s, background .15s; }
-input[type=text]:focus, select:focus { border-color:rgba(140,123,255,0.6); background:rgba(255,255,255,0.06); }
-input[type=text]::placeholder { color:rgba(255,255,255,0.28); }
+/* ── library / search bits ── */
+.lib-pill{ font-size:11px; flex-shrink:0; padding:3px 8px; border-radius:10px; }
+.lib-pill.in{ color:rgba(90,184,138,0.9); background:var(--ok-soft); }
+.lib-add-btn{ width:32px; height:32px; font-size:14px; padding:0; color:var(--vio-text); flex-shrink:0; }
+.mini-transport{ margin-left:auto; display:flex; gap:5px; align-items:center; }
+.mini-transport .icon-btn{ width:32px; height:32px; font-size:12px; }
+.mini-transport .mini-play{ color:var(--vio-text); background:var(--vio-soft); border-color:var(--vio-line); }
+.mini-transport .mini-play:hover{ background:rgba(140,123,255,0.3); }
+.st-results{ padding:6px; }
+.st-play{ width:32px; height:32px; font-size:12px; padding:0; flex-shrink:0; }
 
-button { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.11); border-radius:5px; color:rgba(255,255,255,0.7); font-size:12px; padding:6px 8px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
-button:hover { background:rgba(255,255,255,0.14); color:white; }
-.icon-btn { width:30px; height:30px; padding:0; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+/* ── channel import ── */
+.ch-sec{ border-top:1px solid var(--line); }
+.ch-input{ flex:1; min-width:0; }
+.ch-limit{ background:rgba(255,255,255,0.05); border:1px solid var(--line-2); color:var(--dim); border-radius:var(--r-s); padding:0 6px; font-size:12px; cursor:pointer; flex-shrink:0; }
+.ch-go{ background:var(--vio-soft); border:1px solid var(--vio-line); color:var(--vio-text); }
+.ch-go:hover{ background:rgba(140,123,255,0.28); }
+.ch-keyhint{ padding:4px 4px 0; }
+.ch-keytoggle{ font-size:11px; color:var(--faint); cursor:pointer; padding:6px 0; display:inline-block; }
+.ch-keytoggle:hover{ color:var(--vio-text); }
+.ch-keyrow{ display:none; gap:6px; padding:6px 4px 0; align-items:center; }
+.ch-keyrow.open{ display:flex; }
+.ch-keyrow input{ flex:1; min-width:0; }
 
-.scrollable { flex:1; overflow-y:auto; min-height:0; padding:6px; }
-
-/* one consistent thin scrollbar for every scroll area (Current Playlist now matches Search Tracks) */
-.scrollable, .active-pl-tracks, .lk-add-results, .mainC {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.18) transparent;
-}
-.scrollable::-webkit-scrollbar,
-.active-pl-tracks::-webkit-scrollbar,
-.lk-add-results::-webkit-scrollbar,
-.mainC::-webkit-scrollbar { width:6px; }
-.scrollable::-webkit-scrollbar-thumb,
-.active-pl-tracks::-webkit-scrollbar-thumb,
-.lk-add-results::-webkit-scrollbar-thumb,
-.mainC::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:4px; }
-.scrollable::-webkit-scrollbar-track,
-.active-pl-tracks::-webkit-scrollbar-track,
-.lk-add-results::-webkit-scrollbar-track,
-.mainC::-webkit-scrollbar-track { background:transparent; }
-
-.status-bar { padding:5px 4px 2px; font-size:11px; color:rgba(255,255,255,0.35); flex-shrink:0; min-height:20px; }
-.status-bar.ok  { color:#5ab88a; }
-.status-bar.err { color:#d46060; }
-.status-bar:empty { min-height:0; padding:0; }
-
-.empty { text-align:center; padding:24px 12px; font-size:13px; color:rgba(255,255,255,0.22); line-height:1.5; }
-.row { display:flex; gap:6px; padding:6px 8px; align-items:center; }
-.row.wrap { flex-wrap:wrap; }
-.row input[type=text] { flex:1; }
-
-.del-btn { background:none; border:none; color:rgba(255,255,255,0.18); font-size:12px; cursor:pointer; padding:0 5px; border-radius:3px; opacity:0; flex-shrink:0; transition:opacity .12s; }
-.del-btn:hover { color:#d46060 !important; background:rgba(212,96,96,0.15) !important; }
-
-/* section block + heading used across panels */
-.sec { padding:8px; }
-.sec-head { font-size:11px; letter-spacing:.02em; color:rgba(255,255,255,0.4); padding:2px 4px 8px; text-transform:uppercase; }
-
-.act-btn { flex:1; padding:7px 4px; font-size:12px; }
-.act-btn.primary { border-color:rgba(140,123,255,0.5); color:#c8bcff; background:rgba(140,123,255,0.14); }
-.act-btn.primary:hover { background:rgba(140,123,255,0.24); }
-.other-row { display:none; gap:6px; padding:6px 4px 2px; align-items:center; }
-.other-row.open { display:flex; }
-.other-row select { flex:1; }
-.other-row select option { background:#1a1a2e; }
-
-/* shared track / row item look (used by playlist tracks + library results) */
-.row-item { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:5px; cursor:pointer; font-size:13px; border:1px solid transparent; margin-bottom:2px; }
-.row-item:hover { background:rgba(255,255,255,0.06); }
-.row-item:hover .del-btn { opacity:1; }
-.row-item .name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.row-item.active { background:rgba(140,123,255,0.18); border-color:rgba(140,123,255,0.35); }
+/* ── Links ── */
+.lk-body{ padding:6px; }
+.lk-chevron{ color:rgba(255,255,255,0.25); flex-shrink:0; }
+.lk-back{ font-size:12px; color:var(--vio-text); cursor:pointer; padding:9px 8px; display:inline-block; }
+.lk-back:hover{ text-decoration:underline; }
+.lk-current{ font-size:14px; font-weight:700; padding:2px 8px 8px; color:#fff; }
+.lk-group{ margin:2px 0 12px; }
+.lk-group-head{ font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); padding:2px 8px 5px; display:flex; align-items:center; }
+.lk-count{ font-size:11px; color:var(--dim); flex-shrink:0; padding:1px 7px; background:var(--raise); border-radius:10px; }
+.lk-linkbtn{ margin-left:auto; font-size:11px; padding:5px 10px; color:var(--vio-text); background:var(--vio-soft); border:1px solid var(--vio-line); border-radius:7px; }
+.lk-linkbtn:hover{ background:rgba(140,123,255,0.28); }
+.lk-add{ display:none; padding:4px 6px 8px; }
+.lk-add.open{ display:block; }
+.lk-add-search{ width:100%; }
+.lk-add-results{ max-height:170px; overflow-y:auto; margin-top:6px; -webkit-overflow-scrolling:touch; }
+.lk-link .name{ cursor:pointer; }
+.lk-link .name:hover{ color:var(--vio-text); }
 
 /* ================================================================= */
-/* ==  STYLES  (was: styles.css)                                  == */
+/* ==  DESKTOP DOCK                                               == */
 /* ================================================================= */
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  background: #111;
-  color: #e0e0e0;
-  height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background-image: radial-gradient(circle at 20% 30%, #1a1a2e 0%, #111 60%);
-}
-
-.flex{display: flex;}
-.flexMe{display: flex; align-items:center; justify-content:center;}
-.alignMe{align-items: center; }
-.justMe{justify-content: center; }
-.column{ flex-direction: column;}
-.flex1{flex:1; min-height:0;}
-
-.fs1em{font-size: 1em;}
-.w100p{width:100%;}
-.w3em{width:3em;}
-.marLAuto{margin-left:auto;}
-.pad0p5em{padding:0.5em}
-.pad1em{padding:1em}
-.bgTrans{background:transparent;}
-
-/* ── CURRENT PLAYLIST PANEL ── */
-.active-pl { display:flex; flex-direction:column; flex:1; min-height:0; }
-
-.active-pl-header { padding:8px 12px 2px; font-size:11px; }
-.pl-status { font-weight:600; }
-
-.active-pl-name-row { padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
-.active-pl-name {
-  width:100%; font-size:15px; font-weight:700;
-  background:transparent; border:none !important; outline:none;
-  color:white; padding:0;
-}
-.active-pl-name:focus { border-bottom:1px solid rgba(140,123,255,0.5) !important; }
-
-/* "Tracks · N   +" toolbar */
-.active-pl-sub { display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:12px; color:rgba(255,255,255,0.55); border-bottom:1px solid rgba(255,255,255,0.05); }
-.active-pl-sub .count { color:rgba(255,255,255,0.3); }
-
-/* small transient message line */
-.active-pl-msg { padding:6px 12px 0; font-size:11px; min-height:0; color:rgba(255,255,255,0.45); transition:color .15s; }
-.active-pl-msg:not(:empty) { padding-bottom:2px; }
-
-/* per-playlist track filter */
-.active-pl-filter-row { padding:8px 10px; flex-shrink:0; }
-.active-pl-filter-row input { width:100%; }
-
-.active-pl-tracks { flex:1; overflow-y:auto; min-height:0; padding:6px; }
-
-/* drag-to-reorder affordances */
-.track-handle { color:rgba(255,255,255,0.22); cursor:grab; font-size:13px; flex-shrink:0; line-height:1; touch-action:none; }
-.row-item:hover .track-handle { color:rgba(255,255,255,0.5); }
-.track-num { color:rgba(255,255,255,0.22); font-size:11px; min-width:16px; text-align:right; flex-shrink:0; }
-.row-item.dragging { opacity:.35; }
-.row-item.drop-into { box-shadow: inset 0 2px 0 0 #8a7bff; }
-.now-dot { color:#8a7bff; flex-shrink:0; font-size:11px; }
-
-/* ── PLAYLISTS PANEL ── */
-.pl-tools { padding:8px; display:flex; flex-direction:column; gap:7px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
-.pl-create-row { display:flex; gap:6px; align-items:center; }
-.pl-create-row input { flex:1; }
-.pl-create-row .createPl { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
-.pl-create-row .createPl:hover { background:rgba(140,123,255,0.28); }
-.pl-search-input { width:100%; }
-.pl-list { padding:6px; }
-.pl-item-count { font-size:11px; color:rgba(255,255,255,0.28); flex-shrink:0; }
-
-/* ── LIBRARY ADD button (shared by Search Tracks) ── */
-.lib-pill { font-size:11px; flex-shrink:0; padding:2px 6px; border-radius:10px; }
-.lib-pill.in { color:rgba(90,184,138,0.9); background:rgba(90,184,138,0.12); }
-.lib-add-btn { width:26px; height:26px; font-size:13px; padding:0; color:#c8bcff; flex-shrink:0; }
-
-/* ── mini transport inside Current Playlist ── */
-.mini-transport { margin-left:auto; display:flex; gap:4px; align-items:center; }
-.mini-transport .icon-btn { width:26px; height:26px; font-size:11px; }
-.mini-transport .mini-play { color:#c8bcff; background:rgba(140,123,255,0.16); border-color:rgba(140,123,255,0.38); }
-.mini-transport .mini-play:hover { background:rgba(140,123,255,0.3); }
-
-/* ── spin on/off switch under the deck ── */
-.spin-toggle { display:flex; align-items:center; gap:8px; font-size:11px; color:rgba(255,255,255,0.55); user-select:none; cursor:pointer; margin-top:8px; }
-.spin-toggle input { position:absolute; opacity:0; width:0; height:0; }
-.spin-track {
-  position:relative; width:46px; height:24px; border-radius:999px; flex-shrink:0;
-  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.14);
-  transition:background .2s, border-color .2s, box-shadow .2s;
-}
-.spin-thumb {
-  position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
-  background:#cfcfcf; color:#333; font-size:10px;
-  display:flex; align-items:center; justify-content:center;
-  transition:left .2s, background .2s;
-}
-.spin-thumb::before { content:'♪'; }
-.spin-toggle input:checked + .spin-track {
-  background:linear-gradient(90deg,#6c5ce7,#8a7bff);
-  border-color:rgba(140,123,255,0.65);
-  box-shadow:0 0 10px rgba(140,123,255,0.5);
-}
-.spin-toggle input:checked + .spin-track .spin-thumb {
-  left:24px; background:#fff; animation:thumbspin 2.4s linear infinite;
-}
-.spin-toggle input:focus-visible + .spin-track { outline:2px solid #8a7bff; outline-offset:2px; }
-@keyframes thumbspin { to { transform:rotate(360deg); } }
-.spin-label { letter-spacing:.03em; }
-
-/* ── Search Tracks panel ── */
-.st-results { padding:6px; }
-.st-play { width:26px; height:26px; font-size:11px; padding:0; flex-shrink:0; }
-
-/* ── channel import (Tracks panel) ── */
-.ch-sec { border-top:1px solid rgba(255,255,255,0.07); }
-.ch-input { flex:1; }
-.ch-limit { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 6px; font-size:12px; cursor:pointer; flex-shrink:0; }
-.ch-go { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
-.ch-go:hover { background:rgba(140,123,255,0.28); }
-.ch-keyhint { padding:4px 4px 0; }
-.ch-keytoggle { font-size:11px; color:rgba(255,255,255,0.4); cursor:pointer; }
-.ch-keytoggle:hover { color:#c8bcff; }
-.ch-keyrow { display:none; gap:6px; padding:6px 4px 0; align-items:center; }
-.ch-keyrow.open { display:flex; }
-.ch-keyrow input { flex:1; }
-
-/* ── Playlists data footer (import / export) ── */
-.pl-footer { display:flex; gap:6px; padding:8px; border-top:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
-.pl-footer button { flex:1; }
-
-/* ── Links panel ── */
-.lk-body { padding:6px; }
-.lk-chevron { color:rgba(255,255,255,0.25); flex-shrink:0; }
-.lk-back { font-size:12px; color:#c8bcff; cursor:pointer; padding:6px 8px; display:inline-block; }
-.lk-back:hover { text-decoration:underline; }
-.lk-current { font-size:14px; font-weight:700; padding:2px 8px 8px; color:#fff; }
-.lk-group { margin:2px 0 12px; }
-.lk-group-head { font-size:11px; text-transform:uppercase; letter-spacing:.02em; color:rgba(255,255,255,0.4); padding:2px 8px 4px; display:flex; align-items:center; }
-.lk-count { font-size:11px; color:rgba(255,255,255,0.45); flex-shrink:0; padding:1px 7px; background:rgba(255,255,255,0.07); border-radius:10px; }
-.lk-linkbtn { margin-left:auto; font-size:11px; padding:3px 8px; color:#c8bcff; background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); border-radius:6px; }
-.lk-linkbtn:hover { background:rgba(140,123,255,0.28); }
-.lk-add { display:none; padding:4px 6px 8px; }
-.lk-add.open { display:block; }
-.lk-add-search { width:100%; }
-.lk-add-results { max-height:150px; overflow-y:auto; margin-top:6px; }
-.lk-link .name { cursor:pointer; }
-.lk-link .name:hover { color:#c8bcff; }
-
-/* ── DOCK / panel toggles (.rightM) ── */
-.rightM {
+.rightM{
   position:fixed; right:0; top:0; height:100vh; width:58px; z-index:1000;
   display:flex; flex-direction:column; gap:10px; align-items:center;
   padding:16px 0;
-  background:rgba(10,10,22,0.55); backdrop-filter:blur(8px);
-  border-left:1px solid rgba(255,255,255,0.07);
+  background:rgba(10,10,22,0.55); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border-left:1px solid var(--line);
 }
-.dock-btn {
+.dock-btn{
   width:42px; height:42px; border-radius:11px; font-size:18px; padding:0;
-  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);
-  display:flex; align-items:center; justify-content:center; cursor:pointer;
-  transition:all .15s;
+  background:var(--raise); border:1px solid rgba(255,255,255,0.09);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s;
 }
-.dock-btn:hover { background:rgba(255,255,255,0.12); }
-.dock-btn.active { background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); }
-.dock-btn:not(.active) { opacity:0.5; }
-.dock-btn svg { width:24px; height:24px; display:block; }
+.dock-btn:hover{ background:var(--raise-2); }
+.dock-btn.active{ background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); }
+.dock-btn:not(.active){ opacity:.5; }
+.dock-btn svg{ width:24px; height:24px; display:block; }
 
-/* panel show/hide used by the desktop dock toggles */
-.is-hidden { display:none !important; }
+.is-hidden{ display:none !important; }
 
-/* site brand: neon sign by the dock, beneath everything interactive */
-.brand-burn {
+/* neon brand (desktop) */
+.brand-burn{
   position:fixed; top:16px; right:74px; z-index:1; pointer-events:none; user-select:none;
   display:flex; align-items:center; gap:13px;
   color:rgba(120,200,255,0.8);
   filter:drop-shadow(0 0 6px rgba(70,224,255,0.35));
-  transform:skewX(-4deg);              /* a little forward lean, like a stamp pressed at speed */
+  transform:skewX(-4deg);
 }
-.brand-burn svg { width:52px; height:52px; }
-.bb-word { display:flex; align-items:baseline; font-size:27px; font-weight:900; letter-spacing:2px; line-height:1; }
-.bb-word em { font-style:normal; }
-.bb-riff {
-  color:#9d8cff;
-  text-shadow:0 0 10px rgba(138,123,255,0.6), 0 0 26px rgba(138,123,255,0.3);
-}
-.bb-rolled {
-  color:#46e0ff;
-  text-shadow:0 0 10px rgba(70,224,255,0.55), 0 0 26px rgba(70,224,255,0.28);
-}
-.bb-tld {
-  font-size:14px; font-weight:700; letter-spacing:3px; margin-left:4px;
-  color:rgba(235,245,255,0.65);
-  text-shadow:0 0 8px rgba(160,200,255,0.4);
-}
-body.mobile .brand-burn { display:none; }
+.brand-burn svg{ width:52px; height:52px; }
+.bb-word{ display:flex; align-items:baseline; font-size:27px; font-weight:700; letter-spacing:2px; line-height:1; }
+.bb-word em{ font-style:normal; }
+.bb-riff{ color:#9d8cff; text-shadow:0 0 10px rgba(138,123,255,0.6), 0 0 26px rgba(138,123,255,0.3); }
+.bb-rolled{ color:#46e0ff; text-shadow:0 0 10px rgba(70,224,255,0.55), 0 0 26px rgba(70,224,255,0.28); }
+.bb-tld{ font-size:14px; font-weight:700; letter-spacing:3px; margin-left:4px; color:rgba(235,245,255,0.65); text-shadow:0 0 8px rgba(160,200,255,0.4); }
+body.mobile .brand-burn{ display:none; }
 
-/* app-wide notice / error banner */
-.app-banner { position:fixed; top:0; left:0; right:0; z-index:2000; display:flex; gap:10px; align-items:center; padding:11px 16px; font-size:13px; color:#fff; background:#c0392b; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
-.app-banner[hidden] { display:none; }
-.app-banner.warn { background:#b9770e; }
-.app-banner.ok { background:#2f8f5b; }
-.app-banner .x { margin-left:auto; cursor:pointer; opacity:.85; font-size:14px; }
-.app-banner .x:hover { opacity:1; }
+/* app banner */
+.app-banner{ position:fixed; top:0; left:0; right:0; z-index:3000; display:flex; gap:10px; align-items:center; padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); font-size:13px; color:#fff; background:#c0392b; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
+.app-banner[hidden]{ display:none; }
+.app-banner.warn{ background:#b9770e; }
+.app-banner.ok{ background:#2f8f5b; }
+.app-banner .x{ margin-left:auto; cursor:pointer; opacity:.85; font-size:15px; padding:6px; }
+.app-banner .x:hover{ opacity:1; }
 
-/* ===== MOBILE LAYOUT =====
-   Desktop stays primary (floating, draggable panels). On a narrow screen we
-   drop all of that and become a single vertically-scrolling page: the turntable
-   fills the first screen, and the menus stack below it as cards — scroll to reach them. */
-body.mobile { height:auto; min-height:100vh; overflow-y:auto; }
+/* ================================================================= */
+/* ==  MOBILE (app-shell: deck home + full-screen sheets + tab bar) */
+/* ================================================================= */
+.mnav, .np-bar, .m-head, .more-sheet{ display:none; }
 
-/* the dock isn't needed when everything just scrolls */
-/* mobile: the dock becomes a horizontal toggle bar below the record player */
-body.mobile .rightM {
-  display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:8px;
-  position:static; width:100%; margin:4px 0 10px; padding:0 8px;
+body.mobile{
+  height:auto; min-height:100vh; min-height:100dvh;
+  overflow-y:auto;   /* the deck screen can scroll on short phones */
+  padding-bottom:calc(var(--navh) + env(safe-area-inset-bottom));
 }
+body.mobile.has-np{ padding-bottom:calc(var(--navh) + var(--npbarh) + 16px + env(safe-area-inset-bottom)); }
+body.mobile.sheet-open{ overflow:hidden; }  /* sheets scroll internally */
 
-/* deck wrapper stacks normally; turntable dominates the first screen */
-body.mobile > .flex.flex1 { display:block; flex:0 0 auto; }
-body.mobile #deck {
-  width:100%; min-height:80vh; margin:0; padding:12px 0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:visible;
+/* mobile header: wordmark strip at the top of the deck screen */
+body.mobile .m-head{
+  display:flex; align-items:center; gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 6px;
 }
-/* shrink the record responsively but keep the video at its required 200x200 */
-body.mobile #deck .plinth { width:min(88vw,360px); height:min(88vw,360px); margin:0 0 118px; }
-body.mobile #deck .turntable { width:88%; height:88%; }
-body.mobile #deck .platter { width:82%; height:82%; }
-/* controls move below the record on small screens — the shrunken platter leaves no room over it */
-body.mobile #deck .np-area { width:90%; top:100%; bottom:auto; margin-top:10px; }
+.m-head svg{ width:34px; height:34px; flex-shrink:0; }
+.m-head .mh-word{ font-size:19px; font-weight:700; letter-spacing:1.5px; line-height:1; }
+.m-head .mh-word em{ font-style:normal; }
+.m-head .mh-riff{ color:#9d8cff; text-shadow:0 0 12px rgba(138,123,255,0.55); }
+.m-head .mh-rolled{ color:#46e0ff; text-shadow:0 0 12px rgba(70,224,255,0.5); }
 
-/* panels become in-flow, full-width cards stacked under the deck */
-body.mobile .panel {
-  position:static !important; flex:0 0 auto;
+/* deck fills the space between header and tab bar */
+body.mobile > .flex.flex1{ display:block; flex:0 0 auto; }
+body.mobile #deck{
+  width:100%; margin:0; padding:4px 0 0;
+  min-height:calc(100dvh - var(--navh) - 120px - env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  overflow:visible;
+}
+body.mobile #deck .plinth{ width:min(88vw,370px); height:min(88vw,370px); margin:6px 0 14px; }
+body.mobile #deck .turntable{ width:88%; height:88%; }
+body.mobile #deck .platter{ width:82%; height:82%; }
+body.mobile #deck .arm{ transform-origin:56px 14px; top:12px; right:16px; width:66px; height:120px; }
+body.mobile #deck .arm-rod{ height:96px; }
+/* transport sits in normal flow under the record */
+body.mobile #deck .np-area{ position:static; transform:none; width:min(92vw,420px); margin:0 auto; padding:0 8px; }
+
+/* the desktop dock is gone; bottom tab bar takes over */
+body.mobile .rightM{ display:none; }
+
+/* panels become full-screen sheets above the deck */
+body.mobile .panel{
+  position:fixed !important; left:0 !important; right:0 !important; top:0 !important;
+  bottom:calc(var(--navh) + env(safe-area-inset-bottom)) !important;
   width:auto !important; height:auto !important; max-height:none !important;
-  resize:none !important; border-radius:10px; margin:0 10px 12px;
+  margin:0 !important; border-radius:0; border-left:0; border-right:0; border-bottom:0;
+  resize:none !important; z-index:800 !important;
+  padding-top:env(safe-area-inset-top);
+  background:var(--bg);
 }
-body.mobile .panel:last-of-type { margin-bottom:28px; }
+body.mobile .panel.sheet-in{ animation:sheetUp .26s cubic-bezier(.32,.72,.32,1); }
+@keyframes sheetUp{ from{ transform:translateY(24px); opacity:0; } to{ transform:none; opacity:1; } }
+body.mobile .panel-header{ cursor:default; padding:14px 16px; font-size:15px; background:transparent; }
+body.mobile .panel-close{ font-size:17px; padding:8px 12px; min-width:var(--tap); min-height:40px; }
 
-/* inner lists grow with their content; the PAGE scrolls, not the panel */
-body.mobile .mainC, body.mobile .active-pl { display:block; }
-body.mobile .scrollable,
-body.mobile .active-pl-tracks,
-body.mobile .st-results { flex:none !important; max-height:none !important; overflow:visible !important; }
+/* comfortable touch targets + no iOS zoom-on-focus */
+body.mobile input[type=text], body.mobile input[type=password], body.mobile input[type=number], body.mobile select{
+  font-size:16px; min-height:var(--tap);
+}
+body.mobile button{ min-height:38px; }
+body.mobile .icon-btn, body.mobile .st-play, body.mobile .lib-add-btn{ width:40px; height:40px; min-height:40px; }
+body.mobile .row-item{ padding:11px 8px; }
+body.mobile .del-btn{ opacity:.55; min-width:38px; min-height:38px; }
+body.mobile .track-handle{ color:rgba(255,255,255,0.45); font-size:17px; padding:8px 6px; }
+body.mobile .sec{ padding:12px; }
+body.mobile .info-content{ font-size:14px; }
+body.mobile .active-pl-name{ font-size:18px; }
+body.mobile .riff-portal{ width:150px; height:150px; }
 
-/* touch has no hover, so keep delete visible; handle is the touch reorder grip */
-body.mobile .del-btn { opacity:.55; }
-body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }
-/* the mobile toggle bar can reopen panels, so closing is allowed there too */
+/* ── bottom tab bar ── */
+body.mobile .mnav{
+  display:flex; position:fixed; left:0; right:0; bottom:0; z-index:1200;
+  height:calc(var(--navh) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:rgba(12,12,22,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+}
+.mnav-btn{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  background:transparent; border:0; border-radius:0; color:var(--faint); padding:6px 2px 4px; cursor:pointer;
+}
+.mnav-btn .mi{ font-size:19px; line-height:1; }
+.mnav-btn .mi svg{ width:22px; height:22px; display:block; }
+.mnav-btn .ml{ font-size:10px; font-weight:600; letter-spacing:.04em; }
+.mnav-btn.active{ color:var(--vio-text); }
+.mnav-btn.active .mi{ filter:drop-shadow(0 0 7px rgba(138,123,255,0.55)); }
+.mnav-btn:active{ background:rgba(255,255,255,0.05); }
+
+/* ── mini now-playing bar (mobile, above the tab bar) ── */
+body.mobile .np-bar{
+  display:none; position:fixed; left:8px; right:8px; z-index:1150;
+  bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 8px);
+  height:var(--npbarh); align-items:center; gap:6px; padding:0 6px 0 12px;
+  background:rgba(24,24,40,0.96); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line-2); border-radius:14px;
+  box-shadow:0 10px 28px rgba(0,0,0,0.5);
+}
+body.mobile.has-np .np-bar{ display:flex; }
+/* keep sheet content clear of the mini bar */
+body.mobile.has-np .panel{ bottom:calc(var(--navh) + var(--npbarh) + 16px + env(safe-area-inset-bottom)) !important; }
+.np-bar .npb-disc{ width:30px; height:30px; border-radius:50%; flex-shrink:0;
+  background:radial-gradient(circle,#2a2a3e 0 26%, #101018 27% 100%);
+  border:1px solid var(--line-2); position:relative; }
+.np-bar .npb-disc::after{ content:''; position:absolute; inset:38%; border-radius:50%; background:var(--grad); }
+body.mobile.playing .npb-disc{ animation:spin 2.6s linear infinite; }
+.np-bar .npb-title{ flex:1; min-width:0; font-size:13px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; background:none; border:0; padding:8px 0; }
+.np-bar .npb-btn{ width:42px; height:42px; border-radius:50%; border:0; background:transparent; color:var(--text); font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.np-bar .npb-btn:active{ background:var(--raise-2); }
+.np-bar .npb-play{ background:var(--vio-soft); color:var(--vio-text); }
+
+/* ── "More" sheet ── */
+body.mobile .more-sheet{
+  display:flex; align-items:flex-end; position:fixed; inset:0; z-index:1400;
+  background:rgba(0,0,0,0.55); opacity:0; pointer-events:none; transition:opacity .2s;
+}
+body.mobile .more-sheet.open{ opacity:1; pointer-events:auto; }
+.more-card{
+  width:100%; background:var(--panel-2); border-radius:18px 18px 0 0; border:1px solid var(--line-2); border-bottom:0;
+  padding:10px 14px calc(16px + var(--navh) + env(safe-area-inset-bottom));
+  transform:translateY(30px); transition:transform .22s cubic-bezier(.32,.72,.32,1);
+}
+.more-sheet.open .more-card{ transform:none; }
+.more-grip{ width:38px; height:4px; border-radius:99px; background:var(--line-2); margin:2px auto 12px; }
+.more-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+.more-item{
+  display:flex; align-items:center; gap:11px; padding:13px 14px; min-height:52px;
+  background:var(--raise); border:1px solid var(--line); border-radius:var(--r-m);
+  color:var(--text); font-size:14px; font-weight:500; text-align:left;
+}
+.more-item .mi{ font-size:19px; }
+.more-item .mi svg{ width:24px; height:24px; display:block; }
+.more-item:active{ background:var(--raise-2); }
+.more-close{ display:block; width:100%; margin-top:11px; padding:12px; font-size:14px; border-radius:var(--r-m); min-height:var(--tap); }
+
+/* very small screens */
+@media (max-width:360px){
+  .mnav-btn .ml{ font-size:9px; }
+  body.mobile #deck .plinth{ width:min(92vw,340px); height:min(92vw,340px); }
+}
+
+/* reduced motion: no spinning platter frills, no sheet slide */
+@media (prefers-reduced-motion: reduce){
+  .riff-logo .riff-die, .riff-portal::before, .spin-thumb, .npb-disc{ animation:none !important; }
+  body.mobile .panel.sheet-in{ animation:none; }
+  *{ scroll-behavior:auto !important; }
+}
 </style>
 </head>
 <body>
 <div id="appBanner" class="app-banner" hidden></div>
 
-<!-- ================================================================= -->
-<!-- ==  MARKUP  (was: index.html <body>)  — deck untouched         == -->
-<!-- ================================================================= -->
+<!-- mobile-only wordmark header -->
+<div class="m-head" aria-hidden="true">
+  <svg viewBox="0 0 48 48"><defs><linearGradient id="mhg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a7bff"/><stop offset="1" stop-color="#46e0ff"/></linearGradient></defs><g transform="rotate(14 33.5 15.5)"><rect x="23" y="5" width="21" height="21" rx="5.5" fill="#15152e" stroke="url(#mhg)" stroke-width="2"/><circle cx="27.2" cy="9.2" r="1.25" fill="url(#mhg)"/><circle cx="39.8" cy="21.8" r="1.25" fill="url(#mhg)"/><ellipse cx="31.4" cy="19.6" rx="2.9" ry="2.2" fill="url(#mhg)" transform="rotate(-20 31.4 19.6)"/><path d="M34 19.2 L34 10.6 C36.6 11.4 37.6 13 36.8 15.6" fill="none" stroke="url(#mhg)" stroke-width="1.7" stroke-linecap="round"/></g><g transform="rotate(-8 16 28)"><rect x="4.5" y="16.5" width="23" height="23" rx="5.5" fill="#0e0e1c" stroke="url(#mhg)" stroke-width="2"/><circle cx="9.2" cy="21.2" r="1.35" fill="url(#mhg)"/><circle cx="22.8" cy="34.8" r="1.35" fill="url(#mhg)"/><ellipse cx="13.6" cy="32.6" rx="3.2" ry="2.4" fill="url(#mhg)" transform="rotate(-20 13.6 32.6)"/><path d="M16.5 32.1 L16.5 22.4 C19.4 23.3 20.5 25.1 19.6 28" fill="none" stroke="url(#mhg)" stroke-width="1.8" stroke-linecap="round"/></g></svg>
+  <span class="mh-word"><em class="mh-riff">riff</em><em class="mh-rolled">rolled</em></span>
+</div>
+
 <div class='flex flex1'>
     <div class="deck" id="deck">
         <div class="plinth">
@@ -502,35 +606,34 @@ body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; paddin
             <div class="arm-rod"></div>
             <div class="arm-head"></div>
             </div>
+        </div>
 
-            <div class="np-area">
-                <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text">No track loaded</span></div>
+        <div class="np-area">
+            <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text">No track loaded</span></div>
 
-                <div class="transport">
-                    <button class="t-btn" id="btnPrev">⏮</button>
-                    <button class="t-btn play" id="btnPlay">▶</button>
-                    <button class="t-btn" id="btnNext">⏭</button>
-                </div>
-
-                <label class="spin-toggle">
-                    <input type="checkbox" id="spinToggle" checked>
-                    <span class="spin-track"><span class="spin-thumb"></span></span>
-                    <span class="spin-label">Spin</span>
-                </label>
+            <div class="transport">
+                <button class="t-btn" id="btnPrev" aria-label="Previous track">⏮</button>
+                <button class="t-btn play" id="btnPlay" aria-label="Play or pause">▶</button>
+                <button class="t-btn" id="btnNext" aria-label="Next track">⏭</button>
             </div>
+
+            <label class="spin-toggle">
+                <input type="checkbox" id="spinToggle" checked>
+                <span class="spin-track"><span class="spin-thumb"></span></span>
+                <span class="spin-label">Spin</span>
+            </label>
         </div>
     </div>
     <div class='marLAuto w3em rightM flex column'></div>
 </div>
 
-<!-- burnt-in brand: decorative, sits beneath the panels, top-right by the dock -->
+<!-- burnt-in brand: decorative, desktop only -->
 <div class="brand-burn" aria-hidden="true">
   <svg viewBox="0 0 48 48"><g transform="rotate(14 33.5 15.5)"><rect x="23" y="5" width="21" height="21" rx="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="27.2" cy="9.2" r="1.25" fill="currentColor"/><circle cx="39.8" cy="21.8" r="1.25" fill="currentColor"/><ellipse cx="31.4" cy="19.6" rx="2.9" ry="2.2" fill="currentColor" transform="rotate(-20 31.4 19.6)"/><path d="M34 19.2 L34 10.6 C36.6 11.4 37.6 13 36.8 15.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></g><g transform="rotate(-8 16 28)"><rect x="4.5" y="16.5" width="23" height="23" rx="5.5" fill="#11111f" stroke="currentColor" stroke-width="2.2"/><circle cx="9.2" cy="21.2" r="1.35" fill="currentColor"/><circle cx="22.8" cy="34.8" r="1.35" fill="currentColor"/><ellipse cx="13.6" cy="32.6" rx="3.2" ry="2.4" fill="currentColor" transform="rotate(-20 13.6 32.6)"/><path d="M16.5 32.1 L16.5 22.4 C19.4 23.3 20.5 25.1 19.6 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></g></svg>
   <span class="bb-word"><em class="bb-riff">riff</em><em class="bb-rolled">rolled</em><em class="bb-tld">.com</em></span>
 </div>
 
-<!-- Current Track panel: a dockable menu like Tracks/Playlists. Kept in the DOM from load
-     so the player's existing meta wiring (#npTitle, .np-artist, .react-like, …) keeps working. -->
+<!-- Current Track panel: static markup so the player's meta wiring keeps working -->
 <div class='cont flex column panel' id="ctPanel">
     <div class='flex alignMe title panel-header fs1em'>💿 Current Track<button class='panel-close' title='Close' aria-label='Close'>✕</button></div>
     <div class='mainC flex1'>
@@ -552,15 +655,32 @@ body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; paddin
     </div>
 </div>
 
+<!-- mobile mini now-playing bar -->
+<div class="np-bar" id="npBar">
+  <span class="npb-disc" aria-hidden="true"></span>
+  <button class="npb-title" id="npbTitle" title="Show the deck">No track loaded</button>
+  <button class="npb-btn npb-play" id="npbPlay" aria-label="Play or pause">▶</button>
+  <button class="npb-btn" id="npbNext" aria-label="Next track">⏭</button>
+</div>
 
-<!-- Dexie (IndexedDB wrapper) — pinned version + integrity hash (no surprise breakage / tampering) -->
+<!-- mobile bottom tab bar + More sheet -->
+<nav class="mnav" id="mnav" aria-label="Sections"></nav>
+<div class="more-sheet" id="moreSheet">
+  <div class="more-card">
+    <div class="more-grip" aria-hidden="true"></div>
+    <div class="more-grid"></div>
+    <button class="more-close">Close</button>
+  </div>
+</div>
+
+<!-- Dexie (IndexedDB wrapper) — pinned version + integrity hash -->
 <script src="https://cdn.jsdelivr.net/npm/dexie@4.4.3/dist/dexie.min.js"
         integrity="sha384-k6tk9WcOtb4A545U/Jgfo4DoIqdwINOlzrTiSGnj9wq0LEPurSgaYGdDZokPcgLz"
         crossorigin="anonymous"></script>
 
 <script>
 /* ================================================================= */
-/* ==  DB  (was: db.javascript)                                   == */
+/* ==  DB                                                         == */
 /* ================================================================= */
 
 // app-wide banner for storage failures, quota, import/export feedback
@@ -808,7 +928,7 @@ window.addEventListener('unhandledrejection', function(e){
 
 <script>
 /* ================================================================= */
-/* ==  MENUS  (was: menus.javascript)                             == */
+/* ==  MENUS                                                      == */
 /* ================================================================= */
 
 // safe-render helper — titles can contain quotes, <, &
@@ -845,7 +965,7 @@ var menuB = {
         <div class="sec">
             <div class="sec-head">Add a track from YouTube</div>
             <div class="row">
-                <input type="text" class="url-input" placeholder="YouTube URL or video ID…">
+                <input type="text" class="url-input" placeholder="YouTube URL or video ID…" inputmode="url" autocapitalize="off" autocorrect="off">
                 <button class="icon-btn btn-clear-url" title="Clear">✕</button>
             </div>
             <div class="row wrap">
@@ -862,7 +982,7 @@ var menuB = {
         <div class="sec ch-sec">
             <div class="sec-head">Import a whole channel</div>
             <div class="row">
-                <input type="text" class="ch-input" placeholder="Channel URL, @handle, or ID…">
+                <input type="text" class="ch-input" placeholder="Channel URL, @handle, or ID…" inputmode="url" autocapitalize="off" autocorrect="off">
                 <select class="ch-limit" title="How many to import">
                     <option value="25">25</option>
                     <option value="50" selected>50</option>
@@ -1081,6 +1201,7 @@ function bringToFront(el){ el.style.zIndex = Math.min(++z, 50); }
 function makeDraggableEle(panel,handle){
   let d=false,ox=0,oy=0;
   handle.onmousedown=e=>{
+    if(window.dock && dock.mobile) return;                 // sheets don't drag
     if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
     bringToFront(panel); d=true;
     const r=panel.getBoundingClientRect();
@@ -1103,12 +1224,12 @@ menuB.createTracks()
 
 <script>
 /* ================================================================= */
-/* ==  PLAYER  (was: player.javascript)                           == */
+/* ==  PLAYER                                                     == */
 /* ================================================================= */
 
 function getYtId(raw) {
   raw = (raw || '').trim();
-  var m = raw.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([a-zA-Z0-9_-]{11})/);
+  var m = raw.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})/);
   if (m) return m[1];
   if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
   return null;
@@ -1130,6 +1251,33 @@ async function fetchJson(ytId) {
     return await r.json();
   } catch (e) { return ytId; }
 }
+
+
+/* ── mobile mini now-playing bar ── */
+var npBar = {
+  el: document.getElementById('npBar'),
+  title: document.getElementById('npbTitle'),
+  play: document.getElementById('npbPlay'),
+  next: document.getElementById('npbNext'),
+  init: function(){
+    var self = this;
+    if (!this.el) return;
+    this.play.onclick = function(e){ e.stopPropagation(); if (window.player) player.el.play.onclick(); };
+    this.next.onclick = function(e){ e.stopPropagation(); if (window.plBoss) plBoss.next(); };
+    this.title.onclick = function(){ if (window.dock) dock.closeSheets(); };
+  },
+  update: function(){
+    if (!this.el || !window.player) return;
+    var has = !!player.currentYtId;
+    document.body.classList.toggle('has-np', has);
+    document.body.classList.toggle('playing', has && player.isPlaying);
+    if (has){
+      this.title.textContent = player.el.title.textContent;
+      this.play.textContent = player.isPlaying ? '⏸' : '▶';
+    }
+  }
+};
+npBar.init();
 
 
 /* ── PLAYER / TRANSPORT CONTROLLER ── */
@@ -1207,8 +1355,8 @@ var player = {
     if (this.el.screenPh) this.el.screenPh.style.display = 'none';
     this.el.title.textContent = title || ytId;
     if (this.el.panelTitle) this.el.panelTitle.value = title || ytId;
-    // pop the Current Track panel on a track change (toggle in that panel; on by default)
-    if (window._ctAutoOpen && window.dock) {
+    // pop the Current Track panel on a track change (desktop only — on mobile it would cover the app)
+    if (window._ctAutoOpen && window.dock && !dock.mobile) {
       var ct = document.getElementById('ctPanel');
       if (ct) dock.openPanel(ct);
     }
@@ -1250,6 +1398,7 @@ var player = {
     this.el.arm.classList.toggle('playing', on);
     this.el.play.textContent = on ? '⏸' : '▶';
     if (window.plBoss && plBoss.updateStatus) plBoss.updateStatus();
+    if (window.npBar) npBar.update();
   }
 };
 
@@ -1307,11 +1456,12 @@ function onYouTubeIframeAPIReady() { player.initApi(); }
     if (!name) return;
     await dbBoss.updateTrackMeta(player.currentYtId, { name: name });
     if (player.el.title) player.el.title.textContent = name;          // deck title
+    if (window.npBar) npBar.update();
     if (window.plBoss) { await plBoss.renderTracks(); plBoss.renderPlaylists(); }
     if (window.searchBoss) searchBoss.render();
   });
 
-  // "pop up on track change" toggle (persisted; on by default)
+  // "pop up on track change" toggle (persisted; on by default; desktop behaviour only)
   window._ctAutoOpen = true;
   var autopop = document.querySelector('.ct-autopop-cb');
   if (autopop && window.dbBoss) {
@@ -1330,7 +1480,7 @@ function onYouTubeIframeAPIReady() { player.initApi(); }
 
 <script>
 /* ================================================================= */
-/* ==  PLAYLIST  (was: playlist.javascript)                       == */
+/* ==  PLAYLIST / SEARCH / LINKS / RIFF / INFO                    == */
 /* ================================================================= */
 
 var plBoss = {
@@ -1474,7 +1624,7 @@ var plBoss = {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'vinyl-player-export.json';
+        a.href = url; a.download = 'riffrolled-export.json';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(()=>URL.revokeObjectURL(url), 1000);
       } catch(e){
@@ -1547,6 +1697,8 @@ var plBoss = {
       el.onclick = (e) => {
         if (e.target.classList.contains('del-btn')) return;
         this.setActivePlaylist(Number(el.dataset.id));
+        // on mobile, picking a playlist takes you straight to its tracks
+        if (window.dock && dock.mobile && this.currentEl) dock.openPanel(this.currentEl);
       };
     });
     list.querySelectorAll('.del-btn').forEach(btn=>{
@@ -1564,6 +1716,10 @@ var plBoss = {
   },
 
   async deletePlaylist(id){
+    const pl = await db.playlists.get(id);
+    const n = await dbBoss.countTracks(id);
+    if (!confirm('Delete “' + ((pl && pl.name) || 'playlist') + '” (' + n + ' tracks)? Tracks stay in your library.')) return;
+
     await db.playlists.delete(id);
     const joins = await db.playlistTracks.where('playlistId').equals(id).toArray();
     await db.playlistTracks.bulkDelete(joins.map(j => j.id));
@@ -1678,7 +1834,7 @@ var plBoss = {
     countEl.textContent = '· ' + joins.length;
 
     if(!joins.length){
-      container.innerHTML = `<div class="empty">No tracks yet.<br>Hit ＋ above to add from your library.</div>`;
+      container.innerHTML = `<div class="empty">No tracks yet.<br>Add some from the 🎵 Tracks tab.</div>`;
       this.queue = []; this.currentIndex = -1; this.updateStatus();
       return;
     }
@@ -2112,7 +2268,7 @@ var riffBoss = {
           "</div>" +
           "<input type='text' class='riff-newname' placeholder='New playlist name…' style='display:none'>" +
           "<div class='riff-row'>" +
-            "<label class='riff-field'>Tracks <input type='number' class='riff-count' value='1' min='1' max='25'></label>" +
+            "<label class='riff-field'>Tracks <input type='number' class='riff-count' value='1' min='1' max='25' inputmode='numeric'></label>" +
             "<input type='text' class='riff-tags' placeholder='Filter by tags (optional)…'>" +
           "</div>" +
         "</div>" +
@@ -2316,9 +2472,10 @@ riffBoss.setup();
 infoBoss.setup();
 
 
-
-/* ── DOCK: right-hand sidebar of on/off panel toggles (desktop only).
-   On mobile the panels just stack and scroll, so the dock hides and all show. ── */
+/* ── DOCK / NAVIGATION ──
+   Desktop: right-hand sidebar of on/off toggles for floating, draggable panels.
+   Mobile:  bottom tab bar; each panel opens as a full-screen sheet over the deck,
+            one at a time. Secondary panels live behind the More sheet. */
 var dock = {
   items: [],
   mobile: false,
@@ -2326,9 +2483,14 @@ var dock = {
   _data: null,     // last-known layout map (kept fresh on save)
   _t: null,        // debounce timer
   _placed: null,   // Set of labels the user has dragged (their position is respected)
+  _navBtns: null,
 
-  build(items){ this.items = items; this.render(); },
+  NAV_PRIMARY: ['Tracks', 'Playlists', 'Current Playlist'],
+  NAV_SHORT:   { 'Tracks':'Tracks', 'Playlists':'Lists', 'Current Playlist':'Queue' },
 
+  build(items){ this.items = items; this.render(); this.renderNav(); },
+
+  /* desktop dock buttons */
   render(){
     const bar = document.querySelector('.rightM');
     if (!bar) return;
@@ -2354,20 +2516,113 @@ var dock = {
     });
   },
 
-  // open a panel: show it, keep it within view, and tuck it tidily near the dock
-  // unless the user has dragged it themselves (then we honour their position)
+  /* mobile bottom tab bar */
+  renderNav(){
+    const nav = document.getElementById('mnav');
+    if (!nav) return;
+    nav.innerHTML = '';
+    this._navBtns = {};
+    const mk = (key, label, icon, cb) => {
+      const b = document.createElement('button');
+      b.className = 'mnav-btn';
+      b.innerHTML = "<span class='mi'>" + icon + "</span><span class='ml'>" + escapeHtml(label) + "</span>";
+      b.onclick = cb;
+      nav.appendChild(b);
+      this._navBtns[key] = b;
+      return b;
+    };
+    mk('__deck', 'Deck', '💿', () => this.closeSheets());
+    this.NAV_PRIMARY.forEach(lbl => {
+      const it = this.items.find(i => i.label === lbl);
+      if (!it || !it.el) return;
+      mk(lbl, this.NAV_SHORT[lbl] || lbl, it.icon, () => this.toggleSheet(it.el));
+    });
+    mk('__more', 'More', '⋯', () => this.toggleMore());
+    this.renderMore();
+    this.syncNav();
+  },
+
+  renderMore(){
+    const sheet = document.getElementById('moreSheet');
+    if (!sheet || sheet._wired === undefined){ /* wire once */ }
+    if (!sheet) return;
+    const grid = sheet.querySelector('.more-grid');
+    grid.innerHTML = '';
+    this.items
+      .filter(i => i.el && this.NAV_PRIMARY.indexOf(i.label) === -1)
+      .forEach(it => {
+        const b = document.createElement('button');
+        b.className = 'more-item';
+        b.innerHTML = "<span class='mi'>" + (it.iconSvg || it.icon) + "</span><span>" + escapeHtml(it.label) + "</span>";
+        b.onclick = () => { this.hideMore(); this.openPanel(it.el); };
+        grid.appendChild(b);
+      });
+    if (!sheet._wired){
+      sheet._wired = true;
+      sheet.querySelector('.more-close').onclick = () => this.hideMore();
+      sheet.addEventListener('click', (e) => { if (e.target === sheet) this.hideMore(); });
+    }
+  },
+  toggleMore(){
+    const s = document.getElementById('moreSheet');
+    if (!s) return;
+    s.classList.contains('open') ? this.hideMore() : s.classList.add('open');
+  },
+  hideMore(){
+    const s = document.getElementById('moreSheet');
+    if (s) s.classList.remove('open');
+  },
+
+  /* mobile: tapping the active tab again returns to the deck */
+  toggleSheet(el){
+    if (!el) return;
+    if (this.mobile && !el.classList.contains('is-hidden')) this.closeSheets();
+    else this.openPanel(el);
+  },
+
+  closeSheets(){
+    if (!this.mobile) return;
+    this.items.forEach(it => { if (it.el) it.el.classList.add('is-hidden'); });
+    document.body.classList.remove('sheet-open');
+    this.hideMore();
+    this.syncNav();
+  },
+
+  syncNav(){
+    if (!this._navBtns) return;
+    const openIt = this.mobile
+      ? this.items.find(i => i.el && !i.el.classList.contains('is-hidden'))
+      : null;
+    Object.keys(this._navBtns).forEach(k => {
+      const b = this._navBtns[k];
+      let on;
+      if (k === '__deck')      on = this.mobile && !openIt;
+      else if (k === '__more') on = !!(openIt && this.NAV_PRIMARY.indexOf(openIt.label) === -1);
+      else                     on = !!(openIt && openIt.label === k);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  },
+
+  // open a panel: mobile = exclusive full-screen sheet; desktop = show + tidy placement
   openPanel(el){
     if (!el) return;
+    if (this.mobile){
+      this.items.forEach(it => { if (it.el && it.el !== el) it.el.classList.add('is-hidden'); });
+      el.classList.remove('is-hidden');
+      el.classList.remove('sheet-in'); void el.offsetWidth; el.classList.add('sheet-in');
+      document.body.classList.add('sheet-open');
+      this.hideMore();
+      this.syncNav();
+      const sc = el.querySelector('.mainC'); if (sc) sc.scrollTop = 0;
+      return;
+    }
     el.classList.remove('is-hidden');
     const it = this.items.find(i => i.el === el);
     if (it && it.btn){ it.btn.classList.add('active'); it.btn.setAttribute('aria-pressed','true'); }
-    if (!this.mobile){
-      if (this.isPlaced(el)) this.ensureVisible(el);
-      else this.autoPlace(el);
-      bringToFront(el);
-    } else if (el.scrollIntoView){
-      el.scrollIntoView({ behavior:'smooth', block:'nearest' });
-    }
+    if (this.isPlaced(el)) this.ensureVisible(el);
+    else this.autoPlace(el);
+    bringToFront(el);
     this.saveLayoutSoon();
   },
 
@@ -2411,8 +2666,7 @@ var dock = {
     el.style.top = top + 'px';
   },
 
-  // if a panel would open off-screen (e.g. a stale saved position, or a smaller window),
-  // pull it back into view, tucked just left of the dock
+  // if a panel would open off-screen (stale saved position / smaller window), pull it back into view
   ensureVisible(el){
     if (!el || this.mobile) return;
     const r = el.getBoundingClientRect();
@@ -2436,12 +2690,20 @@ var dock = {
   setMode(isMobile){
     this.mobile = isMobile;
     this.render();
-    if (!isMobile){
+    if (isMobile){
+      // deck is home; sheets open one at a time from the tab bar
+      this.closeSheets();
+      this.syncNav();
+    } else {
+      document.body.classList.remove('sheet-open');
+      this.hideMore();
       // re-assert positions after a mode switch: saved layout if any, else the near-dock defaults
       if (this._data) this.applyLayout(this._data);
       else if (this._ready) this.applyDefaultLayout();
       this.ensureAllVisible();
+      this.syncNav();
     }
+    if (window.npBar) npBar.update();
   },
 
   // the designed default: panels anchored near the dock (right-side columns), like a fresh install
@@ -2459,12 +2721,23 @@ var dock = {
       it.el.style.right = p.right;
       it.el.style.top = p.top;
     });
+    // default visibility comes from each item's startHidden flag
+    this.items.forEach(it => {
+      if (!it.el) return;
+      it.el.classList.toggle('is-hidden', !!it.startHidden);
+      if (it.btn){ it.btn.classList.toggle('active', !it.startHidden); it.btn.setAttribute('aria-pressed', String(!it.startHidden)); }
+    });
     this.ensureAllVisible();
   },
 
-  // used by panel ✕ close buttons: hide a panel and keep its dock toggle in sync
+  // used by panel ✕ close buttons: hide a panel and keep its toggle in sync
   setHidden(el, hidden){
     if (!el) return;
+    if (this.mobile){
+      if (hidden) this.closeSheets();
+      else this.openPanel(el);
+      return;
+    }
     el.classList.toggle('is-hidden', hidden);
     const it = this.items.find(i => i.el === el);
     if (it && it.btn){ it.btn.classList.toggle('active', !hidden); it.btn.setAttribute('aria-pressed', String(!hidden)); }
@@ -2487,7 +2760,7 @@ var dock = {
   },
 
   saveLayout(){
-    if (!this._ready || this.mobile) return;   // mobile uses the stacked layout — never overwrite desktop positions
+    if (!this._ready || this.mobile) return;   // mobile uses the sheet layout — never overwrite desktop positions
     this._data = this.snapshot();
     if (window.dbBoss) dbBoss.setSetting('panelLayout', JSON.stringify(this._data));
   },
@@ -2508,7 +2781,7 @@ var dock = {
       if (d.top)    s.top = d.top;
       if (d.width)  s.width = d.width;
       if (d.height) s.height = d.height;
-      if (!this.mobile){                         // visibility only matters on desktop; mobile shows all
+      if (!this.mobile){                         // visibility only matters on desktop; mobile is sheet-driven
         it.el.classList.toggle('is-hidden', !!d.hidden);
         if (it.btn) it.btn.classList.toggle('active', !d.hidden);
       }
@@ -2530,7 +2803,7 @@ var dock = {
       try { this._placed = new Set(placedRaw ? JSON.parse(placedRaw) : []); } catch(e){ this._placed = new Set(); }
       if (raw){
         try { this._data = JSON.parse(raw); } catch(e){ this._data = null; }
-        if (this._data) this.applyLayout(this._data);
+        if (this._data && !this.mobile) this.applyLayout(this._data);
       }
       if (!this._data && !this.mobile) this.applyDefaultLayout();
       this.ensureAllVisible();
@@ -2567,7 +2840,7 @@ dock.build([
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true }
 ]);
 
-/* desktop vs mobile based on screen width */
+/* desktop vs mobile: width or a coarse pointer counts as mobile */
 (function(){
   const mq = window.matchMedia('(max-width: 760px)');
   const apply = () => { document.body.classList.toggle('mobile', mq.matches); dock.setMode(mq.matches); };
@@ -2649,6 +2922,13 @@ async function runSelfTests(){
       const a = riffRarity('dQw4w9WgXcQ'), b = riffRarity('dQw4w9WgXcQ');
       assert(a === b, 'same id -> same rarity');
       assert(['common','rare','epic','legendary'].includes(a), 'valid tier');
+    }],
+    ['getYtId handles urls, ids, shorts', async () => {
+      assert(getYtId('https://www.youtube.com/watch?v=dQw4w9WgXcQ') === 'dQw4w9WgXcQ', 'watch url');
+      assert(getYtId('https://youtu.be/dQw4w9WgXcQ') === 'dQw4w9WgXcQ', 'short url');
+      assert(getYtId('https://www.youtube.com/shorts/dQw4w9WgXcQ') === 'dQw4w9WgXcQ', 'shorts url');
+      assert(getYtId('dQw4w9WgXcQ') === 'dQw4w9WgXcQ', 'bare id');
+      assert(getYtId('not a video') === null, 'garbage rejected');
     }]
   ];
 

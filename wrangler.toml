@@ -1,0 +1,26 @@
+# ── riffrolled — one Worker serves everything ─────────────────────────
+# Static frontend (public/) + JSON API (/api/*) + D1, all on Cloudflare.
+# Deployed via Cloudflare's Git integration — no local tooling required.
+name = "riffrolled"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# The frontend. Requests that match a file in ./public are served as
+# static assets; everything else (i.e. /api/*) falls through to the Worker.
+[assets]
+directory = "./public"
+
+# D1 binding. Create the database in the Cloudflare dashboard
+# (Storage & Databases → D1 → Create), then paste its ID below.
+[[d1_databases]]
+binding = "DB"
+database_name = "riffrolled"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# Frontend and API share one origin now, so CORS is same-origin by default.
+# This only matters if you later call the API from another site.
+ALLOWED_ORIGIN = "https://riffrolled.com"
+
+# Secrets (set in dashboard → your Worker → Settings → Variables & Secrets):
+#   YT_API_KEY = your YouTube Data API v3 key

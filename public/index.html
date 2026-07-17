@@ -345,6 +345,12 @@ body {
 
 /* ── channel import (Tracks panel) ── */
 .ch-sec { border-top:1px solid rgba(255,255,255,0.07); }
+/* Search YouTube (server-side API) */
+.yts-sec { border-top:1px solid rgba(255,255,255,0.07); }
+.yts-results { display:flex; flex-direction:column; gap:4px; max-height:190px; overflow-y:auto; }
+.yts-results:empty { display:none; }
+.yts-item { display:flex; align-items:center; gap:7px; padding:2px 0; }
+.yts-name { flex:1; min-width:0; font-size:12px; color:rgba(255,255,255,0.85); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ch-input { flex:1; }
 .ch-limit { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 6px; font-size:12px; cursor:pointer; flex-shrink:0; }
 .ch-go { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
@@ -863,6 +869,16 @@ var menuB = {
             <div class="status-bar track-status"></div>
         </div>
 
+        <div class="sec yts-sec">
+            <div class="sec-head">Search YouTube</div>
+            <div class="row">
+                <input type="text" class="yts-input" placeholder="Search YouTube for music…">
+                <button class="icon-btn yts-go" title="Search">🔍</button>
+            </div>
+            <div class="yts-results scrollable"></div>
+            <div class="status-bar yts-status"></div>
+        </div>
+
         <div class="sec ch-sec">
             <div class="sec-head">Import a whole channel</div>
             <div class="row">
@@ -979,6 +995,71 @@ var menuB = {
 
         // prefill saved key
         dbBoss.getSetting('ytApiKey').then(k => { if (k) chKey.value = k; });
+
+        /* ── Search YouTube (via the riffrolled API; the key stays on the server) ── */
+        const ytsInput   = panel.querySelector('.yts-input');
+        const ytsGo      = panel.querySelector('.yts-go');
+        const ytsResults = panel.querySelector('.yts-results');
+        const ytsStatusEl = panel.querySelector('.yts-status');
+        let ytsT;
+        function ytsStatus(msg, kind){
+            ytsStatusEl.textContent = msg || '';
+            ytsStatusEl.className = 'status-bar yts-status' + (kind ? ' ' + kind : '');
+            if (msg && kind === 'ok'){ clearTimeout(ytsT); ytsT = setTimeout(()=>{ if(ytsStatusEl.textContent===msg) ytsStatus(''); }, 6000); }
+        }
+        // works for watch?v=, youtu.be/, shorts/ and embed/ URLs
+        function ytsIdFromUrl(u){
+            const m = /[?&]v=([A-Za-z0-9_-]{6,20})/.exec(u)
+                   || /youtu\.be\/([A-Za-z0-9_-]{6,20})/.exec(u)
+                   || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{6,20})/.exec(u);
+            return m ? m[1] : null;
+        }
+        async function runYtSearch(){
+            const q = ytsInput.value.trim();
+            if (!q) return;
+            ytsStatus('Searching…');
+            ytsResults.innerHTML = '';
+            try {
+                const r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=15');
+                if (!r.ok){
+                    let msg = 'HTTP ' + r.status;
+                    try { msg = (await r.json()).error || msg; } catch(e){}
+                    throw new Error(msg);
+                }
+                const list = await r.json();
+                if (!list.length){ ytsStatus('No results'); return; }
+                ytsResults.innerHTML = list.map(t => {
+                    const vid = ytsIdFromUrl(t.url || '');
+                    if (!vid) return '';
+                    return "<div class='yts-item' data-yt='" + vid + "' data-name='" + escapeHtml(t.name || vid) + "'>"
+                        + "<button class='icon-btn yts-play' title='Play now'>▶</button>"
+                        + "<span class='yts-name'>" + escapeHtml(t.name || vid) + "</span>"
+                        + "<button class='icon-btn yts-add' title='Save + add to current playlist'>＋</button>"
+                        + "</div>";
+                }).join('');
+                ytsStatus('');
+            } catch(e){
+                ytsStatus('Search unavailable: ' + e.message, 'err');
+            }
+        }
+        ytsGo.onclick = runYtSearch;
+        ytsInput.addEventListener('keydown', e => { if (e.key === 'Enter') runYtSearch(); });
+        // one delegated handler for play/add on all result rows
+        ytsResults.addEventListener('click', async (e) => {
+            const item = e.target.closest('.yts-item'); if (!item) return;
+            const vid = item.dataset.yt, name = item.dataset.name;
+            if (e.target.closest('.yts-play')){ ytPlay(vid, name); return; }
+            if (e.target.closest('.yts-add')){
+                const tid = await dbBoss.createTrack(vid, name);
+                if (window.plBoss && plBoss.activeId){
+                    const r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+                    ytsStatus(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
+                    plBoss.afterDbChange();
+                } else {
+                    ytsStatus('Saved to library ✓ (no active playlist)', 'ok');
+                }
+            }
+        });
         chToggle.onclick = () => chKeyRow.classList.toggle('open');
         chKeySave.onclick = async () => {
             await dbBoss.setSetting('ytApiKey', chKey.value.trim());

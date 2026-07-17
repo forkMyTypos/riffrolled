@@ -869,16 +869,6 @@ var menuB = {
             <div class="status-bar track-status"></div>
         </div>
 
-        <div class="sec yts-sec">
-            <div class="sec-head">Search YouTube</div>
-            <div class="row">
-                <input type="text" class="yts-input" placeholder="Search YouTube for music…">
-                <button class="icon-btn yts-go" title="Search">🔍</button>
-            </div>
-            <div class="yts-results scrollable"></div>
-            <div class="status-bar yts-status"></div>
-        </div>
-
         <div class="sec ch-sec">
             <div class="sec-head">Import a whole channel</div>
             <div class="row">
@@ -996,70 +986,7 @@ var menuB = {
         // prefill saved key
         dbBoss.getSetting('ytApiKey').then(k => { if (k) chKey.value = k; });
 
-        /* ── Search YouTube (via the riffrolled API; the key stays on the server) ── */
-        const ytsInput   = panel.querySelector('.yts-input');
-        const ytsGo      = panel.querySelector('.yts-go');
-        const ytsResults = panel.querySelector('.yts-results');
-        const ytsStatusEl = panel.querySelector('.yts-status');
-        let ytsT;
-        function ytsStatus(msg, kind){
-            ytsStatusEl.textContent = msg || '';
-            ytsStatusEl.className = 'status-bar yts-status' + (kind ? ' ' + kind : '');
-            if (msg && kind === 'ok'){ clearTimeout(ytsT); ytsT = setTimeout(()=>{ if(ytsStatusEl.textContent===msg) ytsStatus(''); }, 6000); }
-        }
-        // works for watch?v=, youtu.be/, shorts/ and embed/ URLs
-        function ytsIdFromUrl(u){
-            const m = /[?&]v=([A-Za-z0-9_-]{6,20})/.exec(u)
-                   || /youtu\.be\/([A-Za-z0-9_-]{6,20})/.exec(u)
-                   || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{6,20})/.exec(u);
-            return m ? m[1] : null;
-        }
-        async function runYtSearch(){
-            const q = ytsInput.value.trim();
-            if (!q) return;
-            ytsStatus('Searching…');
-            ytsResults.innerHTML = '';
-            try {
-                const r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=15');
-                if (!r.ok){
-                    let msg = 'HTTP ' + r.status;
-                    try { msg = (await r.json()).error || msg; } catch(e){}
-                    throw new Error(msg);
-                }
-                const list = await r.json();
-                if (!list.length){ ytsStatus('No results'); return; }
-                ytsResults.innerHTML = list.map(t => {
-                    const vid = ytsIdFromUrl(t.url || '');
-                    if (!vid) return '';
-                    return "<div class='yts-item' data-yt='" + vid + "' data-name='" + escapeHtml(t.name || vid) + "'>"
-                        + "<button class='icon-btn yts-play' title='Play now'>▶</button>"
-                        + "<span class='yts-name'>" + escapeHtml(t.name || vid) + "</span>"
-                        + "<button class='icon-btn yts-add' title='Save + add to current playlist'>＋</button>"
-                        + "</div>";
-                }).join('');
-                ytsStatus('');
-            } catch(e){
-                ytsStatus('Search unavailable: ' + e.message, 'err');
-            }
-        }
-        ytsGo.onclick = runYtSearch;
-        ytsInput.addEventListener('keydown', e => { if (e.key === 'Enter') runYtSearch(); });
-        // one delegated handler for play/add on all result rows
-        ytsResults.addEventListener('click', async (e) => {
-            const item = e.target.closest('.yts-item'); if (!item) return;
-            const vid = item.dataset.yt, name = item.dataset.name;
-            if (e.target.closest('.yts-play')){ ytPlay(vid, name); return; }
-            if (e.target.closest('.yts-add')){
-                const tid = await dbBoss.createTrack(vid, name);
-                if (window.plBoss && plBoss.activeId){
-                    const r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
-                    ytsStatus(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
-                    plBoss.afterDbChange();
-                } else {
-                    ytsStatus('Saved to library ✓ (no active playlist)', 'ok');
-                }
-            }
-        });
+
         chToggle.onclick = () => chKeyRow.classList.toggle('open');
         chKeySave.onclick = async () => {
             await dbBoss.setSetting('ytApiKey', chKey.value.trim());
@@ -1971,6 +1898,103 @@ var searchBoss = {
 
 
 /* ── LINKS PANEL: pick a track, see what played before/after it and what shares its playlists ── */
+/* ── YouTube Search panel — searches the YouTube site through the riffrolled
+   API. The server checks the shared database first: previous searches are
+   answered from it (zero API quota); only new ground hits the YouTube API,
+   and those results are saved so the next person's search is a database hit.
+   The API key never exists in this page. ── */
+var ytBoss = {
+  setup(){
+    var main =
+      "<div class='sec'>" +
+        "<div class='sec-head'>Search the YouTube site</div>" +
+        "<div class='row'>" +
+          "<input type='text' class='yts-input' placeholder='Search YouTube for music…'>" +
+          "<button class='icon-btn yts-go' title='Search'>🔍</button>" +
+        "</div>" +
+        "<div class='yts-results scrollable'></div>" +
+        "<div class='status-bar yts-status'></div>" +
+      "</div>";
+    this.el = menuB.createMenu('📺 YouTube Search', main);
+    menuB.place(this.el, { right:'470px', top:'120px', width:'320px' });
+
+    var input = this.el.querySelector('.yts-input');
+    var go = this.el.querySelector('.yts-go');
+    var self = this;
+    go.onclick = function(){ self.run(); };
+    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') self.run(); });
+
+    // one delegated handler: ▶ play, ＋ save + add to active playlist
+    this.el.querySelector('.yts-results').addEventListener('click', async function(e){
+      var item = e.target.closest('.yts-item'); if (!item) return;
+      var vid = item.dataset.yt, name = item.dataset.name;
+      if (e.target.closest('.yts-play')){ ytPlay(vid, name); return; }
+      if (e.target.closest('.yts-add')){
+        var tid = await dbBoss.createTrack(vid, name);
+        if (window.plBoss && plBoss.activeId){
+          var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+          self.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
+          plBoss.afterDbChange();
+        } else {
+          self.status('Saved to library ✓ (no active playlist)', 'ok');
+        }
+      }
+    });
+  },
+
+  status(msg, kind){
+    var el = this.el.querySelector('.yts-status');
+    el.textContent = msg || '';
+    el.className = 'status-bar yts-status' + (kind ? ' ' + kind : '');
+    var self = this;
+    if (msg && kind === 'ok'){ clearTimeout(this._t); this._t = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 6000); }
+  },
+
+  // works for watch?v=, youtu.be/, shorts/ and embed/ URLs
+  idFromUrl(u){
+    var m = /[?&]v=([A-Za-z0-9_-]{6,20})/.exec(u)
+         || /youtu\.be\/([A-Za-z0-9_-]{6,20})/.exec(u)
+         || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{6,20})/.exec(u);
+    return m ? m[1] : null;
+  },
+
+  async run(){
+    var q = this.el.querySelector('.yts-input').value.trim();
+    if (!q) return;
+    var results = this.el.querySelector('.yts-results');
+    this.status('Searching…');
+    results.innerHTML = '';
+    try {
+      var r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=15');
+      if (!r.ok){
+        var msg = 'HTTP ' + r.status;
+        try { msg = (await r.json()).error || msg; } catch(e2){}
+        throw new Error(msg);
+      }
+      var list = await r.json();
+      if (!list.length){ this.status('No results'); return; }
+      var self = this;
+      results.innerHTML = list.map(function(t){
+        var vid = self.idFromUrl(t.url || '');
+        if (!vid) return '';
+        return "<div class='yts-item' data-yt='" + vid + "' data-name='" + escapeHtml(t.name || vid) + "'>"
+          + "<button class='icon-btn yts-play' title='Play now'>▶</button>"
+          + "<span class='yts-name'>" + escapeHtml(t.name || vid) + "</span>"
+          + "<button class='icon-btn yts-add' title='Save + add to current playlist'>＋</button>"
+          + "</div>";
+      }).join('');
+      // tell the user where the answer came from (the server sets this header)
+      var src = r.headers.get('X-Riff-Source') || '';
+      if (src === 'db') this.status('From previous searches (database)');
+      else if (src === 'db-stale') this.status('From the database (YouTube unavailable right now)');
+      else if (src.indexOf('youtube') !== -1) this.status('Fresh from YouTube — now saved for next time');
+      else this.status('');
+    } catch(e){
+      this.status('Search unavailable: ' + e.message, 'err');
+    }
+  }
+};
+
 var linksBoss = {
   selected: null,   // {id, ytId, name}
   linking: false,
@@ -2426,6 +2450,7 @@ searchBoss.setup();
 linksBoss.setup();
 riffBoss.setup();
 infoBoss.setup();
+ytBoss.setup();
 
 
 
@@ -2672,6 +2697,7 @@ dock.build([
   { icon:'🎲', iconSvg: RIFF_LOGO_SVG.replace(/rlg/g, 'rlgDock'), label:'Roll the Riff', el: riffBoss.el, startHidden:true },
   { icon:'🎵', label:'Tracks',           el: menuB.tracksPanel },
   { icon:'🔎', label:'Search Tracks',    el: searchBoss.el, startHidden:true },
+  { icon:'📺', label:'YouTube Search',    el: ytBoss.el, startHidden:true },
   { icon:'📁', label:'Playlists',        el: plBoss.el },
   { icon:'🎧', label:'Current Playlist', el: plBoss.currentEl },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true },

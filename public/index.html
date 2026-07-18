@@ -432,7 +432,6 @@ select option { background:#20203a; color:#eee; }
 .dock-btn:not(.active) { opacity:0.5; }
 .dock-btn svg { width:24px; height:24px; display:block; }
 .dock-btn.dock-bottom { margin-top:auto; }
-body.mobile .dock-btn.dock-bottom { margin-top:0; margin-left:auto; }
 
 /* panel show/hide used by the desktop dock toggles */
 .is-hidden { display:none !important; }
@@ -471,50 +470,63 @@ body.mobile .brand-burn { display:none; }
 .app-banner .x { margin-left:auto; cursor:pointer; opacity:.85; font-size:14px; }
 .app-banner .x:hover { opacity:1; }
 
-/* ===== MOBILE LAYOUT =====
-   Desktop stays primary (floating, draggable panels). On a narrow screen we
-   drop all of that and become a single vertically-scrolling page: the turntable
-   fills the first screen, and the menus stack below it as cards — scroll to reach them. */
-body.mobile { height:auto; min-height:100vh; overflow-y:auto; }
+/* ── MOBILE: app-style. A bottom tab bar switches between full-screen views —
+   Player (the deck), Search, Import, Playlist, Track, About. One thing on
+   screen at a time; each view scrolls internally. Desktop is untouched. */
+body.mobile { height:100dvh; overflow:hidden; }
 
-/* the dock isn't needed when everything just scrolls */
-/* mobile: the dock becomes a horizontal toggle bar below the record player */
+/* bottom tab bar (the dock, relaid) */
 body.mobile .rightM {
-  display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:8px;
-  position:static; width:100%; margin:4px 0 10px; padding:0 8px;
+  position:fixed; left:0; right:0; bottom:0; top:auto;
+  width:100%; height:auto; z-index:1000;
+  display:flex; flex-direction:row; justify-content:space-around; align-items:stretch; gap:0;
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  border-left:0; border-top:1px solid rgba(255,255,255,0.09);
+  background:rgba(11,11,23,0.94); backdrop-filter:blur(10px);
 }
+body.mobile .dock-btn {
+  flex:1; max-width:74px; height:50px; border:0; background:transparent; border-radius:10px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  font-size:19px; padding:0;
+}
+body.mobile .dock-btn svg { width:21px; height:21px; }
+body.mobile .dock-btn .dock-lbl { font-size:9px; letter-spacing:0.2px; line-height:1; color:rgba(255,255,255,0.85); }
+body.mobile .dock-btn.active { background:rgba(140,123,255,0.16); }
+body.mobile .dock-btn.dock-bottom { margin:0; }
 
-/* deck wrapper stacks normally; turntable dominates the first screen */
+/* Player view: the deck fills the screen above the tab bar */
 body.mobile > .flex.flex1 { display:block; flex:0 0 auto; }
 body.mobile #deck {
-  width:100%; min-height:80vh; margin:0; padding:12px 0;
+  width:100%; min-height:calc(100dvh - 70px); margin:0; padding:6px 0 74px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:visible;
 }
+body.mobile.m-view-panel #deck { display:none; }
 /* shrink the record responsively but keep the video at its required 200x200 */
-body.mobile #deck .plinth { width:min(88vw,360px); height:min(88vw,360px); margin:0 0 88px; }
+body.mobile #deck .plinth { width:min(86vw,340px); height:min(86vw,340px); margin:0 0 96px; }
 body.mobile #deck .turntable { width:88%; height:88%; }
 body.mobile #deck .platter { width:82%; height:82%; }
-/* controls move below the record on small screens — the shrunken platter leaves no room over it */
-body.mobile #deck .np-area { width:90%; top:100%; bottom:auto; margin-top:4px; }
+/* controls sit below the record — the shrunken platter leaves no room over it */
+body.mobile #deck .np-area { width:92%; top:100%; bottom:auto; margin-top:6px; }
 
-/* panels become in-flow, full-width cards stacked under the deck */
-body.mobile .panel {
-  position:static !important; flex:0 0 auto;
+/* panel views: only the active tab's panel exists on screen, filling it */
+body.mobile .panel { display:none !important; }
+body.mobile .panel.m-active {
+  display:flex !important;
+  position:fixed !important; left:0 !important; right:0 !important;
+  top:0 !important; bottom:calc(62px + env(safe-area-inset-bottom)) !important;
   width:auto !important; height:auto !important; max-height:none !important;
-  resize:none !important; border-radius:10px; margin:0 10px 12px;
+  margin:0; border-radius:0; border-left:0; border-right:0; border-top:0;
+  resize:none !important; z-index:80;
 }
-body.mobile .panel:last-of-type { margin-bottom:28px; }
+/* inner lists keep their own scrolling inside the fixed view */
+body.mobile .panel.m-active .mainC { overflow-y:auto; }
 
-/* inner lists grow with their content; the PAGE scrolls, not the panel */
-body.mobile .mainC, body.mobile .active-pl { display:block; }
-body.mobile .scrollable,
-body.mobile .active-pl-tracks,
-body.mobile .st-results { flex:none !important; max-height:none !important; overflow:visible !important; }
+/* tabs replace open/close: no ✕, and drag/resize don't apply */
+body.mobile .panel-close { display:none; }
 
 /* touch has no hover, so keep delete visible; handle is the touch reorder grip */
 body.mobile .del-btn { opacity:.55; }
 body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }
-/* the mobile toggle bar can reopen panels, so closing is allowed there too */
 </style>
 </head>
 <body>
@@ -1049,7 +1061,7 @@ var player = {
     this.el.title.textContent = title || ytId;
     if (this.el.panelTitle) this.el.panelTitle.value = title || ytId;
     // pop the Current Track panel on a track change (toggle in that panel; on by default)
-    if (window._ctAutoOpen && window.dock) {
+    if (window._ctAutoOpen && window.dock && !dock.mobile) {
       var ct = document.getElementById('ctPanel');
       if (ct) dock.openPanel(ct);
     }
@@ -1985,6 +1997,29 @@ var dock = {
     if (!bar) return;
     bar.innerHTML = '';
 
+    if (this.mobile){
+      // app-style bottom tabs: Player first, then one tab per panel
+      this._mBtns = [];
+      const tabs = [{ icon:'🎛', label:'Player', short:'Player', player:true }]
+        .concat(this.items.map(it => ({ ...it, short: this.shortLabel(it.label) })));
+      tabs.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'dock-btn';
+        btn.title = t.label;
+        btn.setAttribute('aria-label', t.label);
+        if (t.iconSvg) btn.innerHTML = t.iconSvg; else btn.textContent = t.icon;
+        const lbl = document.createElement('span');
+        lbl.className = 'dock-lbl';
+        lbl.textContent = t.short;
+        btn.appendChild(lbl);
+        btn.onclick = () => this.showMobile(t.player ? 'player' : t.label);
+        this._mBtns.push([t.player ? 'player' : t.label, btn]);
+        bar.appendChild(btn);
+        if (!t.player) t.btn = btn;
+      });
+      return;
+    }
+
     this.items.forEach(it => {
       if (!it.el) return;
       const btn = document.createElement('button');
@@ -2017,8 +2052,9 @@ var dock = {
       if (this.isPlaced(el)) this.ensureVisible(el);
       else this.autoPlace(el);
       bringToFront(el);
-    } else if (el.scrollIntoView){
-      el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    } else {
+      const it = this.items.find(i => i.el === el);
+      if (it) this.showMobile(it.label);
     }
     this.saveLayoutSoon();
   },
@@ -2085,9 +2121,28 @@ var dock = {
     this.items.forEach(it => { if (it.el && !it.el.classList.contains('is-hidden')) this.ensureVisible(it.el); });
   },
 
+  shortLabel(label){
+    return { 'Current Track':'Track', 'About & Legal':'About' }[label] || label.split(' ')[0];
+  },
+
+  // mobile: show exactly one view — 'player' (the deck) or a panel by label
+  showMobile(label){
+    this._mActive = label;
+    document.body.classList.toggle('m-view-panel', label !== 'player');
+    this.items.forEach(it => { if (it.el) it.el.classList.toggle('m-active', it.label === label); });
+    if (this._mBtns) this._mBtns.forEach(([l, b]) => b.classList.toggle('active', l === label));
+  },
+
   setMode(isMobile){
     this.mobile = isMobile;
     this.render();
+    if (isMobile){
+      this.showMobile(this._mActive || 'player');
+      return;
+    }
+    // back to desktop: clear mobile view state, restore floating layout
+    document.body.classList.remove('m-view-panel');
+    this.items.forEach(it => { if (it.el) it.el.classList.remove('m-active'); });
     if (!isMobile){
       // re-assert positions after a mode switch: saved layout if any, else the near-dock defaults
       if (this._data) this.applyLayout(this._data);

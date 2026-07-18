@@ -1945,7 +1945,7 @@ var dataBoss = {
         "<div class='dbs-results scrollable'></div>" +
         "<div class='status-bar dbs-status'></div>" +
       "</div>";
-    this.el = menuB.createMenu(DB_ICON_SVG.replace('dbg', 'dbgT') + " Database", main);
+    this.el = menuB.createMenu(DB_ICON_SVG.replace(/dbg/g, 'dbgT') + " Database", main);
     menuB.place(this.el, { right:'470px', top:'400px', width:'320px', height:'340px' });
 
     var self = this;
@@ -2369,7 +2369,7 @@ document.addEventListener('click', function(e){
 dock.build([
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el },
-  { icon:'🗄', iconSvg: DB_ICON_SVG.replace('dbg', 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true },
+  { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true },
   { icon:'🎶', label:'Playlist',         el: plBoss.currentEl },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true },
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, bottom:true }

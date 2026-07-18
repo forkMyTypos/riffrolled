@@ -278,8 +278,6 @@ body {
 .active-pl-msg:not(:empty) { padding-bottom:2px; }
 
 /* per-playlist track filter */
-.active-pl-filter-row { padding:8px 10px; flex-shrink:0; }
-.active-pl-filter-row input { width:100%; }
 
 .active-pl-tracks { flex:1; overflow-y:auto; min-height:0; padding:6px; }
 
@@ -344,6 +342,25 @@ body {
 .st-play { width:26px; height:26px; font-size:11px; padding:0; flex-shrink:0; }
 
 /* ── channel import (Tracks panel) ── */
+/* unified Search panel */
+.srh-top { align-items:center; }
+.srh-scopes { display:flex; gap:3px; flex-shrink:0; }
+.srh-scope { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.55); border-radius:7px; width:28px; height:28px; font-size:13px; cursor:pointer; padding:0; }
+.srh-scope.active { background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); color:#fff; }
+.st-search { flex:1; min-width:0; }
+.srh-sec-head { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); padding:6px 2px 3px; }
+.srh-limits { display:flex; gap:4px; align-items:center; padding:6px 2px 0; flex-shrink:0; }
+.srh-limits-label { font-size:10px; color:rgba(255,255,255,0.35); margin-right:2px; }
+.srh-limit { background:transparent; border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.5); border-radius:6px; font-size:10px; padding:2px 8px; cursor:pointer; }
+.srh-limit.active { background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); color:#fff; }
+.srh-pl .pl-item-count { margin-left:auto; }
+.st-inlist { font-size:10px; color:#5ab88a; flex-shrink:0; }
+/* Import panel */
+.paste-sec { border-top:1px solid rgba(255,255,255,0.07); }
+.paste-box { width:100%; resize:vertical; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit; }
+.paste-row { justify-content:space-between; align-items:center; }
+.paste-count { font-size:11px; color:rgba(255,255,255,0.45); }
+.paste-go { width:auto; padding:0 12px; font-size:12px; }
 .ch-sec { border-top:1px solid rgba(255,255,255,0.07); }
 /* Search YouTube (server-side API) */
 .yts-sec { border-top:1px solid rgba(255,255,255,0.07); }
@@ -355,16 +372,25 @@ body {
 .ch-limit { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 6px; font-size:12px; cursor:pointer; flex-shrink:0; }
 .ch-go { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
 .ch-go:hover { background:rgba(140,123,255,0.28); }
-.ch-keyhint { padding:4px 4px 0; }
-.ch-keytoggle { font-size:11px; color:rgba(255,255,255,0.4); cursor:pointer; }
-.ch-keytoggle:hover { color:#c8bcff; }
-.ch-keyrow { display:none; gap:6px; padding:6px 4px 0; align-items:center; }
-.ch-keyrow.open { display:flex; }
-.ch-keyrow input { flex:1; }
 
 /* ── Playlists data footer (import / export) ── */
-.pl-footer { display:flex; gap:6px; padding:8px; border-top:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
-.pl-footer button { flex:1; }
+/* random mix builder */
+.mix-sec { border-top:1px solid rgba(255,255,255,0.07); padding:8px 10px 9px; flex-shrink:0; }
+.mix-row { align-items:center; }
+.mix-tags { flex:1; min-width:0; font-size:12px; }
+.mix-bias, .mix-count { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 5px; font-size:11px; cursor:pointer; flex-shrink:0; height:28px; }
+/* merged Playlist panel: search/create toolbar + playlist popup */
+.pl-toolbar { display:flex; gap:6px; padding:9px 10px 4px; align-items:center; flex-shrink:0; }
+.pl-srh-wrap { position:relative; flex:1; min-width:0; }
+.pl-srh { width:100%; }
+.pl-pop { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:6;
+  background:#20203a; border:1px solid rgba(255,255,255,0.14); border-radius:9px;
+  box-shadow:0 10px 26px rgba(0,0,0,0.5); max-height:210px; overflow-y:auto; padding:4px; }
+.pl-pop.open { display:block; }
+.pl-pop .empty { padding:10px; }
+.pl-title-name { font-weight:600; color:rgba(255,255,255,0.55); font-size:12px; margin-left:6px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
+.add-track-btn { margin-left:6px; }
 
 /* ── Links panel ── */
 .lk-body { padding:6px; }
@@ -648,6 +674,20 @@ db.version(7).stores({
   reactions: '++id, ytId, trackId, kind, ts'
 });
 
+// v8: trackPairs — a quiet local graph of which tracks get played together.
+// Recorded automatically whenever one track follows another; no UI yet.
+// This never leaves the device.
+db.version(8).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  trackLinks: '++id, a, b, createdAt',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  trackPairs: '++id, &key, a, b, count, lastTs'
+});
+
 var dbBoss = {
   createPl: async function(n){
     if(!n) n = 'Playlist';
@@ -790,6 +830,26 @@ var dbBoss = {
     const t = await db.tracks.where('ytId').equals(ytId).first();
     await db.reactions.add({ ytId:ytId, trackId: t ? t.id : null, kind:kind, ts: Date.now() });
   },
+  // passive link tracking: "a played next to b". Normalised a<b, one row
+  // per pair, count strengthens with every co-occurrence. Local only.
+  recordPair: async function(prevYt, curYt){
+    if (!prevYt || !curYt || prevYt === curYt) return;
+    const a = prevYt < curYt ? prevYt : curYt;
+    const b = prevYt < curYt ? curYt : prevYt;
+    const key = a + '|' + b;
+    const row = await db.trackPairs.where('key').equals(key).first();
+    if (row) await db.trackPairs.update(row.id, { count: (row.count || 1) + 1, lastTs: Date.now() });
+    else await db.trackPairs.add({ key, a, b, count: 1, lastTs: Date.now() });
+  },
+
+  // play counts per ytId from local history (for most/least-played mixes)
+  getPlayCounts: async function(){
+    const rows = await db.playHistory.toArray();
+    const counts = {};
+    rows.forEach(r => { if (r.ytId) counts[r.ytId] = (counts[r.ytId] || 0) + 1; });
+    return counts;
+  },
+
   getReactions: async function(ytId){
     const rows = await db.reactions.where('ytId').equals(ytId).toArray();
     let like = 0, dislike = 0;
@@ -869,26 +929,6 @@ var menuB = {
             <div class="status-bar track-status"></div>
         </div>
 
-        <div class="sec ch-sec">
-            <div class="sec-head">Import a whole channel</div>
-            <div class="row">
-                <input type="text" class="ch-input" placeholder="Channel URL, @handle, or ID…">
-                <select class="ch-limit" title="How many to import">
-                    <option value="25">25</option>
-                    <option value="50" selected>50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                    <option value="0">All</option>
-                </select>
-                <button class="icon-btn ch-go" title="Import channel">↓</button>
-            </div>
-            <div class="ch-keyhint"><span class="ch-keytoggle">⚙ API key</span></div>
-            <div class="ch-keyrow">
-                <input type="password" class="ch-key" placeholder="YouTube Data API key (stored locally)">
-                <button class="icon-btn ch-key-save" title="Save key">✓</button>
-            </div>
-            <div class="status-bar ch-status"></div>
-        </div>
         `;
 
         const panel = this.createMenu(title, main);
@@ -968,120 +1008,6 @@ var menuB = {
             if (window.plBoss) plBoss.afterDbChange();
         };
 
-        // ── channel import (YouTube Data API, user-supplied key) ──
-        const chInput   = panel.querySelector('.ch-input');
-        const chGo      = panel.querySelector('.ch-go');
-        const chKeyRow  = panel.querySelector('.ch-keyrow');
-        const chKey     = panel.querySelector('.ch-key');
-        const chKeySave = panel.querySelector('.ch-key-save');
-        const chToggle  = panel.querySelector('.ch-keytoggle');
-        const chStatusEl = panel.querySelector('.ch-status');
-        let chT;
-        function chStatus(msg, kind){
-            chStatusEl.textContent = msg || '';
-            chStatusEl.className = 'status-bar ch-status' + (kind ? ' ' + kind : '');
-            if (msg && kind === 'ok'){ clearTimeout(chT); chT = setTimeout(()=>{ if(chStatusEl.textContent===msg) chStatus(''); }, 6000); }
-        }
-
-        // prefill saved key
-        dbBoss.getSetting('ytApiKey').then(k => { if (k) chKey.value = k; });
-
-
-        chToggle.onclick = () => chKeyRow.classList.toggle('open');
-        chKeySave.onclick = async () => {
-            await dbBoss.setSetting('ytApiKey', chKey.value.trim());
-            chStatus('API key saved', 'ok');
-            chKeyRow.classList.remove('open');
-        };
-
-        async function ytApi(endpoint, params, key){
-            const u = new URL('https://www.googleapis.com/youtube/v3/' + endpoint);
-            Object.keys(params).forEach(k => u.searchParams.set(k, params[k]));
-            u.searchParams.set('key', key);
-            const r = await fetch(u);
-            const d = await r.json();
-            if (!r.ok) throw new Error((d.error && d.error.message) || ('HTTP ' + r.status));
-            return d;
-        }
-
-        async function resolveChannelId(raw, key){
-            raw = raw.trim();
-            let m;
-            if (m = raw.match(/channel\/(UC[\w-]+)/)) return m[1];
-            if (/^UC[\w-]{20,}$/.test(raw)) return raw;
-            let handle = null, user = null;
-            if (m = raw.match(/\/@([\w.-]+)/)) handle = m[1];
-            else if (raw.startsWith('@')) handle = raw.slice(1);
-            else if (m = raw.match(/\/user\/([\w-]+)/)) user = m[1];
-            if (handle){
-                const d = await ytApi('channels', { part:'id', forHandle:'@'+handle }, key);
-                if (d.items && d.items[0]) return d.items[0].id;
-            }
-            if (user){
-                const d = await ytApi('channels', { part:'id', forUsername:user }, key);
-                if (d.items && d.items[0]) return d.items[0].id;
-            }
-            const s = await ytApi('search', { part:'snippet', type:'channel', q: handle || user || raw, maxResults:1 }, key);
-            if (s.items && s.items[0]) return s.items[0].id.channelId;
-            return null;
-        }
-
-        async function importChannel(raw){
-            if (!raw.trim()){ chStatus('Enter a channel URL, @handle or ID', 'err'); return; }
-            const key = (await dbBoss.getSetting('ytApiKey')) || '';
-            if (!key){ chStatus('Add a YouTube Data API key first (⚙ API key)', 'err'); chKeyRow.classList.add('open'); return; }
-            try {
-                chStatus('Finding channel…');
-                const channelId = await resolveChannelId(raw, key);
-                if (!channelId){ chStatus('Couldn’t find that channel', 'err'); return; }
-
-                const ch = await ytApi('channels', { part:'contentDetails,snippet', id:channelId }, key);
-                const item = ch.items && ch.items[0];
-                if (!item){ chStatus('Channel not found', 'err'); return; }
-                const uploads = item.contentDetails.relatedPlaylists.uploads;
-                const chTitle = (item.snippet && item.snippet.title) || 'Channel';
-
-                const existing = await db.playlists.where('name').equals(chTitle).first();
-                const plId = existing ? existing.id : await dbBoss.createPl(chTitle);
-
-                const chLimitEl = panel.querySelector('.ch-limit');
-                const limit = chLimitEl ? (parseInt(chLimitEl.value, 10) || 0) : 50;  // 0 = all
-                // even "All" gets a hard ceiling so a runaway channel can't burn your API quota
-                const HARD_CAP = 2000, HARD_PAGES = 40;
-                const MAX       = limit ? limit : HARD_CAP;
-                const MAX_PAGES = limit ? Math.min(HARD_PAGES, Math.ceil(limit / 50) + 1) : HARD_PAGES;
-
-                let pageToken = '', added = 0, seen = 0, pages = 0, stop = false;
-                do {
-                    const d = await ytApi('playlistItems',
-                        { part:'snippet', playlistId:uploads, maxResults:50, pageToken }, key);
-                    for (const it of (d.items || [])){
-                        if (seen >= MAX){ stop = true; break; }
-                        const sn = it.snippet || {};
-                        const vid = sn.resourceId && sn.resourceId.videoId;
-                        const ttl = sn.title;
-                        if (!vid || ttl === 'Private video' || ttl === 'Deleted video') continue;
-                        const tid = await dbBoss.createTrack(vid, ttl);
-                        if ((await dbBoss.addToPlaylist(plId, tid)) === 'added') added++;
-                        seen++;
-                    }
-                    pageToken = d.nextPageToken || '';
-                    pages++;
-                    chStatus('Importing… ' + added + ' added');
-                } while (!stop && pageToken && seen < MAX && pages < MAX_PAGES);
-
-                const capped = (limit && seen >= limit) ? '' : (pages >= HARD_PAGES ? ' (stopped at safety cap)' : '');
-                chStatus('Added ' + added + ' videos to “' + chTitle + '”' + capped, 'ok');
-                chInput.value = '';
-                if (window.plBoss){ plBoss.renderPlaylists(); plBoss.renderTracks(); }
-                if (window.searchBoss) searchBoss.render();
-            } catch (e){
-                chStatus('Import failed: ' + (e.message || e), 'err');
-            }
-        }
-
-        chGo.onclick = () => importChannel(chInput.value);
-        chInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') importChannel(chInput.value); });
     }
 }
 
@@ -1230,7 +1156,13 @@ var player = {
       this.pending = { id: ytId, title: title };  // play as soon as the player is ready
     }
     this.setPlaying(true);
-    if (window.dbBoss) { dbBoss.logPlay(ytId); this.refreshMeta(ytId, title || ytId); }
+    if (window.dbBoss) {
+      dbBoss.logPlay(ytId);
+      // quiet local link tracking: this track followed the previous one
+      if (this._lastYtId && this._lastYtId !== ytId) dbBoss.recordPair(this._lastYtId, ytId);
+      this._lastYtId = ytId;
+      this.refreshMeta(ytId, title || ytId);
+    }
   },
 
   // ensure a track row exists, then populate artist/tags inputs + reaction counts
@@ -1351,11 +1283,11 @@ var plBoss = {
   currentIndex: -1,
 
   async setup(){
-    this.currentM();        // build current panel first (createM renders into it)
-    this.createM();         // build playlists panel + render list
+    this.currentM();        // the one merged Playlist panel
     this.bindTransport();
     this.bindKeys();
     this.updateStatus();
+    await this.renderPlaylists();   // picks the first playlist if none active
   },
 
   /* ── TRANSPORT + KEYS ── */
@@ -1430,186 +1362,31 @@ var plBoss = {
     if (window.searchBoss) searchBoss.render();
   },
 
-  /* ── PLAYLISTS PANEL ── */
-  async createM(){
-    var title = `📁 Playlists`;
-    var main = `
-      <div class="pl-tools">
-        <div class="pl-create-row">
-          <input type="text" class="pl-create-input" placeholder="New playlist name…">
-          <button class="icon-btn createPl" title="Create playlist">＋</button>
-        </div>
-        <input type="text" class="pl-search-input" placeholder="🔍 Search playlists…">
-      </div>
-      <div class="scrollable pl-list"></div>
-      <div class="pl-footer">
-        <button class="btn-export" title="Download all data as JSON">⬇ Export</button>
-        <button class="btn-import" title="Merge data from a JSON file">⬆ Import</button>
-        <button class="btn-resetlayout" title="Restore default panel positions">↺ Layout</button>
-        <input type="file" class="file-import" accept="application/json,.json" hidden>
-      </div>
-    `;
-    this.el = menuB.createMenu(title, main);
-    menuB.place(this.el, { right:'470px', top:'48px', width:'250px', height:'330px' });
-
-    this.bindCreateEvents();
-    this.renderPlaylists();
-  },
-
-  bindCreateEvents(){
-    const createBtn = this.el.querySelector('.createPl');
-    const createInput = this.el.querySelector('.pl-create-input');
-    const searchInput = this.el.querySelector('.pl-search-input');
-
-    const create = async () => {
-      const name = createInput.value.trim();
-      if(!name) return;
-      await dbBoss.createPl(name);
-      createInput.value = '';
-      this.renderPlaylists();
-    };
-
-    createBtn.onclick = create;
-    createInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') create(); });
-
-    // separate search box — filters the list only
-    searchInput.addEventListener('input', () => this.applyPlSearch());
-
-    // ── import / export ──
-    const exportBtn = this.el.querySelector('.btn-export');
-    const importBtn = this.el.querySelector('.btn-import');
-    const fileInput = this.el.querySelector('.file-import');
-
-    exportBtn.onclick = async () => {
-      try {
-        const data = await dbBoss.exportData();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'vinyl-player-export.json';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 1000);
-      } catch(e){
-        appNotify('Export failed: ' + (e.message || e), 'warn');
-      }
-    };
-
-    importBtn.onclick = () => fileInput.click();
-    fileInput.onchange = async () => {
-      const file = fileInput.files[0];
-      if(!file) return;
-      try {
-        const obj = JSON.parse(await file.text());
-        const r = await dbBoss.importData(obj);
-        await this.renderPlaylists();
-        this.renderTracks();
-        if (window.searchBoss) searchBoss.render();
-        if (window.linksBoss) linksBoss.render();
-        appNotify(`Imported +${r.addedPlaylists} playlists, +${r.addedTracks} tracks, +${r.addedJoins} entries, +${r.addedLinks} links`, 'ok');
-      } catch(e){
-        appNotify('Import failed: ' + (e.message || e), 'warn');
-      }
-      fileInput.value = '';
-    };
-
-    const resetBtn = this.el.querySelector('.btn-resetlayout');
-    if (resetBtn) resetBtn.onclick = async () => {
-      try {
-        await db.settings.delete('panelLayout');
-        await db.settings.delete('placedPanels');
-        if (window.dock){ dock._data = null; dock._placed = new Set(); dock._ready = false; }
-        appNotify('Layout reset — reloading…', 'ok');
-        setTimeout(() => location.reload(), 450);   // defaults re-apply cleanly on load
-      } catch(e){
-        appNotify('Reset failed: ' + (e.message || e), 'warn');
-      }
-    };
-  },
-
-  applyPlSearch(){
-    if (!this.el) return;
-    const q = (this.el.querySelector('.pl-search-input').value || '').trim().toLowerCase();
-    this.el.querySelectorAll('.pl-item').forEach(el=>{
-      const name = el.querySelector('.pl-item-name').textContent.toLowerCase();
-      el.style.display = name.includes(q) ? '' : 'none';
-    });
-  },
-
-  async renderPlaylists(){
-    const list = this.el.querySelector('.pl-list');
-    const pls = await dbBoss.getPlaylists();
-
-    if(!pls.length){
-      list.innerHTML = `<div class="empty">No playlists yet.<br>Name one above and hit ＋</div>`;
-      return;
-    }
-
-    const counts = {};
-    await Promise.all(pls.map(async pl=>{ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
-
-    list.innerHTML = pls.map(pl => `
-      <div class="row-item pl-item" data-id="${pl.id}">
-        <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
-        <span class="pl-item-count">${counts[pl.id]}</span>
-        <button class="del-btn" data-id="${pl.id}" title="Delete playlist">✕</button>
-      </div>
-    `).join('');
-
-    list.querySelectorAll('.pl-item').forEach(el=>{
-      el.onclick = (e) => {
-        if (e.target.classList.contains('del-btn')) return;
-        this.setActivePlaylist(Number(el.dataset.id));
-      };
-    });
-    list.querySelectorAll('.del-btn').forEach(btn=>{
-      btn.onclick = async (e)=>{ e.stopPropagation(); await this.deletePlaylist(Number(btn.dataset.id)); };
-    });
-
-    if (!this.activeId){
-      this.setActivePlaylist(pls[0].id);
-    } else {
-      list.querySelectorAll('.pl-item').forEach(el=>{
-        el.classList.toggle('active', Number(el.dataset.id) === this.activeId);
-      });
-    }
-    this.applyPlSearch();
-  },
-
-  async deletePlaylist(id){
-    await db.playlists.delete(id);
-    const joins = await db.playlistTracks.where('playlistId').equals(id).toArray();
-    await db.playlistTracks.bulkDelete(joins.map(j => j.id));
-    if (this.activeId === id) this.activeId = null;
-
-    await this.renderPlaylists();
-
-    if (!this.activeId){
-      const remaining = await dbBoss.getPlaylists();
-      if (!remaining.length){
-        this.currentEl.querySelector('.active-pl-name').value = 'No playlist';
-        this.currentEl.querySelector('.active-pl-tracks').innerHTML = `<div class="empty">No playlist selected</div>`;
-        this.currentEl.querySelector('.count').textContent = '0';
-        this.queue = []; this.currentIndex = -1; this.updateStatus();
-      }
-    }
-  },
-
-  /* ── CURRENT PLAYLIST PANEL ── */
+  /* ── PLAYLIST PANEL (merged: pick/search/create + current playlist) ── */
   currentM(){
-    var title = `🎧 Current Playlist`;
+    var title = `🎶 Playlist`;
     var main = `
       <div class="active-pl">
+
+        <div class="pl-toolbar">
+          <div class="pl-srh-wrap">
+            <input type="text" class="pl-srh" placeholder="🔍 Your playlists…">
+            <div class="pl-pop scrollable"></div>
+          </div>
+          <button class="icon-btn pl-add" title="New playlist">＋</button>
+        </div>
 
         <div class="active-pl-header">
           <span class="pl-status">■ Stopped</span>
         </div>
 
         <div class="active-pl-name-row">
-          <input type="text" class="active-pl-name" value="No playlist">
+          <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
         </div>
 
         <div class="active-pl-sub">
           <span>Tracks</span><span class="count">· 0</span>
+          <button class="icon-btn add-track-btn" title="Add tracks (opens the Tracks panel)">＋</button>
           <div class="mini-transport">
             <button class="icon-btn mini-prev" title="Previous">⏮</button>
             <button class="icon-btn mini-play" title="Play / pause">▶</button>
@@ -1621,35 +1398,196 @@ var plBoss = {
 
         <div class="active-pl-tracks"></div>
 
-        <div class="active-pl-filter-row">
-          <input type="text" class="active-pl-filter" placeholder="🔍 Filter tracks in this playlist…">
+        <div class="mix-sec">
+          <div class="sec-head">🎲 Random mix</div>
+          <div class="row mix-row">
+            <input type="text" class="mix-tags" placeholder="Tags (optional)…">
+            <select class="mix-bias" title="How to pick">
+              <option value="random" selected>Random</option>
+              <option value="most">Most played</option>
+              <option value="least">Least played</option>
+            </select>
+            <select class="mix-count" title="How many tracks">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+            <button class="icon-btn mix-go" title="Build a new playlist">🎲</button>
+          </div>
+          <div class="status-bar mix-status"></div>
         </div>
 
       </div>
     `;
     this.currentEl = menuB.createMenu(title, main);
-    menuB.place(this.currentEl, { right:'120px', top:'452px', width:'330px', height:'400px' });
+    menuB.place(this.currentEl, { right:'92px', top:'48px', width:'340px', height:'520px' });
+
+    // dynamic "Playlist — {name}" in the header
+    const hdr = this.currentEl.querySelector('.panel-header');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'pl-title-name';
+    hdr.insertBefore(nameSpan, hdr.querySelector('.panel-close'));
+
     this.bindCurrentEvents();
+  },
+
+  setTitleName(name){
+    const s = this.currentEl.querySelector('.pl-title-name');
+    if (s) s.textContent = name ? ' — ' + name : '';
   },
 
   bindCurrentEvents(){
     const root   = this.currentEl;
-    const filter = root.querySelector('.active-pl-filter');
 
-    // compact transport mirrors the deck controls
-    root.querySelector('.mini-play').onclick = () => player.el.play.onclick();
-    root.querySelector('.mini-prev').onclick = () => this.prev();
-    root.querySelector('.mini-next').onclick = () => this.next();
-
-    filter.addEventListener('input', () => this.applyFilter());
-  },
-
-  applyFilter(){
-    const q = (this.currentEl.querySelector('.active-pl-filter').value || '').trim().toLowerCase();
-    this.currentEl.querySelectorAll('.active-pl-tracks .track-item').forEach(el=>{
-      el.style.display = el.querySelector('.name').textContent.toLowerCase().includes(q) ? '' : 'none';
+    // ── playlist search popup ──
+    const srh = root.querySelector('.pl-srh');
+    const pop = root.querySelector('.pl-pop');
+    const openPop = () => { pop.classList.add('open'); this.renderPlPopup(); };
+    srh.addEventListener('focus', openPop);
+    srh.addEventListener('input', () => { pop.classList.add('open'); this.renderPlPopup(); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest || !e.target.closest('.pl-srh-wrap')) pop.classList.remove('open');
     });
+    // one delegated handler: pick a playlist, or delete one
+    pop.addEventListener('click', async (e) => {
+      const del = e.target.closest('.del-btn');
+      if (del){ e.stopPropagation(); await this.deletePlaylist(Number(del.dataset.id)); this.renderPlPopup(); return; }
+      const item = e.target.closest('.pl-item');
+      if (item){
+        await this.setActivePlaylist(Number(item.dataset.id));
+        pop.classList.remove('open');
+        srh.value = '';
+      }
+    });
+
+    // ── ＋ new playlist (uses the search text as the name if present) ──
+    root.querySelector('.pl-add').onclick = async () => {
+      const name = srh.value.trim() || 'New Playlist';
+      const id = await dbBoss.createPl(name);
+      srh.value = '';
+      pop.classList.remove('open');
+      await this.setActivePlaylist(id);
+      const nameInput = root.querySelector('.active-pl-name');
+      nameInput.focus(); nameInput.select();     // invite an immediate rename
+    };
+
+    // ── ＋ add tracks → open the Tracks panel ──
+    root.querySelector('.add-track-btn').onclick = () => {
+      if (window.dock && menuB.tracksPanel) dock.openPanel(menuB.tracksPanel);
+    };
+
+    // ── 🎲 random mix builder ──
+    root.querySelector('.mix-go').onclick = () => this.buildMix();
   },
+
+  mixStatus(msg, kind){
+    const el = this.currentEl.querySelector('.mix-status');
+    el.textContent = msg || '';
+    el.className = 'status-bar mix-status' + (kind ? ' ' + kind : '');
+    if (msg && kind === 'ok'){ clearTimeout(this._mixT); this._mixT = setTimeout(() => { if (el.textContent === msg) this.mixStatus(''); }, 7000); }
+  },
+
+  /* Build a fresh playlist from the local library.
+     Pool: all local tracks, optionally narrowed by tags (comma list, any match).
+     Bias: random shuffle · most played · least played (from local play history). */
+  async buildMix(){
+    const root = this.currentEl;
+    const tagsQ = (root.querySelector('.mix-tags').value || '').trim().toLowerCase();
+    const bias  = root.querySelector('.mix-bias').value;
+    const n     = parseInt(root.querySelector('.mix-count').value, 10) || 20;
+
+    let pool = await db.tracks.toArray();
+    if (tagsQ){
+      const wanted = tagsQ.split(',').map(s => s.trim()).filter(Boolean);
+      pool = pool.filter(t => {
+        const tt = (t.tags || '').toLowerCase();
+        return wanted.some(w => tt.includes(w));
+      });
+    }
+    if (!pool.length){ this.mixStatus(tagsQ ? 'No tracks match those tags' : 'Your library is empty', 'err'); return; }
+
+    if (bias === 'random'){
+      for (let i = pool.length - 1; i > 0; i--){          // Fisher–Yates
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+    } else {
+      const counts = await dbBoss.getPlayCounts();
+      const c = t => counts[t.ytId] || 0;
+      // tiny random jitter so equal-count tracks vary between builds
+      pool.sort((x, y) => (bias === 'most' ? c(y) - c(x) : c(x) - c(y)) || Math.random() - 0.5);
+    }
+
+    const picks = pool.slice(0, n);
+
+    // unique "Mix" name: Mix 1, Mix 2, …
+    const pls = await dbBoss.getPlaylists();
+    let num = 1;
+    while (pls.some(p => p.name === 'Mix ' + num)) num++;
+    const label = { random:'', most:' · most played', least:' · least played' }[bias] || '';
+    const name = 'Mix ' + num + (tagsQ ? ' · ' + tagsQ : '') + label;
+
+    const plId = await dbBoss.createPl(name);
+    for (const t of picks) await dbBoss.addToPlaylist(plId, t.id);
+    await this.setActivePlaylist(plId);
+    this.renderPlPopup();
+    this.mixStatus('Built “' + name + '” with ' + picks.length + ' tracks', 'ok');
+  },
+
+  // popup list of playlists, filtered by the search box
+  async renderPlPopup(){
+    const root = this.currentEl;
+    const pop = root.querySelector('.pl-pop');
+    if (!pop || !pop.classList.contains('open')) return;
+    const q = (root.querySelector('.pl-srh').value || '').trim().toLowerCase();
+    const pls = await dbBoss.getPlaylists();
+    const shown = q ? pls.filter(p => p.name.toLowerCase().includes(q)) : pls;
+    if (!shown.length){
+      pop.innerHTML = `<div class="empty">${pls.length ? 'No matches' : 'No playlists yet — hit ＋'}</div>`;
+      return;
+    }
+    const counts = {};
+    await Promise.all(shown.map(async pl=>{ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
+    pop.innerHTML = shown.map(pl => `
+      <div class="row-item pl-item ${pl.id === this.activeId ? 'active' : ''}" data-id="${pl.id}">
+        <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
+        <span class="pl-item-count">${counts[pl.id]}</span>
+        <button class="del-btn" data-id="${pl.id}" title="Delete playlist">✕</button>
+      </div>
+    `).join('');
+  },
+
+  // kept name: everything that used to refresh the Playlists panel calls this
+  async renderPlaylists(){
+    this.renderPlPopup();
+    if (!this.activeId){
+      const pls = await dbBoss.getPlaylists();
+      if (pls.length) await this.setActivePlaylist(pls[0].id);
+      else this.setTitleName('');
+    }
+  },
+
+  async deletePlaylist(id){
+    await db.playlists.delete(id);
+    const joins = await db.playlistTracks.where('playlistId').equals(id).toArray();
+    await db.playlistTracks.bulkDelete(joins.map(j => j.id));
+    if (this.activeId === id) this.activeId = null;
+
+    if (!this.activeId){
+      const remaining = await dbBoss.getPlaylists();
+      if (remaining.length){
+        await this.setActivePlaylist(remaining[0].id);
+      } else {
+        this.setTitleName('');
+        this.currentEl.querySelector('.active-pl-name').value = 'No playlist';
+        this.currentEl.querySelector('.active-pl-tracks').innerHTML = `<div class="empty">No playlist selected</div>`;
+        this.currentEl.querySelector('.active-pl-sub .count').textContent = '· 0';
+        this.queue = []; this.currentIndex = -1; this.updateStatus();
+      }
+    }
+  },
+
 
   /* ── STATE ── */
   async setActivePlaylist(id){
@@ -1657,18 +1595,16 @@ var plBoss = {
     const pl = await db.playlists.get(id);
     if (!pl) return;
 
+    this.setTitleName(pl.name);
     const nameInput = this.currentEl.querySelector('.active-pl-name');
     nameInput.value = pl.name;
     nameInput.onchange = async () => {
       const newName = nameInput.value.trim();
       if(!newName) return;
       await db.playlists.update(id, { name: newName });
-      this.renderPlaylists();
+      this.setTitleName(newName);
+      this.renderPlPopup();
     };
-
-    this.el.querySelectorAll('.pl-item').forEach(el=>{
-      el.classList.toggle('active', Number(el.dataset.id) === id);
-    });
 
     if (window.searchBoss) searchBoss.render();
     this.renderTracks();
@@ -1786,7 +1722,6 @@ var plBoss = {
     });
 
     this.syncHighlight();
-    this.applyFilter();
     this.updateStatus();
   },
 
@@ -1802,593 +1737,272 @@ var plBoss = {
 
 
 /* ── SEARCH TRACKS PANEL (search the whole library) ── */
+/* ── SEARCH — one box across your library. Scope: Tracks / Playlists / Both.
+   The limits row caps how many result rows get built (DOM stays small as
+   the library grows); "All" is available but capped at 500 for safety. ── */
 var searchBoss = {
+  scope: 'both',
+  limit: 20,
+
   setup(){
-    var title = `🔎 Search Tracks`;
-    var main = `
-      <div class="sec">
-        <div class="sec-head">Search your saved tracks</div>
-        <div class="row"><input type="text" class="st-search" placeholder="🔍 Search tracks…"></div>
-        <div class="status-bar st-status"></div>
-      </div>
-      <div class="scrollable st-results"></div>
-    `;
-    this.el = menuB.createMenu(title, main);
-    menuB.place(this.el, { right:'470px', top:'400px', width:'310px', height:'330px' });
+    var main =
+      "<div class='sec searchC'>" +
+        "<div class='row srh-top'>" +
+          "<div class='srh-scopes'>" +
+            "<button class='srh-scope' data-s='tracks' title='Search tracks'>🎵</button>" +
+            "<button class='srh-scope' data-s='playlists' title='Search playlists'>📃</button>" +
+            "<button class='srh-scope active' data-s='both' title='Search both'>∞</button>" +
+          "</div>" +
+          "<input type='text' class='st-search' placeholder='Search your library…'>" +
+        "</div>" +
+        "<div class='st-results scrollable'></div>" +
+        "<div class='srh-limits'>" +
+          "<span class='srh-limits-label'>Show</span>" +
+          "<button class='srh-limit' data-n='10'>10</button>" +
+          "<button class='srh-limit active' data-n='20'>20</button>" +
+          "<button class='srh-limit' data-n='50'>50</button>" +
+          "<button class='srh-limit' data-n='500'>All</button>" +
+        "</div>" +
+        "<div class='status-bar st-status'></div>" +
+      "</div>";
+    this.el = menuB.createMenu('🔎 Search', main);
+    menuB.place(this.el, { right:'470px', top:'120px', width:'320px', height:'360px' });
+
+    var self = this;
     var input = this.el.querySelector('.st-search');
-    input.addEventListener('input', () => {
-      this._showAll = false;   // a new query collapses back to the capped view
-      clearTimeout(this._searchT); this._searchT = setTimeout(() => this.render(), 140);
+    input.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.render(); }, 140); });
+
+    // scope + limit toggles (delegated)
+    this.el.querySelector('.srh-scopes').addEventListener('click', function(e){
+      var b = e.target.closest('.srh-scope'); if (!b) return;
+      self.scope = b.dataset.s;
+      self.el.querySelectorAll('.srh-scope').forEach(function(x){ x.classList.toggle('active', x === b); });
+      self.render();
     });
-    // one delegated handler for the whole list — scales O(1) no matter how many rows render
-    this.el.querySelector('.st-results').addEventListener('click', async (e) => {
-      if (e.target.closest('.st-showall')) { this._showAll = true; this.render(); return; }
-      const item = e.target.closest('.st-item'); if (!item) return;
-      if (e.target.closest('.st-play')) { ytPlay(item.dataset.yt, item.dataset.name); return; }
-      if (e.target.closest('.st-add')) {
-        if (!window.plBoss || !plBoss.activeId){ this.status('Select a playlist first', 'err'); return; }
-        const r = await dbBoss.addToPlaylist(plBoss.activeId, Number(item.dataset.id));
-        this.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓ ' + item.dataset.name, r === 'dupe' ? null : 'ok');
+    this.el.querySelector('.srh-limits').addEventListener('click', function(e){
+      var b = e.target.closest('.srh-limit'); if (!b) return;
+      self.limit = Number(b.dataset.n) || 20;
+      self.el.querySelectorAll('.srh-limit').forEach(function(x){ x.classList.toggle('active', x === b); });
+      self.render();
+    });
+
+    // one delegated handler for all result rows
+    this.el.querySelector('.st-results').addEventListener('click', async function(e){
+      var plRow = e.target.closest('.srh-pl');
+      if (plRow){ await plBoss.setActivePlaylist(Number(plRow.dataset.id)); self.status('Now on “' + plRow.dataset.name + '”', 'ok'); self.render(); return; }
+      var item = e.target.closest('.st-item'); if (!item) return;
+      if (e.target.closest('.st-play')){ ytPlay(item.dataset.yt, item.dataset.name); return; }
+      if (e.target.closest('.st-add')){
+        if (!window.plBoss || !plBoss.activeId){ self.status('Select a playlist first', 'err'); return; }
+        var r = await dbBoss.addToPlaylist(plBoss.activeId, Number(item.dataset.id));
+        self.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
         plBoss.afterDbChange();
-        this.render();
       }
     });
+
     this.render();
   },
 
   status(msg, kind){
-    const s = this.el.querySelector('.st-status');
-    s.textContent = msg || '';
-    s.className = 'status-bar st-status' + (kind ? ' ' + kind : '');
-    if (msg){ clearTimeout(this._t); this._t = setTimeout(()=>{ if (s.textContent === msg) this.status(''); }, 4000); }
+    var el = this.el.querySelector('.st-status');
+    el.textContent = msg || '';
+    el.className = 'status-bar st-status' + (kind ? ' ' + kind : '');
+    var self = this;
+    if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 5000); }
   },
 
   async render(){
-    const CAP = 50;          // default visible rows
-    const HEAVY = 2000;      // beyond this, warn before rendering everything
-    const showAll = !!this._showAll;
-    const results = this.el.querySelector('.st-results');
-    const q = (this.el.querySelector('.st-search').value || '').trim().toLowerCase();
+    var results = this.el.querySelector('.st-results');
+    var q = (this.el.querySelector('.st-search').value || '').trim().toLowerCase();
+    var cap = this.limit, html = '', total = 0;
 
-    // gather + filter in memory, counting the full total but keeping only what we'll render
-    const all = await db.tracks.toArray();
-    const limit = showAll ? Infinity : CAP;
-    const rows = [];
-    let total = 0;
-    for (let i = 0; i < all.length; i++){
-      const t = all[i];
-      if (q && (t.name || '').toLowerCase().indexOf(q) === -1) continue;
-      total++;
-      if (rows.length < limit) rows.push(t);
+    // playlists section
+    if (this.scope !== 'tracks'){
+      var pls = await dbBoss.getPlaylists();
+      var mp = q ? pls.filter(function(p){ return p.name.toLowerCase().includes(q); }) : pls;
+      total += mp.length;
+      var showP = mp.slice(0, cap);
+      if (showP.length){
+        var counts = {};
+        await Promise.all(showP.map(async function(pl){ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
+        html += "<div class='srh-sec-head'>Playlists</div>" + showP.map(function(pl){
+          return "<div class='row-item srh-pl" + (pl.id === plBoss.activeId ? " active" : "") + "' data-id='" + pl.id + "' data-name='" + escapeHtml(pl.name) + "'>"
+            + "<span class='name'>" + escapeHtml(pl.name) + "</span>"
+            + "<span class='pl-item-count'>" + counts[pl.id] + "</span></div>";
+        }).join('');
+      }
     }
 
-    if (!total){
-      results.innerHTML = `<div class="empty">${q ? 'No matches in your library' : 'No saved tracks yet — add some from the 🎵 Tracks panel'}</div>`;
-      return;
+    // tracks section
+    if (this.scope !== 'playlists'){
+      var all = await db.tracks.toArray();
+      var mt = q ? all.filter(function(t){ return (t.name || '').toLowerCase().includes(q); }) : all;
+      total += mt.length;
+      var inList = new Set();
+      if (plBoss.activeId){
+        var joins = await db.playlistTracks.where('playlistId').equals(plBoss.activeId).toArray();
+        joins.forEach(function(j){ inList.add(j.trackId); });
+      }
+      var showT = mt.slice(0, cap);
+      if (showT.length){
+        html += "<div class='srh-sec-head'>Tracks</div>" + showT.map(function(t){
+          return "<div class='st-item' data-id='" + t.id + "' data-yt='" + t.ytId + "' data-name='" + escapeHtml(t.name) + "'>"
+            + "<button class='icon-btn st-play' title='Play now'>▶</button>"
+            + "<span class='name'>" + escapeHtml(t.name) + "</span>"
+            + (inList.has(t.id) ? "<span class='st-inlist'>✓ in list</span>" : "<button class='icon-btn st-add' title='Add to current playlist'>＋</button>")
+            + "</div>";
+        }).join('');
+      }
     }
 
-    const active = (window.plBoss && plBoss.activeId) ? plBoss.activeId : null;
-    let inSet = new Set();
-    if (active){
-      inSet = new Set((await db.playlistTracks.where('playlistId').equals(active).toArray()).map(j => j.trackId));
-    }
-
-    // build the whole list as one string, then make a single DOM write
-    let html = rows.map(t => `
-      <div class="row-item st-item" data-id="${t.id}" data-yt="${escapeHtml(t.ytId)}" data-name="${escapeHtml(t.name)}">
-        <button class="icon-btn st-play" title="Play">▶</button>
-        <span class="name">${escapeHtml(t.name)}</span>
-        ${ inSet.has(t.id)
-            ? `<span class="lib-pill in">✓ in list</span>`
-            : `<button class="icon-btn lib-add-btn st-add" title="Add to current playlist">＋</button>` }
-      </div>`).join('');
-
-    if (total > CAP && !showAll){
-      const heavy = total > HEAVY;
-      html += `<div class="st-more">Showing first ${CAP} of ${total}.
-        <button class="st-showall">Show all ${total}${heavy ? ' ⚠' : ''}</button>
-        ${ heavy ? `<div class="st-warn">Rendering ${total.toLocaleString()} rows at once may briefly freeze the page.</div>` : '' }</div>`;
-    } else if (showAll && total > CAP){
-      html += `<div class="st-more">Showing all ${total}.</div>`;
-    }
-
-    results.innerHTML = html;   // one write; the delegated listener (set up once) handles all clicks
+    if (!html) html = "<div class='empty'>" + (q ? 'No matches' : 'Your library is empty') + "</div>";
+    results.innerHTML = html;   // one DOM write, capped row count
+    var shown = Math.min(total, cap * (this.scope === 'both' ? 2 : 1));
+    this.status(total > shown ? ('Showing ' + shown + ' of ' + total) : '');
   }
 };
 
+/* ── IMPORT — bring music in bulk. Channel import runs through the
+   riffrolled API (server key); pasted links/IDs are parsed locally. ── */
+var YT_ICON_SVG = "<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='1.5' y='4.5' width='21' height='15' rx='4.2' fill='#ff0033'/><path d='M9.8 8.6 L16 12 L9.8 15.4 Z' fill='#fff'/></svg>";
 
-/* ── LINKS PANEL: pick a track, see what played before/after it and what shares its playlists ── */
-/* ── YouTube Search panel — searches the YouTube site through the riffrolled
-   API. The server checks the shared database first: previous searches are
-   answered from it (zero API quota); only new ground hits the YouTube API,
-   and those results are saved so the next person's search is a database hit.
-   The API key never exists in this page. ── */
-var ytBoss = {
+var importBoss = {
   setup(){
     var main =
-      "<div class='sec'>" +
-        "<div class='sec-head'>Search the YouTube site</div>" +
+      "<div class='sec importC youtube'>" +
+        "<div class='sec-head'>Import a channel</div>" +
         "<div class='row'>" +
-          "<input type='text' class='yts-input' placeholder='Search YouTube for music…'>" +
-          "<button class='icon-btn yts-go' title='Search'>🔍</button>" +
+          "<input type='text' class='ch-input' placeholder='Channel URL, @handle, or ID…'>" +
+          "<select class='ch-limit' title='How many to import'>" +
+            "<option value='25'>25</option><option value='50' selected>50</option>" +
+            "<option value='100'>100</option><option value='200'>200</option>" +
+          "</select>" +
+          "<button class='icon-btn ch-go' title='Import channel'>↓</button>" +
         "</div>" +
-        "<div class='yts-results scrollable'></div>" +
-        "<div class='status-bar yts-status'></div>" +
+        "<div class='status-bar ch-status'></div>" +
+      "</div>" +
+      "<div class='sec paste-sec'>" +
+        "<div class='sec-head'>Paste video links or IDs</div>" +
+        "<textarea class='paste-box' rows='4' placeholder='Paste YouTube links or video IDs — separated by commas, spaces, or new lines…'></textarea>" +
+        "<div class='row paste-row'>" +
+          "<span class='paste-count'></span>" +
+          "<button class='icon-btn paste-go' title='Add these videos'>＋ Add</button>" +
+        "</div>" +
+        "<div class='status-bar paste-status'></div>" +
       "</div>";
-    this.el = menuB.createMenu('📺 YouTube Search', main);
-    menuB.place(this.el, { right:'470px', top:'120px', width:'320px' });
+    this.el = menuB.createMenu('▶ Import', main);
+    menuB.place(this.el, { right:'470px', top:'400px', width:'330px' });
+    this.bind();
+  },
 
-    var input = this.el.querySelector('.yts-input');
-    var go = this.el.querySelector('.yts-go');
-    var self = this;
-    go.onclick = function(){ self.run(); };
-    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') self.run(); });
+  bind(){
+    var root = this.el, self = this;
 
-    // one delegated handler: ▶ play, ＋ save + add to active playlist
-    this.el.querySelector('.yts-results').addEventListener('click', async function(e){
-      var item = e.target.closest('.yts-item'); if (!item) return;
-      var vid = item.dataset.yt, name = item.dataset.name;
-      if (e.target.closest('.yts-play')){ ytPlay(vid, name); return; }
-      if (e.target.closest('.yts-add')){
-        var tid = await dbBoss.createTrack(vid, name);
-        if (window.plBoss && plBoss.activeId){
-          var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
-          self.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
-          plBoss.afterDbChange();
-        } else {
-          self.status('Saved to library ✓ (no active playlist)', 'ok');
+    /* ── channel import (server resolves + stores; we mirror locally) ── */
+    var chStatusEl = root.querySelector('.ch-status'), chT;
+    function chStatus(msg, kind){
+      chStatusEl.textContent = msg || '';
+      chStatusEl.className = 'status-bar ch-status' + (kind ? ' ' + kind : '');
+      if (msg && kind === 'ok'){ clearTimeout(chT); chT = setTimeout(function(){ if(chStatusEl.textContent===msg) chStatus(''); }, 8000); }
+    }
+    var chInput = root.querySelector('.ch-input');
+    var chGo    = root.querySelector('.ch-go');
+    var chLimit = root.querySelector('.ch-limit');
+    async function importChannel(){
+      var input = chInput.value.trim();
+      if (!input){ chStatus('Paste a channel URL, @handle, or ID', 'err'); return; }
+      var limit = parseInt(chLimit ? chLimit.value : '50', 10) || 50;
+      chGo.disabled = true;
+      chStatus('Importing…');
+      try {
+        var r = await fetch('/api/channel?input=' + encodeURIComponent(input) + '&limit=' + limit);
+        if (!r.ok){
+          var msg = 'HTTP ' + r.status;
+          try { msg = (await r.json()).error || msg; } catch(e2){}
+          throw new Error(msg);
         }
+        var data = await r.json();
+        var existing = await db.playlists.where('name').equals(data.channel).first();
+        var plId = existing ? existing.id : await dbBoss.createPl(data.channel);
+        var added = 0;
+        for (var i = 0; i < (data.tracks || []).length; i++){
+          var t = data.tracks[i];
+          var m = /[?&]v=([A-Za-z0-9_-]{6,20})/.exec(t.url || '');
+          if (!m) continue;
+          var tid = await dbBoss.createTrack(m[1], t.name);
+          if ((await dbBoss.addToPlaylist(plId, tid)) === 'added') added++;
+        }
+        plBoss.afterDbChange();
+        chStatus('Added ' + added + ' videos to “' + data.channel + '”', 'ok');
+        chInput.value = '';
+      } catch(e){
+        chStatus('Import failed: ' + e.message, 'err');
+      } finally {
+        chGo.disabled = false;
       }
-    });
-  },
-
-  status(msg, kind){
-    var el = this.el.querySelector('.yts-status');
-    el.textContent = msg || '';
-    el.className = 'status-bar yts-status' + (kind ? ' ' + kind : '');
-    var self = this;
-    if (msg && kind === 'ok'){ clearTimeout(this._t); this._t = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 6000); }
-  },
-
-  // works for watch?v=, youtu.be/, shorts/ and embed/ URLs
-  idFromUrl(u){
-    var m = /[?&]v=([A-Za-z0-9_-]{6,20})/.exec(u)
-         || /youtu\.be\/([A-Za-z0-9_-]{6,20})/.exec(u)
-         || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{6,20})/.exec(u);
-    return m ? m[1] : null;
-  },
-
-  async run(){
-    var q = this.el.querySelector('.yts-input').value.trim();
-    if (!q) return;
-    var results = this.el.querySelector('.yts-results');
-    this.status('Searching…');
-    results.innerHTML = '';
-    try {
-      var r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=15');
-      if (!r.ok){
-        var msg = 'HTTP ' + r.status;
-        try { msg = (await r.json()).error || msg; } catch(e2){}
-        throw new Error(msg);
-      }
-      var list = await r.json();
-      if (!list.length){ this.status('No results'); return; }
-      var self = this;
-      results.innerHTML = list.map(function(t){
-        var vid = self.idFromUrl(t.url || '');
-        if (!vid) return '';
-        return "<div class='yts-item' data-yt='" + vid + "' data-name='" + escapeHtml(t.name || vid) + "'>"
-          + "<button class='icon-btn yts-play' title='Play now'>▶</button>"
-          + "<span class='yts-name'>" + escapeHtml(t.name || vid) + "</span>"
-          + "<button class='icon-btn yts-add' title='Save + add to current playlist'>＋</button>"
-          + "</div>";
-      }).join('');
-      // tell the user where the answer came from (the server sets this header)
-      var src = r.headers.get('X-Riff-Source') || '';
-      if (src === 'db') this.status('From previous searches (database)');
-      else if (src === 'db-stale') this.status('From the database (YouTube unavailable right now)');
-      else if (src.indexOf('youtube') !== -1) this.status('Fresh from YouTube — now saved for next time');
-      else this.status('');
-    } catch(e){
-      this.status('Search unavailable: ' + e.message, 'err');
     }
-  }
-};
+    chGo.onclick = importChannel;
+    chInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') importChannel(); });
 
-var linksBoss = {
-  selected: null,   // {id, ytId, name}
-  linking: false,
-  linkQuery: '',
-
-  setup(){
-    var title = `🔗 Links`;
-    var main = `
-      <div class="sec">
-        <div class="sec-head">Pick a track — see what links to it</div>
-        <div class="row"><input type="text" class="lk-search" placeholder="🔍 Search a track…"></div>
-      </div>
-      <div class="scrollable lk-body"></div>
-    `;
-    this.el = menuB.createMenu(title, main);
-    menuB.place(this.el, { left:'380px', top:'470px', width:'340px', height:'300px' });
-    this.el.querySelector('.lk-search').addEventListener('input', () => { this.selected = null; this.render(); });
-    this.render();
-  },
-
-  render(){ return this.selected ? this.renderLinks() : this.renderList(); },
-
-  async renderList(){
-    const body = this.el.querySelector('.lk-body');
-    const q = (this.el.querySelector('.lk-search').value || '').trim().toLowerCase();
-    let all = await db.tracks.toArray();
-    if (q) all = all.filter(t => (t.name||'').toLowerCase().includes(q));
-    all = all.slice(0, 100);
-
-    if (!all.length){ body.innerHTML = `<div class="empty">${q ? 'No matches' : 'No tracks yet'}</div>`; return; }
-
-    body.innerHTML = all.map(t => `
-      <div class="row-item lk-pick" data-id="${t.id}" data-yt="${escapeHtml(t.ytId)}" data-name="${escapeHtml(t.name)}">
-        <span class="name">${escapeHtml(t.name)}</span>
-        <span class="lk-chevron">›</span>
-      </div>`).join('');
-
-    body.querySelectorAll('.lk-pick').forEach(el=>{
-      el.onclick = () => {
-        this.selected = { id:Number(el.dataset.id), ytId:el.dataset.yt, name:el.dataset.name };
-        this.linking = false; this.linkQuery = '';
-        this.render();
-      };
-    });
-  },
-
-  async renderLinks(){
-    const body = this.el.querySelector('.lk-body');
-    const sel = this.selected;
-
-    const tracks = await db.tracks.toArray();
-    const byId = {}; tracks.forEach(t => byId[t.id] = t);
-
-    const linkedIds = await dbBoss.getLinkedTrackIds(sel.id);
-    const linked = linkedIds.map(id => byId[id]).filter(Boolean);
-    const derived = await this.compute(sel.ytId, sel.id);
-
-    const linkedHtml = linked.length
-      ? linked.map(t => `
-          <div class="row-item lk-link" data-id="${t.id}" data-yt="${escapeHtml(t.ytId)}" data-name="${escapeHtml(t.name)}">
-            <button class="icon-btn st-play" title="Play">▶</button>
-            <span class="name" title="Jump to this track's links">${escapeHtml(t.name)}</span>
-            <button class="del-btn lk-unlink" title="Unlink">✕</button>
-          </div>`).join('')
-      : `<div class="empty">No links yet — use ＋ Link to connect tracks</div>`;
-
-    const section = (title, items, withCount) => {
-      if (!items.length) return `<div class="lk-group"><div class="lk-group-head">${title}</div><div class="empty">Nothing yet</div></div>`;
-      return `<div class="lk-group"><div class="lk-group-head">${title}</div>` +
-        items.map(it => `
-          <div class="row-item lk-item" data-yt="${escapeHtml(it.ytId)}" data-name="${escapeHtml(it.name)}">
-            <button class="icon-btn st-play" title="Play">▶</button>
-            <span class="name">${escapeHtml(it.name)}</span>
-            ${ withCount ? `<span class="lk-count">${it.count}×</span>` : '' }
-          </div>`).join('') + `</div>`;
-    };
-
-    body.innerHTML =
-      `<span class="lk-back">← all tracks</span>` +
-      `<div class="lk-current">${escapeHtml(sel.name)}</div>` +
-      `<div class="lk-group">
-         <div class="lk-group-head">🔗 Linked tracks
-           <button class="lk-linkbtn lk-addtoggle">${this.linking ? '✕ Close' : '＋ Link'}</button>
-         </div>
-         <div class="lk-add${this.linking ? ' open' : ''}">
-           <input type="text" class="lk-add-search" placeholder="🔍 Search a track to link…" value="${escapeHtml(this.linkQuery || '')}">
-           <div class="lk-add-results"></div>
-         </div>
-         ${linkedHtml}
-       </div>` +
-      `<div class="lk-group-head" style="opacity:.65">Discover</div>` +
-      section('⏮ Played before', derived.before, true) +
-      section('⏭ Played after',  derived.after,  true) +
-      section('📁 Same playlist', derived.same,  false);
-
-    body.querySelector('.lk-back').onclick = () => { this.selected = null; this.linking = false; this.linkQuery = ''; this.render(); };
-
-    // play buttons (both linked + discovered)
-    body.querySelectorAll('.lk-item, .lk-link').forEach(el=>{
-      const play = el.querySelector('.st-play');
-      if (play) play.onclick = (e) => { e.stopPropagation(); ytPlay(el.dataset.yt, el.dataset.name); };
-    });
-
-    // linked: name navigates the graph, ✕ unlinks
-    body.querySelectorAll('.lk-link').forEach(el=>{
-      el.querySelector('.name').onclick = () => {
-        this.selected = { id:Number(el.dataset.id), ytId:el.dataset.yt, name:el.dataset.name };
-        this.linking = false; this.linkQuery = '';
-        this.render();
-      };
-      el.querySelector('.lk-unlink').onclick = async (e) => {
-        e.stopPropagation();
-        await dbBoss.unlinkTracks(sel.id, Number(el.dataset.id));
-        this.render();
-      };
-    });
-
-    // link-picker toggle
-    body.querySelector('.lk-addtoggle').onclick = () => {
-      this.linking = !this.linking;
-      if (!this.linking) this.linkQuery = '';
-      this.render();
-    };
-
-    // link-picker search
-    const addSearch = body.querySelector('.lk-add-search');
-    if (addSearch){
-      addSearch.oninput = () => { this.linkQuery = addSearch.value; this.renderLinkPicker(); };
-      if (this.linking){ addSearch.focus(); addSearch.setSelectionRange(addSearch.value.length, addSearch.value.length); }
-      this.renderLinkPicker();
+    /* ── bulk paste ── */
+    var box = root.querySelector('.paste-box');
+    var go = root.querySelector('.paste-go');
+    var countEl = root.querySelector('.paste-count');
+    var pStatusEl = root.querySelector('.paste-status'), pT;
+    function pStatus(msg, kind){
+      pStatusEl.textContent = msg || '';
+      pStatusEl.className = 'status-bar paste-status' + (kind ? ' ' + kind : '');
+      if (msg && kind === 'ok'){ clearTimeout(pT); pT = setTimeout(function(){ if(pStatusEl.textContent===msg) pStatus(''); }, 8000); }
     }
-  },
-
-  async renderLinkPicker(){
-    const results = this.el.querySelector('.lk-add-results');
-    if (!results || !this.selected) return;
-    const sel = this.selected;
-    const q = (this.linkQuery || '').trim().toLowerCase();
-
-    const linkedIds = new Set(await dbBoss.getLinkedTrackIds(sel.id));
-    let all = await db.tracks.toArray();
-    all = all.filter(t => t.id !== sel.id && !linkedIds.has(t.id));
-    if (q) all = all.filter(t => (t.name||'').toLowerCase().includes(q));
-    all = all.slice(0, 40);
-
-    if (!all.length){ results.innerHTML = `<div class="empty">${q ? 'No matches' : 'Nothing left to link'}</div>`; return; }
-
-    results.innerHTML = all.map(t => `
-      <div class="row-item lk-cand" data-id="${t.id}">
-        <span class="name">${escapeHtml(t.name)}</span>
-        <button class="icon-btn lib-add-btn" title="Link">＋</button>
-      </div>`).join('');
-
-    results.querySelectorAll('.lk-cand').forEach(el=>{
-      el.querySelector('.lib-add-btn').onclick = async () => {
-        await dbBoss.linkTracks(sel.id, Number(el.dataset.id));
-        this.render(); // refresh linked list + picker, keeps the picker open
-      };
-    });
-  },
-
-  async compute(ytId, trackId){
-    const tracks = await db.tracks.toArray();
-    const nameByYt = {}, byId = {};
-    tracks.forEach(t => { nameByYt[t.ytId] = t.name; byId[t.id] = t; });
-
-    // before / after from play history (consecutive plays)
-    const hist = await db.playHistory.orderBy('ts').toArray();
-    const before = {}, after = {};
-    for (let i = 0; i < hist.length; i++){
-      if (hist[i].ytId !== ytId) continue;
-      if (i > 0){ const p = hist[i-1].ytId; if (p && p !== ytId) before[p] = (before[p]||0)+1; }
-      if (i < hist.length-1){ const n = hist[i+1].ytId; if (n && n !== ytId) after[n] = (after[n]||0)+1; }
-    }
-    const toList = (m) => Object.keys(m)
-      .map(yt => ({ ytId:yt, name: nameByYt[yt] || yt, count:m[yt] }))
-      .sort((a,b)=> b.count - a.count);
-
-    // tracks sharing a playlist with this one
-    const myJoins = await db.playlistTracks.where('trackId').equals(trackId).toArray();
-    const plIds = [...new Set(myJoins.map(j => j.playlistId))];
-    const sameIds = new Set();
-    for (const pid of plIds){
-      const js = await db.playlistTracks.where('playlistId').equals(pid).toArray();
-      js.forEach(j => { if (j.trackId !== trackId) sameIds.add(j.trackId); });
-    }
-    const same = [...sameIds].map(id => byId[id]).filter(Boolean).map(t => ({ ytId:t.ytId, name:t.name }));
-
-    return { before: toList(before), after: toList(after), same };
-  }
-};
-
-
-/* ── RIFFROLLED — "Roll the Riff": pull a track into your active playlist. ──
-   The pool is CURATED with NO BACKEND: it's your own saved library. The whole
-   roll UI/animation is client-side and never needs a server. To go social later
-   (a shared, user-contributed pool), replace riffPool.getCandidates() with a
-   fetch() to your API that returns the same {ytId,name,artist,tags,rarity} shape —
-   nothing else here has to change. */
-
-// each track has an inherent, stable rarity derived from its id (deterministic = collectible feel)
-function riffRarity(ytId){
-  var h = 0;
-  for (var i = 0; i < ytId.length; i++) h = (h * 31 + ytId.charCodeAt(i)) >>> 0;
-  var f = (h % 10000) / 10000;
-  if (f < 0.55) return 'common';
-  if (f < 0.80) return 'rare';
-  if (f < 0.94) return 'epic';
-  return 'legendary';
-}
-var RIFF_RARITY_COLOR = { common:'#9aa0b5', rare:'#4aa3ff', epic:'#a06bff', legendary:'#ffb43d' };
-var RIFF_LOGO_SVG =
-"<svg class='riff-logo' viewBox='0 0 48 48' aria-hidden='true'>" +
-  "<defs><linearGradient id='rlg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#8a7bff'/><stop offset='1' stop-color='#46e0ff'/></linearGradient></defs>" +
-  "<g class='riff-die d2'>" +
-    "<rect x='23' y='5' width='21' height='21' rx='5.5' fill='#15152e' stroke='url(#rlg)' stroke-width='2'/>" +
-    "<circle cx='27.2' cy='9.2' r='1.25' fill='url(#rlg)' opacity='0.85'/>" +
-    "<circle cx='39.8' cy='21.8' r='1.25' fill='url(#rlg)' opacity='0.85'/>" +
-    "<ellipse cx='31.4' cy='19.6' rx='2.9' ry='2.2' fill='url(#rlg)' transform='rotate(-20 31.4 19.6)'/>" +
-    "<path d='M34 19.2 L34 10.6 C36.6 11.4 37.6 13 36.8 15.6' fill='none' stroke='url(#rlg)' stroke-width='1.7' stroke-linecap='round'/>" +
-  "</g>" +
-  "<g class='riff-die d1'>" +
-    "<rect x='4.5' y='16.5' width='23' height='23' rx='5.5' fill='#0e0e1c' stroke='url(#rlg)' stroke-width='2'/>" +
-    "<circle cx='9.2' cy='21.2' r='1.35' fill='url(#rlg)' opacity='0.85'/>" +
-    "<circle cx='22.8' cy='34.8' r='1.35' fill='url(#rlg)' opacity='0.85'/>" +
-    "<ellipse cx='13.6' cy='32.6' rx='3.2' ry='2.4' fill='url(#rlg)' transform='rotate(-20 13.6 32.6)'/>" +
-    "<path d='M16.5 32.1 L16.5 22.4 C19.4 23.3 20.5 25.1 19.6 28' fill='none' stroke='url(#rlg)' stroke-width='1.8' stroke-linecap='round'/>" +
-  "</g>" +
-"</svg>";
-
-var riffPool = {
-  // CURATED / NO BACKEND — the roll pool is your own library.
-  // Backend swap point: return (await fetch('/api/riff-pool')).json();  // same shape, nothing else changes
-  async getCandidates(excludeSet){
-    var all = await db.tracks.toArray();
-    return all
-      .filter(t => t.ytId && !(excludeSet && excludeSet.has(t.ytId)))
-      .map(t => ({ ytId:t.ytId, name:t.name, artist:t.artist || '', tags:t.tags || '', rarity: riffRarity(t.ytId) }));
-  }
-};
-
-var riffBoss = {
-  setup(){
-    var main =
-      "<div class='riff-brand'>" + RIFF_LOGO_SVG + "<span class='riff-wordmark'>RIFFROLLED</span></div>" +
-      "<div class='riff-body'>" +
-        "<div class='riff-opts'>" +
-          "<div class='riff-target'>" +
-            "<label><input type='radio' name='riffTarget' value='current' checked> Add to current playlist</label>" +
-            "<label><input type='radio' name='riffTarget' value='new'> Create a new playlist</label>" +
-          "</div>" +
-          "<input type='text' class='riff-newname' placeholder='New playlist name…' style='display:none'>" +
-          "<div class='riff-row'>" +
-            "<label class='riff-field'>Tracks <input type='number' class='riff-count' value='1' min='1' max='25'></label>" +
-            "<input type='text' class='riff-tags' placeholder='Filter by tags (optional)…'>" +
-          "</div>" +
-        "</div>" +
-        "<button class='riff-portal' title='Roll tracks into your playlist'><span class='riff-label'>ROLL</span></button>" +
-        "<div class='riff-hint'>Each roll drops fresh tracks into the chosen playlist.</div>" +
-        "<div class='riff-result'></div>" +
-      "</div>";
-    this.el = menuB.createMenu('🎲 Roll the Riff', main);
-    menuB.place(this.el, { left:'16px', top:'16px', width:'300px' });
-    this.el.querySelector('.riff-portal').onclick = () => this.roll();
-    // show the name box only when "new playlist" is chosen
-    var nameBox = this.el.querySelector('.riff-newname');
-    this.el.querySelectorAll("input[name='riffTarget']").forEach(r => {
-      r.addEventListener('change', () => {
-        var isNew = this.el.querySelector("input[name='riffTarget']:checked").value === 'new';
-        nameBox.style.display = isNew ? '' : 'none';
-        if (isNew) nameBox.focus();
+    // accepts watch?v=, youtu.be/, shorts/, embed/ URLs and bare 11-char IDs;
+    // split on commas, whitespace, or newlines; deduped
+    function parseIds(text){
+      var ids = [], seen = {};
+      text.split(/[\s,]+/).forEach(function(tok){
+        if (!tok) return;
+        var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(tok)
+             || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(tok)
+             || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(tok)
+             || /^([A-Za-z0-9_-]{11})$/.exec(tok);
+        if (m && !seen[m[1]]){ seen[m[1]] = 1; ids.push(m[1]); }
       });
+      return ids;
+    }
+    box.addEventListener('input', function(){
+      var n = parseIds(box.value).length;
+      countEl.textContent = n ? (n + ' video' + (n > 1 ? 's' : '') + ' found') : '';
     });
-  },
-
-  async roll(){
-    if (this._rolling) return;
-    var newMode = this.el.querySelector("input[name='riffTarget']:checked").value === 'new';
-
-    // resolve the target playlist
-    var targetId;
-    if (newMode){
-      var name = (this.el.querySelector('.riff-newname').value || '').trim();
-      if (!name) name = 'Riff Roll ' + new Date().toLocaleDateString();
-      targetId = await dbBoss.createPl(name);
-      await plBoss.setActivePlaylist(targetId);  // make it active so the rolls are visible
-    } else {
-      if (!window.plBoss || !plBoss.activeId){
-        if (window.appNotify) appNotify('Pick an active playlist first, or choose “Create a new playlist”.', 'warn');
-        return;
+    go.onclick = async function(){
+      var ids = parseIds(box.value);
+      if (!ids.length){ pStatus('No video links or IDs found', 'err'); return; }
+      go.disabled = true;
+      pStatus('Adding ' + ids.length + '…');
+      var added = 0;
+      for (var i = 0; i < ids.length; i++){
+        var id = ids[i], title = 'Video ' + id;
+        // try oEmbed for the real title (no key needed); fall back to the id
+        try {
+          var r = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id) + '&format=json');
+          if (r.ok){ var d = await r.json(); if (d.title) title = d.title; }
+        } catch(e){ /* offline or CORS hiccup — id-as-title still works */ }
+        var tid = await dbBoss.createTrack(id, title);
+        if (window.plBoss && plBoss.activeId){
+          if ((await dbBoss.addToPlaylist(plBoss.activeId, tid)) === 'added') added++;
+        } else { added++; }
+        pStatus('Adding… ' + (i + 1) + '/' + ids.length);
       }
-      targetId = plBoss.activeId;
-    }
-
-    var n = parseInt(this.el.querySelector('.riff-count').value, 10) || 1;
-    n = Math.max(1, Math.min(25, n));
-
-    var tagq = (this.el.querySelector('.riff-tags').value || '').trim().toLowerCase();
-    var tagList = tagq ? tagq.split(',').map(s => s.trim()).filter(Boolean) : [];
-
-    // exclude tracks already in the target playlist
-    var joins = await db.playlistTracks.where('playlistId').equals(targetId).toArray();
-    var owned = new Set();
-    var ts = await db.tracks.bulkGet(joins.map(j => j.trackId));
-    ts.forEach(t => { if (t) owned.add(t.ytId); });
-
-    var pool = await riffPool.getCandidates(owned);
-    if (tagList.length){
-      pool = pool.filter(c => { var ct = (c.tags || '').toLowerCase(); return tagList.some(tag => ct.indexOf(tag) !== -1); });
-    }
-    if (!pool.length){
-      if (window.appNotify) appNotify(tagList.length ? 'No new tracks match those tags.' : 'No new tracks to roll — add more to your library, or this playlist already has them all.', 'warn');
-      return;
-    }
-
-    // pick up to n distinct candidates — gacha-style: roll a rarity tier first
-    // (weighted: legendary is genuinely rare), then take a random track of that tier
-    var avail = pool.slice(), picks = [], take = Math.min(n, avail.length);
-    var TIER_W = { common:60, rare:27, epic:10, legendary:3 };
-    function rollOne(list){
-      var byTier = {};
-      list.forEach(function(c){ (byTier[c.rarity] = byTier[c.rarity] || []).push(c); });
-      var tiers = Object.keys(byTier);
-      var total = tiers.reduce(function(s,t){ return s + (TIER_W[t] || 1); }, 0);
-      var r = Math.random() * total;
-      for (var ti = 0; ti < tiers.length; ti++){
-        r -= (TIER_W[tiers[ti]] || 1);
-        if (r <= 0){
-          var arr = byTier[tiers[ti]];
-          var c = arr[Math.floor(Math.random() * arr.length)];
-          return list.splice(list.indexOf(c), 1)[0];
-        }
-      }
-      return list.splice(Math.floor(Math.random() * list.length), 1)[0];
-    }
-    for (var i = 0; i < take; i++) picks.push(rollOne(avail));
-
-    var portal = this.el.querySelector('.riff-portal');
-    var res = this.el.querySelector('.riff-result');
-    var brand = this.el.querySelector('.riff-brand');
-    this._rolling = true;
-    portal.classList.add('rolling');
-    if (brand) brand.classList.add('rolling');
-    res.classList.remove('show');
-
-    var self = this;
-    setTimeout(async () => {
-      portal.classList.remove('rolling');
-      if (brand) brand.classList.remove('rolling');
-      self._rolling = false;
-      for (var k = 0; k < picks.length; k++){
-        var p = picks[k];
-        var tid = await dbBoss.createTrack(p.ytId, p.name);
-        await dbBoss.addToPlaylist(targetId, tid);
-      }
-      await plBoss.renderTracks(); plBoss.renderPlaylists();
-      if (window.searchBoss) searchBoss.render();
-      self.renderResult(picks, take < n);
-    }, 1100);
-  },
-
-  renderResult(picks, short){
-    var res = this.el.querySelector('.riff-result');
-    var order = { common:0, rare:1, epic:2, legendary:3 };
-    var top = picks.reduce((a, b) => order[b.rarity] > order[a.rarity] ? b : a, picks[0]);
-    res.style.setProperty('--rar', RIFF_RARITY_COLOR[top.rarity] || RIFF_RARITY_COLOR.common);
-
-    if (picks.length === 1){
-      var p = picks[0], meta = [p.artist, p.tags].filter(Boolean).join(' · ');
-      res.innerHTML =
-        "<div class='riff-rarity'>" + p.rarity + "</div>" +
-        "<div class='riff-rname'>" + escapeHtml(p.name) + "</div>" +
-        (meta ? "<div class='riff-rmeta'>" + escapeHtml(meta) + "</div>" : '') +
-        "<button class='riff-play'>▶ Play now</button>";
-      res.querySelector('.riff-play').onclick = () => ytPlay(p.ytId, p.name);
-    } else {
-      var items = picks.map(p => {
-        var c = RIFF_RARITY_COLOR[p.rarity] || RIFF_RARITY_COLOR.common;
-        return "<li><span class='riff-dot' style='background:" + c + "'></span><span class='riff-li-name'>" + escapeHtml(p.name) + "</span></li>";
-      }).join('');
-      res.innerHTML =
-        "<div class='riff-rarity'>Added " + picks.length + " track" + (picks.length > 1 ? 's' : '') + "</div>" +
-        "<ul class='riff-list'>" + items + "</ul>" +
-        (short ? "<div class='riff-rmeta'>(that’s all the pool had left)</div>" : '');
-    }
-    requestAnimationFrame(() => res.classList.add('show'));
+      plBoss.afterDbChange();
+      pStatus('Added ' + added + (plBoss.activeId ? ' to the current playlist' : ' to your library'), 'ok');
+      box.value = ''; countEl.textContent = '';
+      go.disabled = false;
+    };
   }
 };
-
 
 /* ── About & Legal panel (About / Terms / Privacy) ── */
 var ABOUT_HTML =
   "<h4>riffrolled</h4>" +
-  "<p>A vinyl-styled player and discovery tool for your YouTube music. Build playlists, import channels, and <em>Roll the Riff</em> to pull fresh tracks into a playlist.</p>" +
+  "<p>A vinyl-styled player and discovery tool for your YouTube music. Search YouTube, import whole channels, and build playlists on a spinning record deck.</p>" +
   "<p>It runs entirely in your browser — your playlists, tracks, reactions, and layout are saved locally on your device. There is no account to create and nothing to sign in to.</p>" +
   "<p>riffrolled is an independent project and is <strong>not affiliated with, endorsed by, or sponsored by YouTube or Google LLC</strong>. Playback is provided through YouTube’s embedded player; all videos remain subject to YouTube’s Terms of Service.</p>" +
   "<p class='info-meta'>Beta · riffrolled.com</p>";
@@ -2408,12 +2022,11 @@ var TERMS_HTML =
 
 var PRIVACY_HTML =
   "<h4>Privacy Policy</h4>" +
-  "<p>riffrolled is local-first. Your playlists, tracks, reactions, settings, and panel layout are stored in your browser (IndexedDB) on your own device. We do not run a server for your data, we have no account system, and this app does not send your library to us.</p>" +
+  "<p><strong>What lives on our server</strong> (a shared music catalogue, and the bare minimum): track name, artist/channel, genre, and YouTube URL — added when anyone searches or imports a channel. That's the entire list. It contains nothing about <em>you</em>.</p>" +
+  "<p><strong>What stays on your device</strong> (browser storage, never uploaded): your playlists and their order, play history and counts, likes/dislikes, tags and edits, track-to-track listening links, panel layout, and every setting. Clearing this site's browser data removes all of it.</p>" +
   "<ul>" +
-    "<li><strong>YouTube embeds:</strong> playing a video loads YouTube’s player from Google’s servers, which may set cookies and collect data under <a href='https://policies.google.com/privacy' target='_blank' rel='noopener'>Google’s Privacy Policy</a>. That happens between you and Google.</li>" +
-    "<li><strong>API key:</strong> an optional YouTube Data API key you enter is stored only in your browser and sent only to Google’s API when you import.</li>" +
-    "<li><strong>No analytics or ad tracking</strong> are built into this app.</li>" +
-    "<li><strong>Clearing data:</strong> removing the site’s browser data (or using Export first) clears everything riffrolled has stored.</li>" +
+    "<li><strong>YouTube embeds:</strong> playing a video loads YouTube's player from Google's servers, which may set cookies and collect data under <a href='https://policies.google.com/privacy' target='_blank' rel='noopener'>Google's Privacy Policy</a>. That happens between you and Google.</li>" +
+    "<li><strong>No accounts, no analytics, no ad tracking</strong> are built into this app.</li>" +
   "</ul>" +
   "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: via riffrolled.com. Please review with your own counsel before publishing.</p>";
 
@@ -2447,10 +2060,8 @@ var infoBoss = {
 
 plBoss.setup();
 searchBoss.setup();
-linksBoss.setup();
-riffBoss.setup();
+importBoss.setup();
 infoBoss.setup();
-ytBoss.setup();
 
 
 
@@ -2586,8 +2197,7 @@ var dock = {
     if (this.mobile) return;
     const pos = {
       'Tracks':           { right:'400px', top:'120px' },
-      'Playlists':        { right:'92px',  top:'110px' },
-      'Current Playlist': { right:'150px', top:'480px' }
+      'Playlist':         { right:'92px',  top:'48px' }
     };
     this.items.forEach(it => {
       const p = pos[it.label];
@@ -2694,14 +2304,11 @@ document.addEventListener('click', function(e){
 })();
 
 dock.build([
-  { icon:'🎲', iconSvg: RIFF_LOGO_SVG.replace(/rlg/g, 'rlgDock'), label:'Roll the Riff', el: riffBoss.el, startHidden:true },
   { icon:'🎵', label:'Tracks',           el: menuB.tracksPanel },
-  { icon:'🔎', label:'Search Tracks',    el: searchBoss.el, startHidden:true },
-  { icon:'📺', label:'YouTube Search',    el: ytBoss.el, startHidden:true },
-  { icon:'📁', label:'Playlists',        el: plBoss.el },
-  { icon:'🎧', label:'Current Playlist', el: plBoss.currentEl },
+  { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true },
+  { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true },
+  { icon:'🎶', label:'Playlist',         el: plBoss.currentEl },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true },
-  { icon:'🔗', label:'Links',            el: linksBoss.el, startHidden:true },
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true }
 ]);
 
@@ -2783,24 +2390,29 @@ async function runSelfTests(){
       assert((await db.playlists.count()) === 1 && r.addedPlaylists === 0, 'no dup playlist');
       assert((await db.playlistTracks.where('playlistId').equals(p).count()) === 2, 'merged in');
     }],
-    ['riff rarity is deterministic and valid', async () => {
-      const a = riffRarity('dQw4w9WgXcQ'), b = riffRarity('dQw4w9WgXcQ');
-      assert(a === b, 'same id -> same rarity');
-      assert(['common','rare','epic','legendary'].includes(a), 'valid tier');
+    ['recordPair normalises, dedupes and counts', async () => {
+      await dbBoss.recordPair('bbbbbbbbbbb', 'aaaaaaaaaaa');
+      await dbBoss.recordPair('aaaaaaaaaaa', 'bbbbbbbbbbb');
+      await dbBoss.recordPair('aaaaaaaaaaa', 'aaaaaaaaaaa');   // self: ignored
+      const rows = await db.trackPairs.toArray();
+      assert(rows.length === 1, 'one row per pair');
+      assert(rows[0].a === 'aaaaaaaaaaa' && rows[0].b === 'bbbbbbbbbbb', 'normalised a<b');
+      assert(rows[0].count === 2, 'count strengthens');
     }]
   ];
 
   // run against a throwaway DB so real data is never touched
   const realDb = db;
   const testDb = new Dexie('vinyl_selftest_' + Date.now());
-  testDb.version(7).stores({
+  testDb.version(8).stores({
     playlists: '++id, name, createdAt, plays, tags',
     tracks: '++id, ytId, name, artist, tags, plays',
     playlistTracks: '++id, playlistId, trackId, addedAt, order',
     playHistory: '++id, trackId, ytId, ts',
     trackLinks: '++id, a, b, createdAt',
     settings: 'k',
-    reactions: '++id, ytId, trackId, kind, ts'
+    reactions: '++id, ytId, trackId, kind, ts',
+    trackPairs: '++id, &key, a, b, count, lastTs'
   });
   await testDb.open();
 
@@ -2809,7 +2421,7 @@ async function runSelfTests(){
   db = testDb;                       // dbBoss now operates on the throwaway DB
   try {
     for (const [name, fn] of tests){
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs].map(t => t.clear()));
       try { await fn(); results.push({ ok:true, name }); pass++; }
       catch (e){ results.push({ ok:false, name, msg:e.message }); fail++; }
     }

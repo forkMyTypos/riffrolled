@@ -1,26 +1,68 @@
-# ── riffrolled — one Worker serves everything ─────────────────────────
-# Static frontend (public/) + JSON API (/api/*) + D1, all on Cloudflare.
-# Deployed via Cloudflare's Git integration — no local tooling required.
-name = "riffrolled"
-main = "src/index.js"
-compatibility_date = "2026-06-01"
+// ── D1 query layer ────────────────────────────────────────────────────
+// All SQL lives here as prepared statements with bound parameters.
+// Table: tracks { id (auto), name, artist, genre, url }
 
-# The frontend. Requests that match a file in ./public are served as
-# static assets; everything else (i.e. /api/*) falls through to the Worker.
-[assets]
-directory = "./public"
+/** Escape LIKE wildcards in user input; we add our own around it. */
+function likeParam(q) {
+  return `%${q.replace(/([%_\\])/g, '\\$1')}%`;
+}
 
-# D1 binding. Create the database in the Cloudflare dashboard
-# (Storage & Databases → D1 → Create), then paste its ID below.
-[[d1_databases]]
-binding = "DB"
-database_name = "riffrolled"
-database_id = "fc38c5e0-2d5f-4dbf-9c2b-44b69ef7280c"
+/** Case-insensitive substring search across name/artist/genre. */
+export async function searchTracks(db, q, limit) {
+  const { results } = await db
+    .prepare(
+      `SELECT id, name, artist, genre, url
+         FROM tracks
+        WHERE name   LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+           OR artist LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+           OR genre  LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+        ORDER BY id DESC
+        LIMIT ?2`
+    )
+    .bind(likeParam(q), limit)
+    .all();
+  return results || [];
+}
 
-[vars]
-# Frontend and API share one origin now, so CORS is same-origin by default.
-# This only matters if you later call the API from another site.
-ALLOWED_ORIGIN = "https://riffrolled.com"
+/** List tracks, optionally filtered by genre. */
+export async function listTracks(db, genre, limit) {
+  const stmt = genre
+    ? db.prepare(
+        `SELECT id, name, artist, genre, url FROM tracks
+          WHERE genre LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+          ORDER BY id DESC LIMIT ?2`
+      ).bind(likeParam(genre), limit)
+    : db.prepare(
+        `SELECT id, name, artist, genre, url FROM tracks ORDER BY id DESC LIMIT ?1`
+      ).bind(limit);
+  const { results } = await stmt.all();
+  return results || [];
+}
 
-# Secrets (set in dashboard → your Worker → Settings → Variables & Secrets):
-#   YT_API_KEY = your YouTube Data API v3 key
+/**
+ * Insert tracks, skipping any url we already have (dedupe by url).
+ * Works whether or not the unique index exists.
+ */
+export async function insertTracks(db, tracks) {
+  if (!tracks.length) return 0;
+  const stmt = db.prepare(
+    `INSERT INTO tracks (name, artist, genre, url)
+     SELECT ?1, ?2, ?3, ?4
+      WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
+  );
+  await db.batch(tracks.map((t) => stmt.bind(t.name, t.artist || '', t.genre || '', t.url)));
+  return tracks.length;
+}
+
+export async function getTrackByUrl(db, url) {
+  return db
+    .prepare(`SELECT id, name, artist, genre, url FROM tracks WHERE url = ?1`)
+    .bind(url)
+    .first();
+}
+
+/** Total rows in tracks (used to report how many an import actually added). */
+export async function countTracks(db) {
+  const row = await db.prepare(`SELECT COUNT(*) AS n FROM tracks`).bind().first();
+  return row?.n ?? 0;
+}

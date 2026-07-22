@@ -1,0 +1,33 @@
+# ── riffrolled — one Worker serves everything ─────────────────────────
+# Static frontend (public/) + JSON API (/api/*) + D1, all on Cloudflare.
+# Deployed via Cloudflare's Git integration — no local tooling required.
+name = "riffrolled"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# The frontend. Requests that match a file in ./public are served as
+# static assets; everything else (i.e. /api/*) falls through to the Worker.
+[assets]
+directory = "./public"
+
+# D1 binding. Create the database in the Cloudflare dashboard
+# (Storage & Databases → D1 → Create), then paste its ID below.
+[[d1_databases]]
+binding = "DB"
+database_name = "riffrolled"
+database_id = "fc38c5e0-2d5f-4dbf-9c2b-44b69ef7280c"
+
+[vars]
+# Frontend and API share one origin now, so CORS is same-origin by default.
+# This only matters if you later call the API from another site.
+ALLOWED_ORIGIN = "https://riffrolled.com"
+
+# ── riff token tunables (defaults shown; uncomment to change) ──
+# MINE_DIFFICULTY_BITS = "20"   # leading zero bits (each +1 doubles mining time)
+# MINE_REWARD = "1"             # tokens per solved challenge
+# MINE_DAILY_CAP = "50"         # max mints per wallet per UTC day
+# PROMOTE_COST = "5"            # tokens to promote a track
+# PROMOTE_HOURS = "24"          # how long a promotion stays live
+
+# Secrets (set in dashboard → your Worker → Settings → Variables & Secrets):
+#   YT_API_KEY = your YouTube Data API v3 key

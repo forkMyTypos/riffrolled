@@ -261,7 +261,10 @@ body {
 .active-pl-header { padding:8px 12px 2px; font-size:11px; }
 .pl-status { font-weight:600; }
 
-.active-pl-name-row { padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
+.active-pl-name-row { display:flex; align-items:center; gap:7px; padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
+.pl-name-icon { font-size:15px; flex-shrink:0; }
+.active-pl-name-row .pl-add { flex-shrink:0; }
+.active-pl-name { flex:1; min-width:0; }
 .active-pl-name {
   width:100%; font-size:15px; font-weight:700;
   background:transparent; border:none !important; outline:none;
@@ -342,6 +345,23 @@ body {
 .st-play { width:26px; height:26px; font-size:11px; padding:0; flex-shrink:0; }
 
 /* ── channel import (Tracks panel) ── */
+/* Database panel: pinned feedback bar + readable rows */
+.data-panel .mainC { display:flex; flex-direction:column; overflow:hidden; }
+.data-panel .sec { display:flex; flex-direction:column; flex:1; min-height:0; }
+.data-panel .dbs-results { flex:1; min-height:0; overflow-y:auto; }
+.data-panel .dbs-status { flex-shrink:0; min-height:22px; margin-top:4px; padding:6px 8px;
+  border-top:1px solid rgba(255,255,255,0.1); background:rgba(20,20,40,0.92); border-radius:0 0 10px 10px; }
+/* rows never wrap: one line = one track (▶ · name · actions) */
+.st-item { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; padding:3px 2px; border-radius:7px; }
+.st-item .name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+.st-item .icon-btn { flex-shrink:0; }
+.st-item:hover { background:rgba(255,255,255,0.05); }
+/* clearer section separation */
+.dbs-results .srh-sec-head { position:sticky; top:0; z-index:2; background:rgba(23,23,44,0.97);
+  padding:7px 4px 5px; margin:0 0 2px; border-bottom:1px solid rgba(140,123,255,0.25); color:#b7aaff; font-size:10px; }
+/* click feedback: the row you touched pulses */
+@keyframes rowflash { 0%{ background:rgba(140,123,255,0.35);} 100%{ background:transparent;} }
+.row-flash { animation:rowflash 0.6s ease-out; }
 /* riff mine + promotions */
 .mine-balrow { display:flex; align-items:baseline; gap:7px; padding:4px 2px 0; }
 .mine-bal { font-size:30px; font-weight:800; background:linear-gradient(120deg,#9d8cff,#46e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -581,6 +601,11 @@ body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; paddin
                     <input type="checkbox" id="spinToggle" checked>
                     <span class="spin-track"><span class="spin-thumb"></span></span>
                     <span class="spin-label">Spin</span>
+                </label>
+                <label class="spin-toggle" id="wakeToggleWrap" title="Keep the screen on while music plays (uses more battery). Phones pause YouTube when the screen turns off.">
+                    <input type="checkbox" id="wakeToggle">
+                    <span class="spin-track"><span class="spin-thumb"></span></span>
+                    <span class="spin-label">Awake</span>
                 </label>
             </div>
         </div>
@@ -1124,8 +1149,53 @@ var player = {
     this.el.arm.classList.toggle('playing', on);
     this.el.play.textContent = on ? '⏸' : '▶';
     if (window.plBoss && plBoss.updateStatus) plBoss.updateStatus();
+    if (window.wakeBoss) wakeBoss.update();
   }
 };
+
+/* ── screen wake lock — phones suspend YouTube playback when the screen
+   sleeps, so while a track is playing (and the toggle is on) we ask the
+   browser to keep the screen awake. Auto-released on pause; re-acquired
+   when the tab becomes visible again (locks always drop when hidden). ── */
+var wakeBoss = {
+  enabled: false,
+  _lock: null,
+
+  init(){
+    var wrap = document.getElementById('wakeToggleWrap');
+    var box = document.getElementById('wakeToggle');
+    if (!('wakeLock' in navigator)){ if (wrap) wrap.style.display = 'none'; return; }
+    var self = this;
+    dbBoss.getSetting('wakeLock').then(function(v){
+      self.enabled = v === '1';
+      box.checked = self.enabled;
+      self.update();
+    });
+    box.addEventListener('change', function(){
+      self.enabled = box.checked;
+      dbBoss.setSetting('wakeLock', self.enabled ? '1' : '0');
+      self.update();
+    });
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'visible') self.update();
+    });
+  },
+
+  async update(){
+    var want = this.enabled && window.player && player.isPlaying;
+    if (want && !this._lock){
+      try {
+        this._lock = await navigator.wakeLock.request('screen');
+        var self = this;
+        this._lock.addEventListener('release', function(){ self._lock = null; });
+      } catch(e){ /* denied (e.g. low battery mode) — playback still works while screen is on */ }
+    } else if (!want && this._lock){
+      try { this._lock.release(); } catch(e){}
+      this._lock = null;
+    }
+  }
+};
+wakeBoss.init();
 
 function ytPlay(id, title) { player.load(id, title); }
 
@@ -1303,7 +1373,6 @@ var plBoss = {
             <input type="text" class="pl-srh" placeholder="🔍 Your playlists…">
             <div class="pl-pop scrollable"></div>
           </div>
-          <button class="icon-btn pl-add" title="New playlist">＋</button>
         </div>
 
         <div class="active-pl-header">
@@ -1311,6 +1380,8 @@ var plBoss = {
         </div>
 
         <div class="active-pl-name-row">
+          <span class="pl-name-icon">🎶</span>
+          <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
         </div>
 
@@ -1328,25 +1399,6 @@ var plBoss = {
 
         <div class="active-pl-tracks"></div>
 
-        <div class="mix-sec">
-          <div class="sec-head">🎲 Random mix</div>
-          <div class="row mix-row">
-            <input type="text" class="mix-tags" placeholder="Tags (optional)…">
-            <select class="mix-bias" title="How to pick">
-              <option value="random" selected>Random</option>
-              <option value="most">Most played</option>
-              <option value="least">Least played</option>
-            </select>
-            <select class="mix-count" title="How many tracks">
-              <option value="10">10</option>
-              <option value="20" selected>20</option>
-              <option value="30">30</option>
-              <option value="50">50</option>
-            </select>
-            <button class="icon-btn mix-go" title="Build a new playlist">🎲</button>
-          </div>
-          <div class="status-bar mix-status"></div>
-        </div>
 
       </div>
     `;
@@ -1407,63 +1459,8 @@ var plBoss = {
       if (window.dock && window.importBoss) dock.openPanel(importBoss.el);
     };
 
-    // ── 🎲 random mix builder ──
-    root.querySelector('.mix-go').onclick = () => this.buildMix();
   },
 
-  mixStatus(msg, kind){
-    const el = this.currentEl.querySelector('.mix-status');
-    el.textContent = msg || '';
-    el.className = 'status-bar mix-status' + (kind ? ' ' + kind : '');
-    if (msg && kind === 'ok'){ clearTimeout(this._mixT); this._mixT = setTimeout(() => { if (el.textContent === msg) this.mixStatus(''); }, 7000); }
-  },
-
-  /* Build a fresh playlist from the local library.
-     Pool: all local tracks, optionally narrowed by tags (comma list, any match).
-     Bias: random shuffle · most played · least played (from local play history). */
-  async buildMix(){
-    const root = this.currentEl;
-    const tagsQ = (root.querySelector('.mix-tags').value || '').trim().toLowerCase();
-    const bias  = root.querySelector('.mix-bias').value;
-    const n     = parseInt(root.querySelector('.mix-count').value, 10) || 20;
-
-    let pool = await db.tracks.toArray();
-    if (tagsQ){
-      const wanted = tagsQ.split(',').map(s => s.trim()).filter(Boolean);
-      pool = pool.filter(t => {
-        const tt = (t.tags || '').toLowerCase();
-        return wanted.some(w => tt.includes(w));
-      });
-    }
-    if (!pool.length){ this.mixStatus(tagsQ ? 'No tracks match those tags' : 'Your library is empty', 'err'); return; }
-
-    if (bias === 'random'){
-      for (let i = pool.length - 1; i > 0; i--){          // Fisher–Yates
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-    } else {
-      const counts = await dbBoss.getPlayCounts();
-      const c = t => counts[t.ytId] || 0;
-      // tiny random jitter so equal-count tracks vary between builds
-      pool.sort((x, y) => (bias === 'most' ? c(y) - c(x) : c(x) - c(y)) || Math.random() - 0.5);
-    }
-
-    const picks = pool.slice(0, n);
-
-    // unique "Mix" name: Mix 1, Mix 2, …
-    const pls = await dbBoss.getPlaylists();
-    let num = 1;
-    while (pls.some(p => p.name === 'Mix ' + num)) num++;
-    const label = { random:'', most:' · most played', least:' · least played' }[bias] || '';
-    const name = 'Mix ' + num + (tagsQ ? ' · ' + tagsQ : '') + label;
-
-    const plId = await dbBoss.createPl(name);
-    for (const t of picks) await dbBoss.addToPlaylist(plId, t.id);
-    await this.setActivePlaylist(plId);
-    this.renderPlPopup();
-    this.mixStatus('Built “' + name + '” with ' + picks.length + ' tracks', 'ok');
-  },
 
   // popup list of playlists, filtered by the search box
   async renderPlPopup(){
@@ -1957,6 +1954,7 @@ var dataBoss = {
         "<div class='status-bar dbs-status'></div>" +
       "</div>";
     this.el = menuB.createMenu(DB_ICON_SVG.replace(/dbg/g, 'dbgT') + " Database", main);
+    this.el.classList.add('data-panel');
     menuB.place(this.el, { right:'470px', top:'400px', width:'320px', height:'340px' });
 
     var self = this;
@@ -1966,8 +1964,10 @@ var dataBoss = {
     this.el.querySelector('.dbs-results').addEventListener('click', async function(e){
       var item = e.target.closest('.st-remote'); if (!item) return;
       var vid = item.dataset.yt, name = item.dataset.name;
-      if (e.target.closest('.st-play')){ ytPlay(vid, name); return; }
+      item.classList.remove('row-flash'); void item.offsetWidth; item.classList.add('row-flash');
+      if (e.target.closest('.st-play')){ self.status('▶ Playing ' + name); ytPlay(vid, name); return; }
       if (e.target.closest('.st-promote')){
+        self.status('Promoting…');
         try {
           var w = await mineBoss.wallet();
           var pres = await fetch('/api/promote', { method:'POST',
@@ -1981,13 +1981,14 @@ var dataBoss = {
         return;
       }
       if (e.target.closest('.st-add')){
+        self.status('Adding…');
         var tid = await dbBoss.createTrack(vid, name);
         if (window.plBoss && plBoss.activeId){
           var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
-          self.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
+          self.status(r === 'dupe' ? 'Already in current playlist' : '✓ Added “' + name + '”', r === 'dupe' ? null : 'ok');
           plBoss.afterDbChange();
         } else {
-          self.status('Saved to library ✓ (no active playlist)', 'ok');
+          self.status('✓ Saved to library (no active playlist)', 'ok');
         }
       }
     });
@@ -2063,6 +2064,110 @@ var dataBoss = {
       this.status('Database unavailable: ' + e.message, 'err');
     }
   }
+};
+
+/* ── RANDOM MIX — its own panel, wearing the dice. Builds a fresh playlist
+   from the local library: optional tag filter, biased random / most / least
+   played (from local history). ── */
+var MIX_DICE_SVG =
+  "<svg viewBox='0 0 48 48' aria-hidden='true'>" +
+    "<defs><linearGradient id='mxg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#8a7bff'/><stop offset='1' stop-color='#46e0ff'/></linearGradient></defs>" +
+    "<g transform='rotate(14 33.5 15.5)'>" +
+      "<rect x='23' y='5' width='21' height='21' rx='5.5' fill='#15152e' stroke='url(#mxg)' stroke-width='2'/>" +
+      "<circle cx='27.2' cy='9.2' r='1.25' fill='url(#mxg)' opacity='0.85'/>" +
+      "<circle cx='39.8' cy='21.8' r='1.25' fill='url(#mxg)' opacity='0.85'/>" +
+      "<ellipse cx='31.4' cy='19.6' rx='2.9' ry='2.2' fill='url(#mxg)' transform='rotate(-20 31.4 19.6)'/>" +
+      "<path d='M34 19.2 L34 10.6 C36.6 11.4 37.6 13 36.8 15.6' fill='none' stroke='url(#mxg)' stroke-width='1.7' stroke-linecap='round'/>" +
+    "</g>" +
+    "<g transform='rotate(-8 16 28)'>" +
+      "<rect x='4.5' y='16.5' width='23' height='23' rx='5.5' fill='#0e0e1c' stroke='url(#mxg)' stroke-width='2'/>" +
+      "<circle cx='9.2' cy='21.2' r='1.35' fill='url(#mxg)' opacity='0.85'/>" +
+      "<circle cx='22.8' cy='34.8' r='1.35' fill='url(#mxg)' opacity='0.85'/>" +
+      "<ellipse cx='13.6' cy='32.6' rx='3.2' ry='2.4' fill='url(#mxg)' transform='rotate(-20 13.6 32.6)'/>" +
+      "<path d='M16.5 32.1 L16.5 22.4 C19.4 23.3 20.5 25.1 19.6 28' fill='none' stroke='url(#mxg)' stroke-width='1.8' stroke-linecap='round'/>" +
+    "</g>" +
+  "</svg>";
+
+var mixBoss = {
+  setup(){
+    var main =
+      "<div class='sec'>" +
+        "<div class='sec-head'>Random mix</div>" +
+        "<div class='row mix-row'>" +
+          "<input type='text' class='mix-tags' placeholder='Tags (optional)…'>" +
+          "<select class='mix-bias' title='How to pick'>" +
+            "<option value='random' selected>Random</option>" +
+            "<option value='most'>Most played</option>" +
+            "<option value='least'>Least played</option>" +
+          "</select>" +
+        "</div>" +
+        "<div class='row mix-row'>" +
+          "<select class='mix-count' title='How many tracks'>" +
+            "<option value='10'>10</option><option value='20' selected>20</option>" +
+            "<option value='30'>30</option><option value='50'>50</option>" +
+          "</select>" +
+          "<button class='icon-btn mix-go' title='Build a new playlist'>🎲 Build mix</button>" +
+        "</div>" +
+        "<div class='status-bar mix-status'></div>" +
+      "</div>";
+    this.el = menuB.createMenu(MIX_DICE_SVG.replace(/mxg/g, 'mxgT') + " Random Mix", main);
+    menuB.place(this.el, { right:'800px', top:'400px', width:'300px' });
+    this.el.querySelector('.mix-go').onclick = () => this.buildMix();
+  },
+
+  mixStatus(msg, kind){
+    const el = this.el.querySelector('.mix-status');
+    el.textContent = msg || '';
+    el.className = 'status-bar mix-status' + (kind ? ' ' + kind : '');
+    if (msg && kind === 'ok'){ clearTimeout(this._mixT); this._mixT = setTimeout(() => { if (el.textContent === msg) this.mixStatus(''); }, 7000); }
+  },
+
+  /* Build a fresh playlist from the local library.
+     Pool: all local tracks, optionally narrowed by tags (comma list, any match).
+     Bias: random shuffle · most played · least played (from local play history). */
+  async buildMix(){
+    const root = this.el;
+    const tagsQ = (root.querySelector('.mix-tags').value || '').trim().toLowerCase();
+    const bias  = root.querySelector('.mix-bias').value;
+    const n     = parseInt(root.querySelector('.mix-count').value, 10) || 20;
+
+    let pool = await db.tracks.toArray();
+    if (tagsQ){
+      const wanted = tagsQ.split(',').map(s => s.trim()).filter(Boolean);
+      pool = pool.filter(t => {
+        const tt = (t.tags || '').toLowerCase();
+        return wanted.some(w => tt.includes(w));
+      });
+    }
+    if (!pool.length){ this.mixStatus(tagsQ ? 'No tracks match those tags' : 'Your library is empty', 'err'); return; }
+
+    if (bias === 'random'){
+      for (let i = pool.length - 1; i > 0; i--){          // Fisher–Yates
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+    } else {
+      const counts = await dbBoss.getPlayCounts();
+      const c = t => counts[t.ytId] || 0;
+      // tiny random jitter so equal-count tracks vary between builds
+      pool.sort((x, y) => (bias === 'most' ? c(y) - c(x) : c(x) - c(y)) || Math.random() - 0.5);
+    }
+
+    const picks = pool.slice(0, n);
+
+    // unique "Mix" name: Mix 1, Mix 2, …
+    const pls = await dbBoss.getPlaylists();
+    let num = 1;
+    while (pls.some(p => p.name === 'Mix ' + num)) num++;
+    const label = { random:'', most:' · most played', least:' · least played' }[bias] || '';
+    const name = 'Mix ' + num + (tagsQ ? ' · ' + tagsQ : '') + label;
+
+    const plId = await dbBoss.createPl(name);
+    for (const t of picks) await dbBoss.addToPlaylist(plId, t.id);
+    await plBoss.setActivePlaylist(plId);
+    plBoss.renderPlPopup();
+    this.mixStatus('Built “' + name + '” with ' + picks.length + ' tracks', 'ok');
+  },
 };
 
 /* ── RIFF MINE — hashcash proof-of-work token mining (RPOW spirit).
@@ -2266,6 +2371,7 @@ searchBoss.setup();
 importBoss.setup();
 dataBoss.setup();
 mineBoss.setup();
+mixBoss.setup();
 infoBoss.setup();
 
 
@@ -2412,7 +2518,7 @@ var dock = {
   },
 
   shortLabel(label){
-    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data' }[label] || label.split(' ')[0];
+    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix' }[label] || label.split(' ')[0];
   },
 
   // mobile: show exactly one view — 'player' (the deck) or a panel by label
@@ -2556,6 +2662,7 @@ dock.build([
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true },
+  { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true },
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true },
   { icon:'🎶', label:'Playlist',         el: plBoss.currentEl },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true },

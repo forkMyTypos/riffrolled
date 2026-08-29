@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS promotions (
   url        TEXT NOT NULL,             -- canonical YouTube url from tracks
   name       TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  plays      INTEGER NOT NULL DEFAULT 0,   -- anonymous counters: no wallet, no device id
+  likes      INTEGER NOT NULL DEFAULT 0,
+  tokens     INTEGER NOT NULL DEFAULT 0,   -- spend: longer run, higher in the strip
+  paused     INTEGER NOT NULL DEFAULT 0,   -- owner-paused: hidden, remaining time preserved
+  remaining_ms INTEGER NOT NULL DEFAULT 0  -- time banked while paused
 );
 CREATE INDEX IF NOT EXISTS idx_promo_active ON promotions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_promo_wallet ON promotions(wallet_id, created_at);

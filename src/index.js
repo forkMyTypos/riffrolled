@@ -6,20 +6,24 @@
 import { errorJson, handleOptions } from './utils/response.js';
 import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
-import { handleChannelImport } from './routes/channel.js';
+import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet } from './routes/mine.js';
-import { handlePromote, handlePromotions } from './routes/promote.js';
+import { handlePromote, handlePromotions, handlePromoEvent, handleMyPromotions, handlePromotionAction } from './routes/promote.js';
 
 const ROUTES = [
   ['GET',  /^\/api\/search$/, (req, env, url) => handleSearch(req, env, url)],
   ['GET',  /^\/api\/tracks$/, (req, env, url) => handleListTracks(req, env, url)],
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
   ['GET',  /^\/api\/channel$/, (req, env, url) => handleChannelImport(req, env, url)],
+  ['GET',  /^\/api\/playlist$/, (req, env, url) => handlePlaylistImport(req, env, url)],
   ['POST', /^\/api\/mine\/challenge$/, (req, env) => handleMineChallenge(req, env)],
   ['POST', /^\/api\/mine\/submit$/,    (req, env) => handleMineSubmit(req, env)],
   ['GET',  /^\/api\/wallet$/,           (req, env, url) => handleWallet(req, env, url)],
   ['POST', /^\/api\/promote$/,          (req, env) => handlePromote(req, env)],
+  ['GET',  /^\/api\/promotions\/mine$/,  (req, env, url) => handleMyPromotions(req, env, url)],
   ['GET',  /^\/api\/promotions$/,       (req, env) => handlePromotions(req, env)],
+  ['POST', /^\/api\/promo\/event$/,     (req, env) => handlePromoEvent(req, env)],
+  ['POST', /^\/api\/promotion\/action$/, (req, env) => handlePromotionAction(req, env)],
 ];
 
 export default {

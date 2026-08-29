@@ -109,6 +109,7 @@ export async function handleWallet(request, env, url) {
     mined_today: minedToday,
     daily_cap: cfg.dailyCap,
     promote_cost: cfg.promoteCost,
+    promote_hours: cfg.promoteHours,
     difficulty_bits: cfg.difficulty,
   });
 }

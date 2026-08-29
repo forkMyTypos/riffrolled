@@ -140,16 +140,70 @@ export async function useChallenge(db, id) {
   return res.meta.changes > 0;
 }
 
-export async function addPromotion(db, walletId, url, name, now, expires) {
+export async function addPromotion(db, walletId, url, name, now, expires, tokens = 0) {
   await db.prepare(
-    `INSERT INTO promotions (wallet_id, url, name, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)`
-  ).bind(walletId, url, String(name || '').slice(0, 300), now, expires).run();
+    `INSERT INTO promotions (wallet_id, url, name, created_at, expires_at, tokens)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+  ).bind(walletId, url, String(name || '').slice(0, 300), now, expires, tokens).run();
 }
 
 export async function activePromotions(db, now, limit = 20) {
   const { results } = await db.prepare(
-    `SELECT url, name, expires_at FROM promotions
-      WHERE expires_at > ?1 ORDER BY created_at DESC LIMIT ?2`
+    `SELECT url, name, expires_at, plays, likes, tokens FROM promotions
+      WHERE expires_at > ?1 AND paused = 0
+      ORDER BY tokens DESC, created_at DESC LIMIT ?2`
   ).bind(now, limit).all();
+  return results || [];
+}
+
+/**
+ * Anonymous engagement counter for a promoted track. Increments every
+ * currently-live promotion of that url — nothing about who did it is
+ * stored, only that it happened. Returns rows touched (0 = not promoted).
+ */
+export async function bumpPromotion(db, url, kind, now) {
+  const col = kind === 'like' ? 'likes' : 'plays';
+  const res = await db.prepare(
+    `UPDATE promotions SET ${col} = ${col} + 1
+      WHERE url = ?1 AND expires_at > ?2 AND paused = 0`
+  ).bind(url, now).run();
+  return res.meta.changes;
+}
+
+/** One promotion, by id, scoped to its owner — every owner action goes through this. */
+export async function getOwnedPromotion(db, id, walletId) {
+  return db.prepare(`SELECT * FROM promotions WHERE id = ?1 AND wallet_id = ?2`)
+    .bind(id, walletId).first();
+}
+
+/** Pause: bank the remaining time and drop out of the strip. */
+export async function pausePromotion(db, id, remainingMs) {
+  await db.prepare(
+    `UPDATE promotions SET paused = 1, remaining_ms = ?2 WHERE id = ?1`
+  ).bind(id, remainingMs).run();
+}
+
+/** Resume: spend the banked time forward from now. */
+export async function resumePromotion(db, id, expiresAt) {
+  await db.prepare(
+    `UPDATE promotions SET paused = 0, remaining_ms = 0, expires_at = ?2 WHERE id = ?1`
+  ).bind(id, expiresAt).run();
+}
+
+/** Top up: more tokens, more time, better slot. */
+export async function extendPromotion(db, id, addTokens, expiresAt) {
+  await db.prepare(
+    `UPDATE promotions SET tokens = tokens + ?2, expires_at = ?3 WHERE id = ?1`
+  ).bind(id, addTokens, expiresAt).run();
+}
+
+/** One wallet's own promotions, newest first, with live/expired state. */
+export async function walletPromotions(db, walletId, now, limit = 25) {
+  const { results } = await db.prepare(
+    `SELECT id, url, name, created_at, expires_at, plays, likes, tokens, paused, remaining_ms,
+            CASE WHEN expires_at > ?2 AND paused = 0 THEN 1 ELSE 0 END AS live
+       FROM promotions WHERE wallet_id = ?1
+      ORDER BY created_at DESC LIMIT ?3`
+  ).bind(walletId, now, limit).all();
   return results || [];
 }

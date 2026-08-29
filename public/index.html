@@ -90,57 +90,8 @@
 .info-meta { font-size:10px; color:rgba(255,255,255,0.4); margin-top:4px; }
 
 /* ── RIFFROLLED: roll feature + brand accents ── */
-.riff-brand { display:flex; align-items:center; gap:8px; padding:10px 12px 2px; }
-.riff-brand svg { width:30px; height:30px; flex-shrink:0; }
 /* the logo dice tumble like they're mid-roll; each die pivots about its own centre */
-.riff-logo .riff-die { transform-box:fill-box; transform-origin:center; }
-.riff-logo .d1 { transform:rotate(-10deg); animation:riffTumbleA 2.4s ease-in-out infinite; }
-.riff-logo .d2 { transform:rotate(12deg);  animation:riffTumbleB 2.8s ease-in-out infinite; }
-@keyframes riffTumbleA { 0%,100%{ transform:rotate(-10deg) translateY(0);} 30%{ transform:rotate(7deg) translateY(-1px);} 62%{ transform:rotate(-4deg) translateY(0.5px);} }
-@keyframes riffTumbleB { 0%,100%{ transform:rotate(12deg) translateY(0);} 34%{ transform:rotate(-6deg) translateY(-1px);} 66%{ transform:rotate(5deg) translateY(0.5px);} }
 /* a real roll: dice spin fully */
-.riff-brand.rolling .d1 { animation:riffSpinDie .5s linear infinite; }
-.riff-brand.rolling .d2 { animation:riffSpinDie .58s linear infinite reverse; }
-@keyframes riffSpinDie { from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
-@media (prefers-reduced-motion: reduce){ .riff-logo .riff-die { animation:none !important; } }
-.riff-wordmark { font-weight:800; letter-spacing:1.5px; font-size:15px; background:linear-gradient(90deg,#8a7bff,#46e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.riff-body { display:flex; flex-direction:column; align-items:center; gap:12px; padding:8px 14px 16px; }
-.riff-portal { position:relative; width:124px; height:124px; border-radius:50%; border:0; cursor:pointer; overflow:hidden;
-  background:radial-gradient(circle at 50% 50%, #15152b 0 37%, transparent 38%), conic-gradient(from 0deg, #8a7bff, #46e0ff, #d56bff, #8a7bff);
-  box-shadow:0 0 22px rgba(120,110,255,0.45), inset 0 0 18px rgba(0,0,0,0.6);
-  display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .2s; }
-.riff-portal:hover { transform:scale(1.04); box-shadow:0 0 34px rgba(120,140,255,0.7), inset 0 0 18px rgba(0,0,0,0.6); }
-.riff-portal::before { content:''; position:absolute; inset:0; border-radius:50%;
-  background:conic-gradient(from 0deg, transparent, rgba(255,255,255,0.4), transparent 30%); animation:riffSpin 6s linear infinite; opacity:.45; }
-.riff-portal .riff-label { position:relative; z-index:2; font-weight:800; letter-spacing:1px; font-size:15px; color:#fff; text-shadow:0 1px 5px rgba(0,0,0,0.7); }
-.riff-portal.rolling { animation:riffPulse .5s ease-in-out infinite; pointer-events:none; }
-.riff-portal.rolling::before { animation:riffSpin .5s linear infinite; opacity:1; }
-.riff-portal.rolling .riff-label { opacity:.4; }
-@keyframes riffSpin { to { transform:rotate(360deg); } }
-@keyframes riffPulse { 0%,100%{ box-shadow:0 0 22px rgba(120,110,255,0.5),inset 0 0 18px rgba(0,0,0,0.6);} 50%{ box-shadow:0 0 48px rgba(90,220,255,0.9),inset 0 0 18px rgba(0,0,0,0.6);} }
-.riff-hint { font-size:11px; color:rgba(255,255,255,0.4); text-align:center; line-height:1.4; }
-.riff-result { width:100%; border-radius:10px; padding:12px; background:rgba(255,255,255,0.04);
-  border:1px solid var(--rar,#9aa0b5); box-shadow:0 0 18px -5px var(--rar,#9aa0b5);
-  opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s; }
-.riff-result:empty { display:none; }
-.riff-result.show { opacity:1; transform:none; }
-.riff-rarity { font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--rar,#9aa0b5); }
-.riff-rname { font-size:14px; font-weight:600; margin:3px 0 2px; color:#fff; word-break:break-word; }
-.riff-rmeta { font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:9px; }
-.riff-result .riff-play { font-size:12px; padding:5px 12px; border-radius:7px; }
-.riff-opts { width:100%; display:flex; flex-direction:column; gap:8px; }
-.riff-target { display:flex; flex-direction:column; gap:5px; }
-.riff-target label { display:flex; align-items:center; gap:7px; font-size:12px; color:rgba(255,255,255,0.75); cursor:pointer; }
-.riff-target input { accent-color:#8a7bff; }
-.riff-newname { font-size:12px; padding:6px 8px; }
-.riff-row { display:flex; gap:8px; align-items:center; }
-.riff-field { display:flex; align-items:center; gap:6px; font-size:12px; color:rgba(255,255,255,0.6); flex-shrink:0; }
-.riff-count { width:48px; font-size:12px; padding:5px 6px; text-align:center; }
-.riff-tags { flex:1; font-size:12px; padding:6px 8px; }
-.riff-list { list-style:none; margin:8px 0 0; padding:0; max-height:160px; overflow:auto; display:flex; flex-direction:column; gap:5px; }
-.riff-list li { display:flex; align-items:center; gap:8px; font-size:12px; color:rgba(255,255,255,0.85); }
-.riff-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.riff-li-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .transport { display:flex; gap:10px; align-items:center; }
 .t-btn { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.65); border-radius:50%; width:36px; height:36px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
 .t-btn:hover { background:rgba(255,255,255,0.14); color:white; }
@@ -170,21 +121,14 @@ button:hover { background:rgba(255,255,255,0.14); color:white; }
 .scrollable { flex:1; overflow-y:auto; min-height:0; padding:6px; }
 
 /* one consistent thin scrollbar for every scroll area (Current Playlist now matches Search Tracks) */
-.scrollable, .active-pl-tracks, .lk-add-results, .mainC {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.18) transparent;
-}
 .scrollable::-webkit-scrollbar,
 .active-pl-tracks::-webkit-scrollbar,
-.lk-add-results::-webkit-scrollbar,
 .mainC::-webkit-scrollbar { width:6px; }
 .scrollable::-webkit-scrollbar-thumb,
 .active-pl-tracks::-webkit-scrollbar-thumb,
-.lk-add-results::-webkit-scrollbar-thumb,
 .mainC::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:4px; }
 .scrollable::-webkit-scrollbar-track,
 .active-pl-tracks::-webkit-scrollbar-track,
-.lk-add-results::-webkit-scrollbar-track,
 .mainC::-webkit-scrollbar-track { background:transparent; }
 
 .status-bar { padding:5px 4px 2px; font-size:11px; color:rgba(255,255,255,0.35); flex-shrink:0; min-height:20px; }
@@ -193,10 +137,6 @@ button:hover { background:rgba(255,255,255,0.14); color:white; }
 .status-bar:empty { min-height:0; padding:0; }
 
 .empty { text-align:center; padding:24px 12px; font-size:13px; color:rgba(255,255,255,0.22); line-height:1.5; }
-.st-more { padding:9px 10px 4px; font-size:11px; color:rgba(255,255,255,0.4); text-align:center; }
-.st-showall { display:inline-block; margin-top:5px; font-size:11px; padding:4px 12px; border-radius:7px; background:rgba(140,123,255,0.16); border:1px solid rgba(140,123,255,0.4); color:#cfc7ff; cursor:pointer; }
-.st-showall:hover { background:rgba(140,123,255,0.28); }
-.st-warn { margin-top:6px; font-size:10px; color:rgba(255,193,93,0.8); }
 .row { display:flex; gap:6px; padding:6px 8px; align-items:center; }
 .row.wrap { flex-wrap:wrap; }
 .row input[type=text] { flex:1; }
@@ -211,10 +151,6 @@ button:hover { background:rgba(255,255,255,0.14); color:white; }
 .act-btn { flex:1; padding:7px 4px; font-size:12px; }
 .act-btn.primary { border-color:rgba(140,123,255,0.5); color:#c8bcff; background:rgba(140,123,255,0.14); }
 .act-btn.primary:hover { background:rgba(140,123,255,0.24); }
-.other-row { display:none; gap:6px; padding:6px 4px 2px; align-items:center; }
-.other-row.open { display:flex; }
-.other-row select { flex:1; }
-.other-row select option { background:#1a1a2e; }
 
 /* shared track / row item look (used by playlist tracks + library results) */
 .row-item { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:5px; cursor:pointer; font-size:13px; border:1px solid transparent; margin-bottom:2px; }
@@ -264,9 +200,8 @@ body {
 .active-pl-name-row { display:flex; align-items:center; gap:7px; padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
 .pl-name-icon { font-size:15px; flex-shrink:0; }
 .active-pl-name-row .pl-add { flex-shrink:0; }
-.active-pl-name { flex:1; min-width:0; }
 .active-pl-name {
-  width:100%; font-size:15px; font-weight:700;
+  flex:1; min-width:0; font-size:15px; font-weight:700;
   background:transparent; border:none !important; outline:none;
   color:white; padding:0;
 }
@@ -293,19 +228,9 @@ body {
 .now-dot { color:#8a7bff; flex-shrink:0; font-size:11px; }
 
 /* ── PLAYLISTS PANEL ── */
-.pl-tools { padding:8px; display:flex; flex-direction:column; gap:7px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
-.pl-create-row { display:flex; gap:6px; align-items:center; }
-.pl-create-row input { flex:1; }
-.pl-create-row .createPl { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
-.pl-create-row .createPl:hover { background:rgba(140,123,255,0.28); }
-.pl-search-input { width:100%; }
-.pl-list { padding:6px; }
 .pl-item-count { font-size:11px; color:rgba(255,255,255,0.28); flex-shrink:0; }
 
 /* ── LIBRARY ADD button (shared by Search Tracks) ── */
-.lib-pill { font-size:11px; flex-shrink:0; padding:2px 6px; border-radius:10px; }
-.lib-pill.in { color:rgba(90,184,138,0.9); background:rgba(90,184,138,0.12); }
-.lib-add-btn { width:26px; height:26px; font-size:13px; padding:0; color:#c8bcff; flex-shrink:0; }
 
 /* ── mini transport inside Current Playlist ── */
 .mini-transport { margin-left:auto; display:flex; gap:4px; align-items:center; }
@@ -362,6 +287,72 @@ body {
 /* click feedback: the row you touched pulses */
 @keyframes rowflash { 0%{ background:rgba(140,123,255,0.35);} 100%{ background:transparent;} }
 .row-flash { animation:rowflash 0.6s ease-out; }
+/* promotion row controls */
+.promo-row.paused { border-color:rgba(224,163,77,0.45); background:rgba(224,163,77,0.07); }
+.promo-row.ended { opacity:.45; border-color:rgba(255,255,255,0.1); }
+.promo-actions { display:flex; gap:5px; margin-top:6px; }
+.promo-act { flex:1; font-size:10px; height:24px; padding:0 6px; }
+.promo-topup { color:#cfc7ff; border-color:rgba(157,140,255,0.35); }
+/* inline top-up row + wallet nudge flash */
+.promo-topup-row { display:none; gap:5px; align-items:center; margin-top:5px; }
+.promo-row.topping .promo-topup-row { display:flex; }
+.promo-row.topping .promo-topup { display:none; }
+.promo-add { width:62px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+  color:#fff; border-radius:6px; padding:3px 6px; font-size:11px; }
+.promo-add-dur { font-size:10px; color:#8fe3ff; flex:1; font-variant-numeric:tabular-nums; }
+.promo-confirm { flex:0 0 auto; color:#cfc7ff; border-color:rgba(157,140,255,0.4); }
+.promo-cancel { flex:0 0 auto; width:26px; padding:0; }
+@keyframes walletFlash { 0%,100%{ background:transparent; } 50%{ background:rgba(224,163,77,0.16); } }
+.wallet-sec.flash { animation:walletFlash 1s ease-in-out 3; }
+/* Your data tab */
+.data-btns { display:flex; gap:8px; margin:12px 0 4px; }
+.data-btns button { flex:1; font-size:12px; height:32px; }
+.data-export { background:rgba(90,184,138,0.14); border-color:rgba(90,184,138,0.4); color:#8fdcb2; }
+.data-export:hover { background:rgba(90,184,138,0.26); }
+/* hover thumbnail preview */
+#thumbPop { position:fixed; z-index:2500; pointer-events:none; opacity:0; transform:translateY(3px);
+  transition:opacity .13s ease, transform .13s ease; border-radius:9px; overflow:hidden; background:#000;
+  border:1px solid rgba(255,255,255,0.16); box-shadow:0 10px 28px rgba(0,0,0,0.65); }
+#thumbPop.show { opacity:1; transform:none; }
+#thumbPop img { display:block; width:200px; height:112px; object-fit:cover; }
+/* Promote panel: picker, spend, wallet key */
+.promo-srh { flex:1; min-width:0; }
+.promo-results { max-height:150px; overflow-y:auto; }
+.promo-results:empty { display:none; }
+.promo-res { display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:7px; cursor:pointer; font-size:12px; }
+.promo-res:hover { background:rgba(140,123,255,0.16); }
+.promo-res .name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.promo-new { font-size:10px; color:#8fe3ff; flex-shrink:0; }
+.promo-pick { font-size:12px; color:rgba(255,255,255,0.75); padding:7px 3px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.promo-pick-lbl { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
+.promo-spend-row { align-items:center; padding-left:2px; }
+.promo-spend-lbl { font-size:11px; color:rgba(255,255,255,0.5); }
+.promo-tokens { width:74px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:7px; padding:6px 8px; font-size:12px; }
+.promo-dur { font-size:11px; color:#8fe3ff; font-variant-numeric:tabular-nums; }
+.promo-dur.low { color:#e0a34d; }
+.promo-go { width:100%; height:32px; font-size:12px; margin-top:6px;
+  background:rgba(157,140,255,0.16); border:1px solid rgba(157,140,255,0.4); color:#cfc7ff; }
+.promo-go:hover { background:rgba(157,140,255,0.3); }
+.wallet-sec { border-top:1px solid rgba(255,255,255,0.07); }
+.wallet-key { flex:1; min-width:0; font-family:monospace; font-size:10px; }
+.wallet-save { width:100%; font-size:11px; height:28px; margin-top:6px; }
+.wallet-note { font-size:10px; line-height:1.5; color:rgba(255,255,255,0.35); padding:7px 2px 0; }
+/* Promote panel (header line) */
+.promo-wallet { font-size:11px; color:rgba(255,255,255,0.5); padding:2px 2px 7px; font-variant-numeric:tabular-nums; }
+.promo-bal { color:#c7beff; font-weight:700; font-size:13px; }
+.promo-hint { font-size:10px; color:rgba(255,255,255,0.35); padding:6px 2px 0; }
+/* your promotions
+.promo-sec { border-top:1px solid rgba(255,255,255,0.07); }
+.promo-current { width:100%; font-size:12px; height:30px; margin-bottom:6px;
+  background:rgba(157,140,255,0.15); border:1px solid rgba(157,140,255,0.38); color:#cfc7ff; }
+.promo-current:hover { background:rgba(157,140,255,0.28); }
+.promo-list { display:flex; flex-direction:column; gap:5px; max-height:190px; overflow-y:auto; }
+.promo-empty { padding:14px 8px; font-size:12px; }
+.promo-row { padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(157,140,255,0.22); }
+.promo-name { font-size:12px; color:rgba(255,255,255,0.9); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.promo-stats { display:flex; gap:10px; align-items:center; font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; font-variant-numeric:tabular-nums; }
+.promo-time { margin-left:auto; color:rgba(255,255,255,0.35); }
+.promo-badge { font-size:10px; color:rgba(199,190,255,0.85); flex-shrink:0; font-variant-numeric:tabular-nums; }
 /* riff mine + promotions */
 .mine-balrow { display:flex; align-items:baseline; gap:7px; padding:4px 2px 0; }
 .mine-bal { font-size:30px; font-weight:800; background:linear-gradient(120deg,#9d8cff,#46e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -394,11 +385,6 @@ body {
 .paste-go { width:auto; padding:0 12px; font-size:12px; }
 .ch-sec { border-top:1px solid rgba(255,255,255,0.07); }
 /* Search YouTube (server-side API) */
-.yts-sec { border-top:1px solid rgba(255,255,255,0.07); }
-.yts-results { display:flex; flex-direction:column; gap:4px; max-height:190px; overflow-y:auto; }
-.yts-results:empty { display:none; }
-.yts-item { display:flex; align-items:center; gap:7px; padding:2px 0; }
-.yts-name { flex:1; min-width:0; font-size:12px; color:rgba(255,255,255,0.85); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ch-input { flex:1; }
 /* native select popups follow the dark theme (options were white-on-white) */
 select { color-scheme: dark; }
@@ -427,22 +413,6 @@ select option { background:#20203a; color:#eee; }
 .add-track-btn { margin-left:6px; }
 
 /* ── Links panel ── */
-.lk-body { padding:6px; }
-.lk-chevron { color:rgba(255,255,255,0.25); flex-shrink:0; }
-.lk-back { font-size:12px; color:#c8bcff; cursor:pointer; padding:6px 8px; display:inline-block; }
-.lk-back:hover { text-decoration:underline; }
-.lk-current { font-size:14px; font-weight:700; padding:2px 8px 8px; color:#fff; }
-.lk-group { margin:2px 0 12px; }
-.lk-group-head { font-size:11px; text-transform:uppercase; letter-spacing:.02em; color:rgba(255,255,255,0.4); padding:2px 8px 4px; display:flex; align-items:center; }
-.lk-count { font-size:11px; color:rgba(255,255,255,0.45); flex-shrink:0; padding:1px 7px; background:rgba(255,255,255,0.07); border-radius:10px; }
-.lk-linkbtn { margin-left:auto; font-size:11px; padding:3px 8px; color:#c8bcff; background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); border-radius:6px; }
-.lk-linkbtn:hover { background:rgba(140,123,255,0.28); }
-.lk-add { display:none; padding:4px 6px 8px; }
-.lk-add.open { display:block; }
-.lk-add-search { width:100%; }
-.lk-add-results { max-height:150px; overflow-y:auto; margin-top:6px; }
-.lk-link .name { cursor:pointer; }
-.lk-link .name:hover { color:#c8bcff; }
 
 /* ── DOCK / panel toggles (.rightM) ── */
 .rightM {
@@ -511,13 +481,16 @@ body.mobile { height:100dvh; overflow:hidden; }
 body.mobile .rightM {
   position:fixed; left:0; right:0; bottom:0; top:auto;
   width:100%; height:auto; z-index:1000;
-  display:flex; flex-direction:row; justify-content:space-around; align-items:stretch; gap:0;
+  display:flex; flex-direction:row; justify-content:flex-start; align-items:stretch; gap:2px;
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; scroll-snap-type:x proximity;
   border-left:0; border-top:1px solid rgba(255,255,255,0.09);
   background:rgba(11,11,23,0.94); backdrop-filter:blur(10px);
 }
+body.mobile .rightM::-webkit-scrollbar { display:none; }
 body.mobile .dock-btn {
-  flex:1; max-width:74px; height:50px; border:0; background:transparent; border-radius:10px;
+  flex:0 0 auto; width:62px; height:50px; scroll-snap-align:center; border:0; background:transparent; border-radius:10px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
   font-size:19px; padding:0;
 }
@@ -999,30 +972,8 @@ function makeDraggableEle(panel,handle){
 /* ==  PLAYER  (was: player.javascript)                           == */
 /* ================================================================= */
 
-function getYtId(raw) {
-  raw = (raw || '').trim();
-  var m = raw.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([a-zA-Z0-9_-]{11})/);
-  if (m) return m[1];
-  if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
-  return null;
-}
 
-async function fetchTitle(ytId) {
-  try {
-    var r = await fetch('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=' + ytId + '&format=json');
-    if (!r.ok) return ytId;
-    var d = await r.json();
-    return d.title || ytId;
-  } catch (e) { return ytId; }
-}
 
-async function fetchJson(ytId) {
-  try {
-    var r = await fetch('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=' + ytId + '&format=json');
-    if (!r.ok) return ytId;
-    return await r.json();
-  } catch (e) { return ytId; }
-}
 
 
 /* ── PLAYER / TRANSPORT CONTROLLER ── */
@@ -1116,6 +1067,7 @@ var player = {
       // quiet local link tracking: this track followed the previous one
       if (this._lastYtId && this._lastYtId !== ytId) dbBoss.recordPair(this._lastYtId, ytId);
       this._lastYtId = ytId;
+      if (window.promoTrack) promoTrack.event(ytId, 'play');
       this.refreshMeta(ytId, title || ytId);
     }
   },
@@ -1197,6 +1149,95 @@ var wakeBoss = {
 };
 wakeBoss.init();
 
+/* ── promoted-track counters. Keeps the list of currently promoted video
+   ids so a play or a like on one can nudge an anonymous counter on the
+   promotion row. No wallet, no device id, no history is sent — just
+   "this promotion got another play", once per browser session. ── */
+var promoTrack = {
+  ids: new Set(),
+  _sent: new Set(),
+  async refresh(){
+    try {
+      var r = await fetch('/api/promotions');
+      if (!r.ok) return;
+      var list = await r.json();
+      this.ids = new Set(list.map(function(p){
+        var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(p.url || '');
+        return m ? m[1] : null;
+      }).filter(Boolean));
+    } catch(e){ /* offline: counters simply don't fire */ }
+  },
+  event(ytId, kind){
+    if (!ytId || !this.ids.has(ytId)) return;
+    var key = kind + ':' + ytId;
+    if (this._sent.has(key)) return;         // once per session per track
+    this._sent.add(key);
+    try {
+      fetch('/api/promo/event', { method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=' + ytId, kind: kind }) });
+    } catch(e){}
+  }
+};
+promoTrack.refresh();
+
+/* ── hover preview. YouTube publishes thumbnails on a plain CDN path —
+   no API key, no quota — so dwelling on any row with a data-yt shows a
+   small still. Pointer devices only; touch has no hover to speak of. ── */
+var thumbPeek = {
+  DELAY: 550,
+
+  init(){
+    if (!window.matchMedia || !matchMedia('(hover: hover)').matches) return;
+    var pop = document.createElement('div');
+    pop.id = 'thumbPop';
+    var img = document.createElement('img');
+    img.alt = '';
+    pop.appendChild(img);
+    document.body.appendChild(pop);
+    this.pop = pop; this.img = img;
+
+    var self = this;
+    document.addEventListener('mouseover', function(e){
+      var row = e.target.closest && e.target.closest('[data-yt]');
+      if (!row || row === self._row) return;
+      self.cancel();
+      var id = row.dataset.yt || '';
+      if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) return;
+      self._row = row;
+      self._t = setTimeout(function(){ self.show(id, row); }, self.DELAY);
+    });
+    // ignore moves between a row's own children — only a real exit cancels
+    document.addEventListener('mouseout', function(e){
+      if (!self._row) return;
+      var to = e.relatedTarget;
+      if (to && self._row.contains(to)) return;
+      self.cancel();
+    });
+    window.addEventListener('scroll', function(){ self.cancel(); }, true);
+    document.addEventListener('click', function(){ self.cancel(); });
+  },
+
+  show(id, row){
+    var self = this;
+    this.img.onerror = function(){ self.cancel(); };   // no thumbnail: show nothing
+    this.img.src = 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg';
+    var r = row.getBoundingClientRect(), w = 200, h = 112, gap = 10;
+    var left = r.left - w - gap;
+    if (left < 8) left = Math.min(r.right + gap, window.innerWidth - w - 8);
+    var top = Math.min(Math.max(8, r.top - 18), window.innerHeight - h - 8);
+    this.pop.style.left = left + 'px';
+    this.pop.style.top = top + 'px';
+    this.pop.classList.add('show');
+  },
+
+  cancel(){
+    clearTimeout(this._t);
+    this._row = null;
+    if (this.pop) this.pop.classList.remove('show');
+  }
+};
+thumbPeek.init();
+
 function ytPlay(id, title) { player.load(id, title); }
 
 // the IFrame API calls this global when it finishes loading
@@ -1237,6 +1278,7 @@ function onYouTubeIframeAPIReady() { player.initApi(); }
     return async function(){
       if (!player.currentYtId || !window.dbBoss) return;
       await dbBoss.addReaction(player.currentYtId, kind);
+      if (kind === 'like' && window.promoTrack) promoTrack.event(player.currentYtId, 'like');
       player.refreshMeta(player.currentYtId, player.el.title ? player.el.title.textContent : player.currentYtId);
     };
   }
@@ -1798,9 +1840,9 @@ var importBoss = {
   setup(){
     var main =
       "<div class='sec importC youtube'>" +
-        "<div class='sec-head'>Import a channel</div>" +
+        "<div class='sec-head'>Import a channel or playlist</div>" +
         "<div class='row'>" +
-          "<input type='text' class='ch-input' placeholder='Channel URL, @handle, or ID…'>" +
+          "<input type='text' class='ch-input' placeholder='Channel URL, @handle, or playlist link…'>" +
           "<select class='ch-limit' title='How many to import'>" +
             "<option value='25'>25</option><option value='50' selected>50</option>" +
             "<option value='100'>100</option><option value='200'>200</option><option value='2000'>All</option>" +
@@ -1841,9 +1883,14 @@ var importBoss = {
       if (!input){ chStatus('Paste a channel URL, @handle, or ID', 'err'); return; }
       var limit = parseInt(chLimit ? chLimit.value : '50', 10) || 50;
       chGo.disabled = true;
-      chStatus('Importing…');
+      // a "list=" in the URL means a playlist; anything else is a channel
+      var listM = /[?&]list=([A-Za-z0-9_-]{12,})/.exec(input);
+      var isList = !!listM || /^(?:PL|LL|FL|OL|UU)[A-Za-z0-9_-]{10,}$/.test(input);
+      chStatus(isList ? 'Importing playlist…' : 'Importing channel…');
       try {
-        var r = await fetch('/api/channel?input=' + encodeURIComponent(input) + '&limit=' + limit);
+        var r = await fetch(isList
+          ? '/api/playlist?list=' + encodeURIComponent(listM ? listM[1] : input) + '&limit=' + limit
+          : '/api/channel?input=' + encodeURIComponent(input) + '&limit=' + limit);
         if (!r.ok){
           var msg = 'HTTP ' + r.status;
           try { msg = (await r.json()).error || msg; } catch(e2){}
@@ -1969,7 +2016,7 @@ var dataBoss = {
       if (e.target.closest('.st-promote')){
         self.status('Promoting…');
         try {
-          var w = await mineBoss.wallet();
+          var w = await riffWallet.get();
           var pres = await fetch('/api/promote', { method:'POST',
             headers:{ 'content-type':'application/json' },
             body: JSON.stringify({ wallet: w, url: 'https://www.youtube.com/watch?v=' + vid }) });
@@ -1977,6 +2024,7 @@ var dataBoss = {
           if (!pres.ok) throw new Error(pd.error || ('HTTP ' + pres.status));
           self.status('Promoted ✓ (' + pd.balance + ' tokens left)', 'ok');
           self.run();
+          if (window.promoBoss) promoBoss.refresh();
         } catch(perr){ self.status(perr.message, 'err'); }
         return;
       }
@@ -2034,9 +2082,13 @@ var dataBoss = {
               return "<div class='st-item st-remote promo-item' data-yt='" + escapeHtml(pvid) + "' data-name='" + escapeHtml(p.name || pvid) + "'>"
                 + "<button class='icon-btn st-play' title='Play now'>▶</button>"
                 + "<span class='name'>" + escapeHtml(p.name || pvid) + "</span>"
+                + "<span class='promo-badge' title='Plays · likes while promoted'>▶ " + (p.plays || 0) + " · 👍 " + (p.likes || 0) + "</span>"
                 + "<button class='icon-btn st-add' title='Save + add to current playlist'>＋</button>"
                 + "</div>";
             }).join('');
+            if (window.promoTrack) promoTrack.ids = new Set(promos.map(function(p){
+              var mm = /[?&]v=([A-Za-z0-9_-]{11})/.exec(p.url || ''); return mm ? mm[1] : null;
+            }).filter(Boolean));
           }
         }
       } catch(e2){ /* strip is optional */ }
@@ -2175,20 +2227,25 @@ var mixBoss = {
    until it has enough leading zero bits; the server verifies with one hash
    and credits the ledger. Wallet = a random bearer key kept in local settings:
    guard it like a password, lose it and the balance is gone. ── */
-var mineBoss = {
-  running: false,
-
-  async wallet(){
-    if (this._wallet) return this._wallet;
+/* the anonymous wallet key both mining and promoting sit on top of */
+var riffWallet = {
+  async get(){
+    if (this._w) return this._w;
     let w = await dbBoss.getSetting('wallet');
     if (!w){
       const a = new Uint8Array(32); crypto.getRandomValues(a);
       w = [...a].map(b => b.toString(16).padStart(2, '0')).join('');
       await dbBoss.setSetting('wallet', w);
     }
-    this._wallet = w;
+    this._w = w;
     return w;
-  },
+  }
+};
+
+var mineBoss = {
+  running: false,
+
+  wallet(){ return riffWallet.get(); },
 
   setup(){
     var main =
@@ -2201,14 +2258,66 @@ var mineBoss = {
         "</div>" +
         "<div class='mine-meta mine-rate'></div>" +
         "<div class='status-bar mine-status'></div>" +
-        "<div class='mine-note'>Mining burns CPU (and battery on phones). Tokens promote tracks in the Database panel — they have no cash value.</div>" +
+        "<div class='mine-note'>Mining burns CPU (and battery on phones). Tokens are spent in the Promote panel — they have no cash value.</div>" +
+      "</div>" +
+      "<div class='sec wallet-sec'>" +
+        "<div class='sec-head'>Wallet key</div>" +
+        "<div class='row'>" +
+          "<input type='text' class='wallet-key' spellcheck='false' autocomplete='off'>" +
+          "<button class='icon-btn wallet-copy' title='Copy'>⧉</button>" +
+        "</div>" +
+        "<button class='wallet-save'>Use this key on this device</button>" +
+        "<div class='wallet-note'>Your tokens belong to this key, not to this browser. Save it somewhere safe: clear this site's data without it and the balance can't be recovered. Anyone holding the key controls the balance.</div>" +
+        "<div class='status-bar wallet-status'></div>" +
       "</div>";
     this.el = menuB.createMenu('⛏ Mine', main);
     menuB.place(this.el, { right:'800px', top:'120px', width:'300px' });
 
     var self = this;
     this.el.querySelector('.mine-toggle').onclick = function(){ self.running ? self.stop() : self.start(); };
+    this.bindWallet();
     this.refresh();
+  },
+
+  /* first tokens earned: say once, plainly, that the key is the balance.
+     Nobody reads the fine print until they've lost something. */
+  async nudgeBackup(){
+    if (this._nudged) return;
+    this._nudged = true;
+    if (await dbBoss.getSetting('walletNudged')) return;
+    await dbBoss.setSetting('walletNudged', '1');
+    appNotify('Your tokens belong to your wallet key, not this browser — copy it from the Mine panel and keep it safe. Clearing site data without it loses the balance for good.', 'warn');
+    var sec = this.el.querySelector('.wallet-sec');
+    if (sec){ sec.classList.add('flash'); setTimeout(function(){ sec.classList.remove('flash'); }, 3000); }
+  },
+
+  /* view / copy / restore the wallet key — the only thing standing between
+     a user and their balance, so it must be portable */
+  bindWallet(){
+    var self = this;
+    var input = this.el.querySelector('.wallet-key');
+    var st = this.el.querySelector('.wallet-status');
+    function say(msg, kind){
+      st.textContent = msg || '';
+      st.className = 'status-bar wallet-status' + (kind ? ' ' + kind : '');
+      if (msg && kind === 'ok') setTimeout(function(){ if (st.textContent === msg) say(''); }, 5000);
+    }
+    riffWallet.get().then(function(w){ input.value = w; });
+
+    this.el.querySelector('.wallet-copy').onclick = async function(){
+      try { await navigator.clipboard.writeText(input.value.trim()); say('Key copied — store it somewhere safe', 'ok'); }
+      catch(e){ input.select(); say('Press Ctrl/Cmd+C to copy', null); }
+    };
+
+    this.el.querySelector('.wallet-save').onclick = async function(){
+      var k = input.value.trim().toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(k)){ say('That is not a valid wallet key (64 hex characters)', 'err'); return; }
+      await dbBoss.setSetting('wallet', k);
+      riffWallet._w = k;
+      say('Wallet key set for this device', 'ok');
+      self.refresh();
+      if (window.promoBoss) promoBoss.refresh();
+    };
   },
 
   status(msg, kind){
@@ -2295,7 +2404,9 @@ var mineBoss = {
           if (!sr.ok) throw new Error(sd.error || ('HTTP ' + sr.status));
           self.el.querySelector('.mine-bal').textContent = sd.balance;
           self.status('+' + sd.reward + ' riff token ✓', 'ok');
+          self.nudgeBackup();
           await self.refresh();
+          if (window.promoBoss) promoBoss.refresh();
         } catch(err){ self.status('Submit failed: ' + err.message, 'err'); }
         if (self.running) setTimeout(function(){ self.round(); }, 400);
       };
@@ -2307,11 +2418,292 @@ var mineBoss = {
   }
 };
 
+/* ── PROMOTE — spend riff tokens to feature a track in the shared catalogue.
+   Separate from mining on purpose: earning and spending are different jobs.
+   Engagement counters are anonymous aggregates on the promotion itself. ── */
+var promoBoss = {
+  sel: null,          // { ytId, name, inCatalogue }
+
+  setup(){
+    var main =
+      "<div class='sec'>" +
+        "<div class='sec-head'>Promote a track</div>" +
+        "<div class='promo-wallet'><span class='promo-bal'>–</span> tokens · <span class='promo-cost'>–</span> minimum spend</div>" +
+        "<div class='row'>" +
+          "<input type='text' class='promo-srh' placeholder='Search the catalogue, or paste a YouTube link…'>" +
+          "<button class='icon-btn promo-usecur' title='Use the track playing now'>💿</button>" +
+        "</div>" +
+        "<div class='promo-results'></div>" +
+        "<div class='promo-pick'>Nothing selected yet.</div>" +
+        "<div class='row promo-spend-row'>" +
+          "<span class='promo-spend-lbl'>Spend</span>" +
+          "<input type='number' class='promo-tokens' value='5' min='1' step='1'>" +
+          "<span class='promo-dur'></span>" +
+        "</div>" +
+        "<button class='promo-go'>📣 Promote</button>" +
+        "<div class='status-bar promo-status'></div>" +
+      "</div>" +
+      "<div class='sec promo-sec'>" +
+        "<div class='sec-head'>Your promotions</div>" +
+        "<div class='promo-list'></div>" +
+      "</div>";
+    this.el = menuB.createMenu('📣 Promote', main);
+    menuB.place(this.el, { right:'1120px', top:'120px', width:'320px' });
+
+    var self = this;
+    var srh = this.el.querySelector('.promo-srh');
+    srh.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.search(); }, 200); });
+    this.el.querySelector('.promo-usecur').onclick = function(){ self.useCurrent(); };
+    this.el.querySelector('.promo-go').onclick = function(){ self.promote(); };
+    this.el.querySelector('.promo-tokens').addEventListener('input', function(){ self._touched = true; self.showDuration(); });
+    this.el.querySelector('.promo-list').addEventListener('click', function(e){
+      var btn = e.target.closest('.promo-act'); if (!btn) return;
+      var row = btn.closest('.promo-row');
+      if (btn.dataset.a === 'topup'){ row.classList.add('topping'); row.querySelector('.promo-add').focus(); self.showAddDur(row); return; }
+      if (btn.dataset.a === 'cancel'){ row.classList.remove('topping'); return; }
+      self.action(Number(row.dataset.id), btn.dataset.a, btn, row);
+    });
+    // live "+Xh" preview beside the token field
+    this.el.querySelector('.promo-list').addEventListener('input', function(e){
+      var inp = e.target.closest('.promo-add'); if (!inp) return;
+      self.showAddDur(inp.closest('.promo-row'));
+    });
+    this.el.querySelector('.promo-results').addEventListener('click', function(e){
+      var row = e.target.closest('.promo-res'); if (!row) return;
+      self.select(row.dataset.yt, row.dataset.name, row.dataset.new !== '1');
+      self.el.querySelector('.promo-results').innerHTML = '';
+      srh.value = '';
+    });
+    this.refresh();
+  },
+
+  status(msg, kind){
+    var el = this.el.querySelector('.promo-status');
+    el.textContent = msg || '';
+    el.className = 'status-bar promo-status' + (kind ? ' ' + kind : '');
+    var self = this;
+    if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 7000); }
+  },
+
+  idFromUrl(u){
+    var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(u)
+         || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(u)
+         || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(u)
+         || /^([A-Za-z0-9_-]{11})$/.exec(String(u).trim());
+    return m ? m[1] : null;
+  },
+
+  select(ytId, name, inCatalogue){
+    this.sel = { ytId: ytId, name: name, inCatalogue: inCatalogue !== false };
+    this.el.querySelector('.promo-pick').innerHTML =
+      "<span class='promo-pick-lbl'>Promoting</span> " + escapeHtml(name) +
+      (this.sel.inCatalogue ? '' : " <span class='promo-new'>· will be added to the catalogue</span>");
+  },
+
+  useCurrent(){
+    if (!player.currentYtId){ this.status('Nothing is playing right now', 'err'); return; }
+    var name = player.el.title ? player.el.title.textContent : player.currentYtId;
+    this.select(player.currentYtId, name, true);
+  },
+
+  // typing a link offers it directly; anything else searches the shared catalogue
+  async search(){
+    var q = (this.el.querySelector('.promo-srh').value || '').trim();
+    var box = this.el.querySelector('.promo-results');
+    if (!q){ box.innerHTML = ''; return; }
+
+    var vid = this.idFromUrl(q);
+    if (vid){
+      var title = 'Video ' + vid;
+      try {   // free, keyless title lookup
+        var o = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + vid) + '&format=json');
+        if (o.ok){ var od = await o.json(); if (od.title) title = od.title; }
+      } catch(e){}
+      box.innerHTML = "<div class='promo-res' data-yt='" + escapeHtml(vid) + "' data-name='" + escapeHtml(title) + "' data-new='1'>"
+        + "<span class='name'>" + escapeHtml(title) + "</span><span class='promo-new'>from link</span></div>";
+      return;
+    }
+
+    try {
+      var r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=15&source=db');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var list = await r.json();
+      var self = this;
+      if (!list.length){ box.innerHTML = "<div class='empty'>Nothing in the catalogue — paste a link instead</div>"; return; }
+      box.innerHTML = list.map(function(t){
+        var id = self.idFromUrl(t.url || '');
+        if (!id) return '';
+        return "<div class='promo-res' data-yt='" + escapeHtml(id) + "' data-name='" + escapeHtml(t.name || id) + "'>"
+          + "<span class='name'>" + escapeHtml(t.name || id) + "</span></div>";
+      }).join('');
+    } catch(e){
+      box.innerHTML = '';
+      this.status('Search unavailable: ' + e.message, 'err');
+    }
+  },
+
+  showDuration(){
+    var n = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
+    var cost = this._cost || 5, hrs = this._hours || 24;
+    var el = this.el.querySelector('.promo-dur');
+    if (n < cost){ el.textContent = 'min ' + cost; el.className = 'promo-dur low'; return; }
+    var total = hrs * (n / cost);
+    el.className = 'promo-dur';
+    el.textContent = total >= 48 ? ('≈ ' + Math.round(total / 24) + ' days') : ('≈ ' + Math.round(total) + 'h');
+  },
+
+  async promote(){
+    if (!this.sel){ this.status('Pick a track first — search, paste a link, or hit 💿', 'err'); return; }
+    var tokens = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
+    var btn = this.el.querySelector('.promo-go');
+    btn.disabled = true;
+    this.status('Promoting…');
+    try {
+      var w = await riffWallet.get();
+      var url = 'https://www.youtube.com/watch?v=' + this.sel.ytId;
+      // a track pasted as a link may not be in the catalogue yet — add it first
+      // (a plain database write; the YouTube API isn't involved)
+      if (!this.sel.inCatalogue){
+        await fetch('/api/track', { method:'POST', headers:{ 'content-type':'application/json' },
+          body: JSON.stringify({ name: this.sel.name, url: url }) });
+      }
+      var r = await fetch('/api/promote', { method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ wallet: w, url: url, tokens: tokens }) });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      this.status('Promoted for ' + Math.round(d.hours) + 'h ✓ — ' + d.balance + ' tokens left', 'ok');
+      this.sel = null;
+      this.el.querySelector('.promo-pick').textContent = 'Nothing selected yet.';
+      await this.refresh();
+      if (window.mineBoss) mineBoss.refresh();
+      if (window.promoTrack) promoTrack.refresh();
+      if (window.dataBoss && dataBoss.el && !dataBoss.el.classList.contains('is-hidden')) dataBoss.run();
+    } catch(e){
+      this.status(e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  showAddDur(row){
+    var n = parseInt(row.querySelector('.promo-add').value, 10) || 0;
+    var cost = this._cost || 5, hrs = this._hours || 24;
+    var el = row.querySelector('.promo-add-dur');
+    el.textContent = n > 0 ? ('+' + Math.round(hrs * (n / cost)) + 'h') : '';
+  },
+
+  /* pause / resume / top up an existing promotion */
+  async action(id, act, btn, row){
+    var tokens = 0;
+    if (act === 'extend'){
+      tokens = parseInt(row.querySelector('.promo-add').value, 10) || 0;
+      if (tokens <= 0){ this.status('Enter a positive number of tokens', 'err'); return; }
+    }
+    btn.disabled = true;
+    this.status(act === 'extend' ? 'Adding credits…' : (act === 'pause' ? 'Pausing…' : 'Resuming…'));
+    try {
+      var w = await riffWallet.get();
+      var r = await fetch('/api/promotion/action', { method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ wallet: w, id: id, action: act, tokens: tokens }) });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      this.status(
+        act === 'extend' ? ('Added ' + d.added + ' tokens (+' + Math.round(d.added_hours) + 'h) — ' + d.balance + ' left')
+        : act === 'pause' ? 'Paused — remaining time is banked'
+        : 'Resumed ✓', 'ok');
+      await this.refresh();
+      if (window.mineBoss) mineBoss.refresh();
+      if (window.promoTrack) promoTrack.refresh();
+      if (window.dataBoss && dataBoss.el && !dataBoss.el.classList.contains('is-hidden')) dataBoss.run();
+    } catch(e){
+      this.status(e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  // banked time on a paused promotion
+  msLeft(ms){
+    ms = Number(ms) || 0;
+    if (!(ms > 0)) return 'no time left';
+    var h = Math.floor(ms / 3600000);
+    if (h >= 48) return Math.round(h / 24) + 'd banked';
+    return h >= 1 ? (h + 'h banked') : (Math.max(1, Math.round(ms / 60000)) + 'm banked');
+  },
+
+  // "3h left" / "ended" from an ISO timestamp
+  timeLeft(iso){
+    var ms = new Date(iso).getTime() - Date.now();
+    if (!(ms > 0)) return 'ended';
+    var h = Math.floor(ms / 3600000);
+    if (h >= 48) return Math.round(h / 24) + 'd left';
+    return h >= 1 ? (h + 'h left') : (Math.max(1, Math.round(ms / 60000)) + 'm left');
+  },
+
+  async refresh(){
+    var list = this.el.querySelector('.promo-list');
+    try {
+      var w = await riffWallet.get();
+      try {
+        var wr = await fetch('/api/wallet?wallet=' + w);
+        if (wr.ok){
+          var wd = await wr.json();
+          this._cost = wd.promote_cost; this._hours = wd.promote_hours || 24;
+          this.el.querySelector('.promo-bal').textContent = wd.balance;
+          this.el.querySelector('.promo-cost').textContent = wd.promote_cost;
+          var ti = this.el.querySelector('.promo-tokens');
+          ti.min = wd.promote_cost; ti.step = wd.promote_cost;
+          if (!this._touched){ ti.value = wd.promote_cost; }
+          this.showDuration();
+        }
+      } catch(e0){ /* the balance line is cosmetic */ }
+
+      var r = await fetch('/api/promotions/mine?wallet=' + w);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var rows = await r.json();
+      if (!rows.length){
+        list.innerHTML = "<div class='empty promo-empty'>Nothing promoted yet.<br>Mine some tokens, then pick a track above.</div>";
+        return;
+      }
+      var self = this;
+      list.innerHTML = rows.map(function(p){
+        var pid = self.idFromUrl(p.url || '') || '';
+        var ended = !p.paused && new Date(p.expires_at).getTime() <= Date.now();
+        var state = p.paused ? 'paused' : (ended ? 'ended' : 'live');
+        var left = p.paused ? self.msLeft(p.remaining_ms) : (ended ? 'ended' : self.timeLeft(p.expires_at));
+        return "<div class='promo-row " + state + "' data-yt='" + escapeHtml(pid) + "' data-id='" + p.id + "'>"
+          + "<div class='promo-name'>" + escapeHtml(p.name || p.url) + "</div>"
+          + "<div class='promo-stats'>"
+            + "<span title='Plays while promoted'>▶ " + (p.plays || 0) + "</span>"
+            + "<span title='Likes while promoted'>👍 " + (p.likes || 0) + "</span>"
+            + "<span title='Tokens spent'>⛏ " + (p.tokens || 0) + "</span>"
+            + "<span class='promo-time' title='Promotion time remaining'>" + left + "</span>"
+          + "</div>"
+          + "<div class='promo-actions'>"
+            + (ended ? "" :
+                "<button class='promo-act' data-a='" + (p.paused ? 'resume' : 'pause') + "'>"
+                + (p.paused ? '▶ Resume' : '❚❚ Pause') + "</button>")
+            + "<button class='promo-act promo-topup' data-a='topup'>＋ Add credits</button>"
+          + "</div>"
+          + "<div class='promo-topup-row'>"
+            + "<input type='number' class='promo-add' min='1' step='1' value='" + (self._cost || 5) + "'>"
+            + "<span class='promo-add-dur'></span>"
+            + "<button class='promo-act promo-confirm' data-a='extend'>Add</button>"
+            + "<button class='promo-act promo-cancel' data-a='cancel'>✕</button>"
+          + "</div></div>";
+      }).join('');
+    } catch(e){
+      list.innerHTML = '';
+      this.status('Couldn’t load your promotions: ' + e.message, 'err');
+    }
+  }
+};
+
 /* ── About & Legal panel (About / Terms / Privacy) ── */
 var ABOUT_HTML =
   "<h4>riffrolled</h4>" +
   "<p>A vinyl-styled player and discovery tool for your YouTube music. Search YouTube, import whole channels, and build playlists on a spinning record deck.</p>" +
-  "<p>It runs entirely in your browser — your playlists, tracks, reactions, and layout are saved locally on your device. There is no account to create and nothing to sign in to.</p>" +
+  "<p>Your playlists, tracks, reactions, and layout are saved locally on your device — there is no account to create and nothing to sign in to. A shared catalogue of tracks (name, artist, genre, link) lives on riffrolled's own server so searches and imports get faster for everyone.</p>" +
   "<p>riffrolled is an independent project and is <strong>not affiliated with, endorsed by, or sponsored by YouTube or Google LLC</strong>. Playback is provided through YouTube’s embedded player; all videos remain subject to YouTube’s Terms of Service.</p>" +
   "<p class='info-meta'>Beta · riffrolled.com</p>";
 
@@ -2321,22 +2713,35 @@ var TERMS_HTML =
   "<ul>" +
     "<li>You are responsible for how you use the Service and for any content you add, import, or play.</li>" +
     "<li>Video playback is delivered by YouTube’s embedded player and is governed by <a href='https://www.youtube.com/t/terms' target='_blank' rel='noopener'>YouTube’s Terms of Service</a>. Respect the rights of content owners.</li>" +
-    "<li>Any YouTube Data API key you choose to provide is used only from your browser to fetch the data you request; you are responsible for its use under Google’s API terms.</li>" +
+    "<li>Searches and channel imports are performed by riffrolled's own server using its YouTube Data API credentials; you never supply or hold a key.</li>" +
     "<li>The Service may change or be unavailable at any time, and features may break during beta.</li>" +
     "<li>To the maximum extent permitted by law, riffrolled is not liable for any damages arising from use of the Service.</li>" +
   "</ul>" +
-  "<p>riffrolled is not affiliated with YouTube or Google LLC.</p>" +
+  "<h4>Riff tokens</h4>" +"<p>Riff tokens are a play feature of the Service. They are earned by proof-of-work mining in your browser and spent on promoting tracks within the catalogue.</p>" +"<ul>" +"<li>Tokens have <strong>no monetary value</strong>, are not currency, and are not redeemable, transferable, or exchangeable for money, goods, or other assets.</li>" +"<li>Tokens are held against an anonymous wallet key stored in your browser. If you clear your browser data or lose that key, the balance is unrecoverable — there is no account recovery.</li>" +"<li>During beta, balances, prices, mining difficulty, and caps may change, and balances may be reset. Tokens obtained by automated abuse or exploitation of the Service may be voided.</li>" +"<li>Promotion statistics are approximate, are not audited, and are provided for interest only.</li>" +"</ul>" +"<p>riffrolled is not affiliated with YouTube or Google LLC.</p>" +
   "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: via riffrolled.com. Please review with your own counsel before relying on these terms.</p>";
 
 var PRIVACY_HTML =
   "<h4>Privacy Policy</h4>" +
   "<p><strong>What lives on our server</strong> (a shared music catalogue, and the bare minimum): track name, artist/channel, genre, and YouTube URL — added when anyone searches or imports a channel. That's the entire list. It contains nothing about <em>you</em>.</p>" +
   "<p><strong>What stays on your device</strong> (browser storage, never uploaded): your playlists and their order, play history and counts, likes/dislikes, tags and edits, track-to-track listening links, panel layout, and every setting. Clearing this site's browser data removes all of it.</p>" +
+  "<p><strong>The one exception</strong>: when a <em>promoted</em> track is played or liked, a counter on that promotion is increased by one so whoever paid for it can see how it did. No wallet, device identifier, or listening history is sent with it — the server learns that a promotion got another play, never who played it. Nothing else you do is counted.</p>" +
   "<ul>" +
-    "<li><strong>YouTube embeds:</strong> playing a video loads YouTube's player from Google's servers, which may set cookies and collect data under <a href='https://policies.google.com/privacy' target='_blank' rel='noopener'>Google's Privacy Policy</a>. That happens between you and Google.</li>" +
+    "<li><strong>YouTube embeds and thumbnails:</strong> playing a video, or hovering a track to preview its thumbnail, loads content from Google's servers, which may set cookies and collect data under <a href='https://policies.google.com/privacy' target='_blank' rel='noopener'>Google's Privacy Policy</a>. That happens between you and Google.</li>" +
     "<li><strong>No accounts, no analytics, no ad tracking</strong> are built into this app.</li>" +
   "</ul>" +
   "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: via riffrolled.com. Please review with your own counsel before publishing.</p>";
+
+var DATA_HTML =
+  "<h4>Your data</h4>" +
+  "<p>Everything personal — playlists, track names and tags, play history, reactions, panel layout, and your riff-token wallet key — is stored in <strong>this browser only</strong>. It is never uploaded, which also means nothing can restore it for you.</p>" +
+  "<p><strong>Clearing this site's browser data deletes all of it permanently.</strong> Export a backup now and again, especially before clearing anything or switching device.</p>" +
+  "<div class='data-btns'>" +
+    "<button class='data-export'>⬇ Export a backup</button>" +
+    "<button class='data-import'>⬆ Restore from a backup</button>" +
+    "<input type='file' class='data-file' accept='application/json,.json' hidden>" +
+  "</div>" +
+  "<div class='status-bar data-status'></div>" +
+  "<p class='info-meta'>Importing <em>merges</em> — it never deletes what's already here. The backup includes your wallet key, so restoring it on another device moves your token balance there too.</p>";
 
 var infoBoss = {
   setup(){
@@ -2345,6 +2750,7 @@ var infoBoss = {
         "<button class='info-tab active' data-t='about'>About</button>" +
         "<button class='info-tab' data-t='terms'>Terms</button>" +
         "<button class='info-tab' data-t='privacy'>Privacy</button>" +
+        "<button class='info-tab' data-t='data'>Your data</button>" +
       "</div>" +
       "<div class='info-content scrollable'>" + ABOUT_HTML + "</div>";
     this.el = menuB.createMenu('ℹ️ About &amp; Legal', main);
@@ -2360,8 +2766,61 @@ var infoBoss = {
   },
   show(t){
     var c = this.el.querySelector('.info-content');
-    c.innerHTML = t === 'terms' ? TERMS_HTML : (t === 'privacy' ? PRIVACY_HTML : ABOUT_HTML);
+    c.innerHTML = t === 'terms' ? TERMS_HTML
+      : t === 'privacy' ? PRIVACY_HTML
+      : t === 'data' ? DATA_HTML
+      : ABOUT_HTML;
     c.scrollTop = 0;
+    if (t === 'data') this.bindData();
+  },
+
+  /* Export / import everything held on this device. Worth taking seriously:
+     playlists, tags, reactions and the wallet key live only in this browser,
+     so this file is the user's single backup. */
+  bindData(){
+    var c = this.el.querySelector('.info-content');
+    var st = c.querySelector('.data-status');
+    function say(msg, kind){
+      st.textContent = msg || '';
+      st.className = 'status-bar data-status' + (kind ? ' ' + kind : '');
+    }
+
+    c.querySelector('.data-export').onclick = async function(){
+      try {
+        var data = await dbBoss.exportData();
+        data.wallet = await dbBoss.getSetting('wallet');   // the tokens travel with it
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        var d = new Date().toISOString().slice(0, 10);
+        a.href = url; a.download = 'riffrolled-backup-' + d + '.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        say('Backup downloaded ✓', 'ok');
+      } catch(e){ say('Export failed: ' + e.message, 'err'); }
+    };
+
+    var file = c.querySelector('.data-file');
+    c.querySelector('.data-import').onclick = function(){ file.click(); };
+    file.onchange = async function(){
+      var f = file.files[0];
+      if (!f) return;
+      say('Importing…');
+      try {
+        var obj = JSON.parse(await f.text());
+        var r = await dbBoss.importData(obj);
+        if (obj.wallet && /^[0-9a-f]{64}$/.test(obj.wallet)){
+          await dbBoss.setSetting('wallet', obj.wallet);
+          if (window.riffWallet) riffWallet._w = obj.wallet;
+          if (window.mineBoss) mineBoss.refresh();
+          if (window.promoBoss) promoBoss.refresh();
+        }
+        if (window.plBoss) await plBoss.renderPlaylists();
+        if (window.searchBoss) searchBoss.render();
+        say('Merged +' + r.addedPlaylists + ' playlists, +' + r.addedTracks + ' tracks, +' + r.addedJoins + ' entries', 'ok');
+      } catch(e){ say('Import failed: ' + e.message, 'err'); }
+      file.value = '';
+    };
   }
 };
 
@@ -2371,6 +2830,7 @@ searchBoss.setup();
 importBoss.setup();
 dataBoss.setup();
 mineBoss.setup();
+promoBoss.setup();
 mixBoss.setup();
 infoBoss.setup();
 
@@ -2518,7 +2978,7 @@ var dock = {
   },
 
   shortLabel(label){
-    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix' }[label] || label.split(' ')[0];
+    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo' }[label] || label.split(' ')[0];
   },
 
   // mobile: show exactly one view — 'player' (the deck) or a panel by label
@@ -2664,6 +3124,7 @@ dock.build([
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true },
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true },
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true },
+  { icon:'📣', label:'Promote',          el: promoBoss.el, startHidden:true },
   { icon:'🎶', label:'Playlist',         el: plBoss.currentEl },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true },
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, bottom:true }

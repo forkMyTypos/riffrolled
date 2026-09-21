@@ -32,7 +32,7 @@ export async function handleSearch(request, env, url) {
   // 2) Not enough — YouTube, cache, re-query.
   try {
     const fetched = await searchYouTube(env, q, YT_FETCH_SIZE);
-    if (fetched.length) await insertTracks(env.DB, fetched);
+    if (fetched.length) await insertTracks(env.DB, fetched, 'search');
     results = await searchTracks(env.DB, q, limit);
     return json(env, results, 200, {
       'X-Riff-Source': fetched.length ? 'youtube+db' : 'db',

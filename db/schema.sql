@@ -1,3 +1,10 @@
+-- ── riffrolled D1 schema ───────────────────────────────────────────────
+-- DOCUMENTATION ONLY. The Worker now migrates its own database on the first
+-- API request after each deploy (src/db/migrations.js is what actually runs).
+-- You never need to paste this into the D1 console again. To change the
+-- schema, append a migration there; keep this file in step so it stays a
+-- readable picture of the tables.
+--
 -- ── riffrolled D1 schema (minimal) ───────────────────────────────────
 -- Matches the table you created. Idempotent — running it against your
 -- existing database changes nothing.

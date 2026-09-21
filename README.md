@@ -27,21 +27,25 @@ src/
   utils/response.js    JSON/CORS helpers
 ```
 
-## Deploy — 100% in the browser, no local tools
+## Deploy
 
-**1. Put this folder in a GitHub repo.** Upload the files via github.com (Add file → Upload files) — no git CLI needed.
+**Use `riffrolled-deploy.html`** — keep it on your own computer, open it in a browser.
 
-**2. Create the database.** Cloudflare dashboard → **Storage & Databases → D1 → Create database** → name it `riffrolled`. Copy its **Database ID**.
+1. Connect once with a fine-grained GitHub token (riffrolled repo only, *Contents: Read and write*).
+2. Drop the project zip (or folder) onto the page.
+3. It shows exactly which files changed, runs safety checks, and Deploy makes one commit.
+4. It then watches Cloudflare build it and polls `/api/health` until the site reports
+   that exact build — "Live" means serving, not "probably fine".
 
-**3. Point the config at it.** On GitHub, edit `wrangler.toml` in the web editor and paste the ID into `database_id`. Commit.
+**Database changes are automatic.** The Worker migrates its own D1 database on the first
+API request after a deploy (`src/db/migrations.js`). Nothing to paste into the D1 console.
+To change the schema, append a migration there — never edit an old one.
 
-**4. Apply the schema.** In the dashboard, open the D1 database → **Console** tab → paste the contents of `db/schema.sql` → Run. (Idempotent — safe to re-run any time.)
+`GET /api/health` → `{ ok, build, schema }` — which build is serving and whether the
+database caught up.
 
-**5. Create the Worker from the repo.** Dashboard → **Workers & Pages → Create → Import a repository** → pick your repo. Cloudflare reads `wrangler.toml`, builds, and deploys. Every push to the repo auto-deploys from then on.
-
-**6. Add the secret.** Your Worker → **Settings → Variables & Secrets → Add → Secret**: name `YT_API_KEY`, value = your YouTube Data API v3 key. (Get one in Google Cloud Console with the YouTube Data API enabled. Because the key only ever lives in the Worker, you can — and should — leave it unrestricted by referrer and instead restrict it to the YouTube Data API.)
-
-**7. Attach your domain.** Your Worker → **Settings → Domains & Routes → Add → Custom domain** → `riffrolled.com` (the domain's DNS must be on Cloudflare). Done — the site and API are live on one URL.
+One-time setup that still lives in the Cloudflare dashboard: the `YT_API_KEY` secret, the
+custom domain, and the WAF rate-limiting rules on `/api/*`.
 
 ## Endpoints
 

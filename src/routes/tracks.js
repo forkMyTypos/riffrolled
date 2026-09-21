@@ -29,7 +29,7 @@ export async function handleAddTrack(request, env) {
     artist: (body?.artist || '').trim(),
     genre: (body?.genre || '').trim(),
     url: canonical,
-  }]);
+  }], 'paste');
   const track = await getTrackByUrl(env.DB, canonical);
   return json(env, track, 201);
 }

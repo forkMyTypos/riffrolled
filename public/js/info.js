@@ -24,7 +24,8 @@ var TERMS_HTML =
 
 var PRIVACY_HTML =
   "<h4>Privacy Policy</h4>" +
-  "<p><strong>What lives on our server</strong> (a shared music catalogue, and the bare minimum): track name, artist/channel, genre, and YouTube URL — added when anyone searches or imports a channel. That's the entire list. It contains nothing about <em>you</em>.</p>" +
+  "<p><strong>What lives on our server</strong> (a shared music catalogue, and the bare minimum): track name, artist/channel, genre, and YouTube URL, plus <em>when</em> each track was added and <em>how</em> (search, channel or playlist import, or a pasted link) — never <em>who</em> added it. It contains nothing about <em>you</em>.</p>" +
+  "<p><strong>Riff tokens</strong> are recorded against your anonymous wallet key: each token mined, each promotion and what it cost. That's what makes a balance work. The site's operator can see this activity per wallet key to stop abuse, but a wallet key isn't linked to your name, email, IP address or anything else about you.</p>" +
   "<p><strong>What stays on your device</strong> (browser storage, never uploaded): your playlists and their order, play history and counts, likes/dislikes, tags and edits, track-to-track listening links, panel layout, and every setting. Clearing this site's browser data removes all of it.</p>" +
   "<p><strong>The one exception</strong>: when a <em>promoted</em> track is played or liked, a counter on that promotion is increased by one so whoever paid for it can see how it did. No wallet, device identifier, or listening history is sent with it — the server learns that a promotion got another play, never who played it. Nothing else you do is counted.</p>" +
   "<ul>" +

@@ -65,18 +65,23 @@ export async function listTracks(db, genre, limit) {
  * Insert tracks, skipping any url we already have (dedupe by url).
  * Works whether or not the unique index exists.
  */
-export async function insertTracks(db, tracks) {
+const SOURCES = new Set(['search', 'channel', 'playlist', 'paste']);
+
+export async function insertTracks(db, tracks, source = '') {
   // sanitise at the single choke point: canonical YouTube urls only, clamped text
   const clean = tracks
     .map((t) => ({ ...clampTrack(t), url: canonicalYouTubeUrl(t.url) }))
     .filter((t) => t.url);
   if (!clean.length) return 0;
+  const src = SOURCES.has(source) ? source : '';
+  const now = new Date().toISOString();
+  // NOT EXISTS keeps the first arrival's timestamp: re-adding never rewrites history
   const stmt = db.prepare(
-    `INSERT INTO tracks (name, artist, genre, url)
-     SELECT ?1, ?2, ?3, ?4
+    `INSERT INTO tracks (name, artist, genre, url, added_at, source)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6
       WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
   );
-  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url)));
+  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src)));
   return clean.length;
 }
 

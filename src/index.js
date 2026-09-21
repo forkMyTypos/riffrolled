@@ -3,7 +3,10 @@
 // /api/* lands here. Framework-free router + one error boundary so the
 // frontend always receives JSON.
 
-import { errorJson, handleOptions } from './utils/response.js';
+import { errorJson, handleOptions, json } from './utils/response.js';
+import { ensureSchema, LATEST_MIGRATION } from './db/migrations.js';
+import { BUILD } from './build-info.js';
+
 import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
@@ -32,6 +35,23 @@ export default {
     if (request.method === 'OPTIONS') return handleOptions(env);
     const url = new URL(request.url);
     try {
+      // Deploy check. Reports which build is serving and whether the database
+      // caught up. Open CORS on this endpoint only — it reveals a build id and
+      // a version number, and the deploy page calls it from outside the site.
+      if (request.method === 'GET' && url.pathname === '/api/health') {
+        let migrated = true;
+        try { await ensureSchema(env.DB); }
+        catch (err) { migrated = false; console.error('migration failed:', err.message); }
+        return json(env, {
+          ok: migrated, build: BUILD.id, schema: LATEST_MIGRATION,
+          ...(migrated ? {} : { error: 'database migration failed — see the Worker logs' }),
+        }, migrated ? 200 : 500, { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+      }
+
+      // bring the database up to date before anything touches it — a no-op
+      // after the first request in each isolate
+      await ensureSchema(env.DB);
+
       for (const [method, pattern, handler] of ROUTES) {
         if (request.method !== method) continue;
         const m = pattern.exec(url.pathname);

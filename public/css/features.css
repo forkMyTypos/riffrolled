@@ -23,18 +23,6 @@
 
 .info-meta { font-size:10px; color:rgba(255,255,255,0.4); margin-top:4px; }
 
-/* one consistent thin scrollbar for every scroll area (Current Playlist now matches Search Tracks) */
-.scrollable::-webkit-scrollbar,
-.active-pl-tracks::-webkit-scrollbar,
-.mainC::-webkit-scrollbar { width:6px; }
-
-.scrollable::-webkit-scrollbar-thumb,
-.active-pl-tracks::-webkit-scrollbar-thumb,
-.mainC::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:4px; }
-
-.scrollable::-webkit-scrollbar-track,
-.active-pl-tracks::-webkit-scrollbar-track,
-.mainC::-webkit-scrollbar-track { background:transparent; }
 
 .act-btn { flex:1; padding:7px 4px; font-size:12px; }
 
@@ -62,7 +50,8 @@
 
 .active-pl-name-row { display:flex; align-items:center; gap:7px; padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
 
-.pl-name-icon { font-size:15px; flex-shrink:0; }
+.pl-name-icon { width:20px; height:20px; flex-shrink:0; display:flex; }
+.pl-name-icon svg { width:20px; height:20px; }
 
 .active-pl-name-row .pl-add { flex-shrink:0; }
 

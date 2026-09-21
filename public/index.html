@@ -62,17 +62,22 @@
                     <button class="react-btn react-dislike" title="Dislike this track">👎 <span class="count dislike-count">0</span></button>
                 </div>
 
-                <label class="spin-toggle">
-                    <input type="checkbox" id="spinToggle" checked>
-                    <span class="spin-track"><span class="spin-thumb"></span></span>
-                    <span class="spin-label">Spin</span>
-                </label>
-                <label class="spin-toggle" id="wakeToggleWrap" title="Keep the screen on while music plays (uses more battery). Phones pause YouTube when the screen turns off.">
-                    <input type="checkbox" id="wakeToggle">
-                    <span class="spin-track"><span class="spin-thumb"></span></span>
-                    <span class="spin-label">Awake</span>
-                </label>
+                <!-- phones only: the Spin switch joins Awake in this row (see placeSpin) -->
+                <div class="np-toggles">
+                    <label class="spin-toggle" id="wakeToggleWrap" title="Keep the screen on while music plays (uses more battery). Phones pause YouTube when the screen turns off.">
+                        <input type="checkbox" id="wakeToggle">
+                        <span class="spin-track"><span class="spin-thumb"></span></span>
+                        <span class="spin-label">Awake</span>
+                    </label>
+                </div>
             </div>
+
+            <!-- desktop: sits on the record, to the left of the video -->
+            <label class="spin-toggle spin-side" id="spinWrap" title="Spin the record while it plays">
+                <input type="checkbox" id="spinToggle" checked>
+                <span class="spin-track"><span class="spin-thumb"></span></span>
+                <span class="spin-label">Spin</span>
+            </label>
         </div>
     </div>
     <div class='marLAuto w3em rightM flex column'></div>

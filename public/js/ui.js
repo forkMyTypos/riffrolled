@@ -46,8 +46,9 @@ function makeDraggableEle(panel,handle){
     oy=e.pageY-(r.top+window.scrollY);
     document.onmousemove=ev=>{
       if(!d)return;
-      panel.style.left=Math.max(0, ev.pageX-ox)+'px';
-      panel.style.top=Math.max(0, ev.pageY-oy)+'px';
+      // the page doesn't scroll, so never let a panel leave the screen
+      panel.style.left=Math.min(Math.max(0, ev.pageX-ox), innerWidth - 80)+'px';
+      panel.style.top=Math.min(Math.max(0, ev.pageY-oy), innerHeight - 44)+'px';
       panel.style.right='auto';
     };
     document.onmouseup=()=>{ if(d){ d=false; if(window.dock){ if(dock.markPlaced) dock.markPlaced(panel); if(dock.saveLayoutSoon) dock.saveLayoutSoon(); } } };

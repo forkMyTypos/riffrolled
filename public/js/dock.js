@@ -66,10 +66,6 @@ var dock = {
       btn.className = 'dock-btn';
       btn.title = it.label;
       if (it.iconSvg) btn.innerHTML = it.iconSvg; else btn.textContent = it.icon;
-      const lbl = document.createElement('span');     // icons alone made people guess
-      lbl.className = 'dock-lbl';
-      lbl.textContent = this.shortLabel(it.label);
-      btn.appendChild(lbl);
       if (it.accent) btn.style.setProperty('--accent', it.accent);
       if (it.bottom) btn.classList.add('dock-bottom');   // pinned to the rail's end
       btn.setAttribute('aria-label', it.label);
@@ -200,8 +196,8 @@ var dock = {
   applyDefaultLayout(){
     if (this.mobile) return;
     const pos = {
-      'Import':           { right:'450px', top:'48px' },
-      'Playlist':         { right:'92px',  top:'48px' }
+      'Import':           { right:'450px', top:'88px' },
+      'Playlist':         { right:'92px',  top:'88px' }
     };
     this.items.forEach(it => {
       const p = pos[it.label];
@@ -229,7 +225,8 @@ var dock = {
       if (!it.el) return;
       const s = it.el.style;
       data[it.label] = {
-        left: s.left || '', top: s.top || '', right: s.right || '',
+        left: s.left === 'auto' ? '' : (s.left || ''), top: s.top || '',
+        right: s.right === 'auto' ? '' : (s.right || ''),
         width: s.width || '', height: s.height || '',
         hidden: it.el.classList.contains('is-hidden')
       };
@@ -254,7 +251,9 @@ var dock = {
       const d = data[it.label];
       if (!d || !it.el) return;
       const s = it.el.style;
-      if (d.left)  { s.left = d.left; s.right = 'auto'; }
+      // 'auto' means "anchored by the other side", not a position — treating it as
+      // one used to collapse right-anchored panels to the left edge on every reload
+      if (d.left && d.left !== 'auto')  { s.left = d.left; s.right = 'auto'; }
       else if (d.right) { s.right = d.right; s.left = 'auto'; }
       if (d.top)    s.top = d.top;
       if (d.width)  s.width = d.width;
@@ -276,8 +275,17 @@ var dock = {
       }
     };
     if (!window.dbBoss){ done(); return; }
-    Promise.all([ dbBoss.getSetting('panelLayout'), dbBoss.getSetting('placedPanels') ]).then(arr => {
-      const raw = arr[0], placedRaw = arr[1];
+    const LAYOUT_VERSION = '2';   // bump to discard everyone's saved layout once
+    Promise.all([ dbBoss.getSetting('panelLayout'), dbBoss.getSetting('placedPanels'),
+                  dbBoss.getSetting('layoutVersion') ]).then(arr => {
+      let raw = arr[0], placedRaw = arr[1];
+      if (arr[2] !== LAYOUT_VERSION){
+        // layouts saved before v2 were scrambled by the 'auto' bug: start clean
+        raw = null; placedRaw = null;
+        dbBoss.setSetting('layoutVersion', LAYOUT_VERSION);
+        dbBoss.setSetting('panelLayout', '');
+        dbBoss.setSetting('placedPanels', '[]');
+      }
       try { this._placed = new Set(placedRaw ? JSON.parse(placedRaw) : []); } catch(e){ this._placed = new Set(); }
       if (raw){
         try { this._data = JSON.parse(raw); } catch(e){ this._data = null; }
@@ -310,7 +318,7 @@ document.addEventListener('click', function(e){
 dock.build([
   // ── music: finding, adding and holding tracks. Each panel owns a hue so
   //    you can tell at a glance which one you're looking at. ──
-  { iconSvg: PLAYLIST_SVG, label:'Playlist', el: plBoss.currentEl, group:'music', accent:'#9d8cff' },
+  { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, group:'music', accent:'#9d8cff' },
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
@@ -330,7 +338,13 @@ dock.items.forEach(it => {
 /* desktop vs mobile based on screen width */
 (function(){
   const mq = window.matchMedia('(max-width: 760px)');
-  const apply = () => { document.body.classList.toggle('mobile', mq.matches); dock.setMode(mq.matches); };
+  // one Spin switch: beside the video on desktop, in the toggle row on phones
+  const placeSpin = (mobile) => {
+    const spin = document.getElementById('spinWrap');
+    const home = mobile ? document.querySelector('.np-toggles') : document.querySelector('#deck .plinth');
+    if (spin && home) mobile ? home.prepend(spin) : home.appendChild(spin);
+  };
+  const apply = () => { document.body.classList.toggle('mobile', mq.matches); dock.setMode(mq.matches); placeSpin(mq.matches); };
   if (mq.addEventListener) mq.addEventListener('change', apply);
   else if (mq.addListener) mq.addListener(apply); // older Safari
   apply();

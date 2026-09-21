@@ -1,22 +1,18 @@
-/* Stacked records with a queue line — says "an ordered list of tracks"
-   more plainly than a musical note did. */
+/* A note in front of a list — reads as "playlist" at any size, down to 16px.
+   The gradient spans the whole 24x24 box (userSpaceOnUse): a gradient sized to
+   each shape's own box paints nothing on a perfectly straight line, which is
+   why the previous icon's list lines never showed up.
+   Each use swaps in its own gradient id (plg → plgD, plgT, plgN): a gradient
+   can't be borrowed from an SVG that's hidden, so sharing one is fragile. */
 var PLAYLIST_SVG =
   "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
-    "<defs><linearGradient id='plg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#c3b6ff'/><stop offset='1' stop-color='#9d8cff'/></linearGradient></defs>" +
-    "<path d='M3 6h11' stroke='url(#plg)' stroke-width='2' stroke-linecap='round'/>" +
-    "<path d='M3 11h11' stroke='url(#plg)' stroke-width='2' stroke-linecap='round'/>" +
-    "<path d='M3 16h7' stroke='url(#plg)' stroke-width='2' stroke-linecap='round'/>" +
-    "<circle cx='17.5' cy='16.5' r='4' fill='none' stroke='url(#plg)' stroke-width='1.9'/>" +
-    "<circle cx='17.5' cy='16.5' r='1.15' fill='url(#plg)'/>" +
+    "<defs><linearGradient id='plg' gradientUnits='userSpaceOnUse' x1='2' y1='3' x2='22' y2='21'>" +
+      "<stop offset='0' stop-color='#c3b6ff'/><stop offset='1' stop-color='#46e0ff'/></linearGradient></defs>" +
+    "<g stroke='url(#plg)' stroke-width='2' stroke-linecap='round' fill='none'>" +
+      "<path d='M3 5.5h13'/><path d='M3 10h9'/><path d='M3 14.5h6' opacity='.9'/></g>" +
+    "<ellipse cx='15' cy='18.3' rx='3.3' ry='2.5' fill='url(#plg)' transform='rotate(-22 15 18.3)'/>" +
+    "<path d='M18 17.6V8.2c2.3.7 3.6 2.2 3.3 4.6' fill='none' stroke='url(#plg)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>" +
   "</svg>";
-
-/* riffrolled — playlist.js
-   plBoss — the merged Playlist panel: queue, transport, track list,
-   drag-reorder, playlist picker. */
-
-/* ================================================================= */
-/* ==  PLAYLIST  (was: playlist.javascript)                       == */
-/* ================================================================= */
 
 var plBoss = {
 
@@ -105,7 +101,7 @@ var plBoss = {
 
   /* ── PLAYLIST PANEL (merged: pick/search/create + current playlist) ── */
   currentM(){
-    var title = `🎶 Playlist`;
+    var title = PLAYLIST_SVG.replace(/plg/g, 'plgT') + ' Playlist';
     var main = `
       <div class="active-pl">
 
@@ -121,8 +117,8 @@ var plBoss = {
         </div>
 
         <div class="active-pl-name-row">
-          <span class="pl-name-icon">🎶</span>
           <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
+          <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
         </div>
 

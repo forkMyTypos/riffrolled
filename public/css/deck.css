@@ -159,3 +159,21 @@
    record is spinning, so it shouldn't need a panel open */
 .deck-react { justify-content:center; gap:10px; margin-top:2px; }
 .deck-react .react-btn { padding:4px 14px; font-size:12px; background:rgba(0,0,0,0.35); }
+
+/* ── deck layout ────────────────────────────────────────────────────────
+   The controls hang from the bottom edge of the video instead of the
+   bottom of the record, so the title can never slide over the player
+   (YouTube requires the 200x200 video to stay unobscured). */
+.np-area { top:calc(50% + 100px + 16px); bottom:auto; }
+
+/* Spin: on the record, just left of the video, vertically centred on it */
+.spin-side {
+  position:absolute; z-index:5; margin:0;
+  top:50%; left:calc(50% - 100px - 22px);
+  transform:translate(-100%, -50%);
+  flex-direction:column; gap:5px;
+}
+.spin-side .spin-label { font-size:10px; }
+
+/* Awake keeps a phone screen on; a desktop has no use for it */
+.np-toggles { display:none; }

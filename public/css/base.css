@@ -1,9 +1,6 @@
 /* riffrolled — base.css
    Reset, page background, layout utilities, form controls, buttons. */
 
-)                   == -->
-<!-- ================================================================= -->
-<style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 .react-btn { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.7); border-radius:8px; padding:5px 13px; font-size:13px; cursor:pointer; transition:all 0.15s; }
@@ -32,8 +29,6 @@ body {
   background: #111;
   color: #e0e0e0;
   height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -70,3 +65,10 @@ body {
 select { color-scheme: dark; }
 
 select option { background:#20203a; color:#eee; }
+
+/* No scrollbars anywhere. The page itself never scrolls (everything floats in
+   one screen); lists inside panels still scroll with the wheel, trackpad or a
+   finger — only the bar is hidden. */
+html, body { overflow:hidden; }
+* { scrollbar-width:none; }
+*::-webkit-scrollbar { display:none; width:0; height:0; }

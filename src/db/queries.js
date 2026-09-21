@@ -149,7 +149,7 @@ export async function addPromotion(db, walletId, url, name, now, expires, tokens
 
 export async function activePromotions(db, now, limit = 20) {
   const { results } = await db.prepare(
-    `SELECT url, name, expires_at, plays, likes, tokens FROM promotions
+    `SELECT id, url, name, expires_at, views, plays, likes, tokens FROM promotions
       WHERE expires_at > ?1 AND paused = 0
       ORDER BY tokens DESC, created_at DESC LIMIT ?2`
   ).bind(now, limit).all();
@@ -162,7 +162,7 @@ export async function activePromotions(db, now, limit = 20) {
  * stored, only that it happened. Returns rows touched (0 = not promoted).
  */
 export async function bumpPromotion(db, url, kind, now) {
-  const col = kind === 'like' ? 'likes' : 'plays';
+  const col = kind === 'like' ? 'likes' : kind === 'view' ? 'views' : 'plays';
   const res = await db.prepare(
     `UPDATE promotions SET ${col} = ${col} + 1
       WHERE url = ?1 AND expires_at > ?2 AND paused = 0`
@@ -200,10 +200,29 @@ export async function extendPromotion(db, id, addTokens, expiresAt) {
 /** One wallet's own promotions, newest first, with live/expired state. */
 export async function walletPromotions(db, walletId, now, limit = 25) {
   const { results } = await db.prepare(
-    `SELECT id, url, name, created_at, expires_at, plays, likes, tokens, paused, remaining_ms,
+    `SELECT id, url, name, created_at, expires_at, views, plays, likes, tokens, paused, remaining_ms,
             CASE WHEN expires_at > ?2 AND paused = 0 THEN 1 ELSE 0 END AS live
        FROM promotions WHERE wallet_id = ?1
       ORDER BY created_at DESC LIMIT ?3`
   ).bind(walletId, now, limit).all();
   return results || [];
+}
+
+/** Recent ledger entries for one wallet — what was mined, what was spent. */
+export async function walletLedger(db, walletId, limit = 40) {
+  const { results } = await db.prepare(
+    `SELECT delta, reason, ref, created_at FROM ledger
+      WHERE wallet_id = ?1 ORDER BY id DESC LIMIT ?2`
+  ).bind(walletId, limit).all();
+  return results || [];
+}
+
+/** Lifetime totals, so the Mine panel can show earned vs spent at a glance. */
+export async function walletTotals(db, walletId) {
+  const row = await db.prepare(
+    `SELECT COALESCE(SUM(CASE WHEN delta > 0 THEN delta END), 0) AS earned,
+            COALESCE(SUM(CASE WHEN delta < 0 THEN -delta END), 0) AS spent
+       FROM ledger WHERE wallet_id = ?1`
+  ).bind(walletId).first();
+  return { earned: row?.earned ?? 0, spent: row?.spent ?? 0 };
 }

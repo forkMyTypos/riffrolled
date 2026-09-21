@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS promotions (
   name       TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
+  views      INTEGER NOT NULL DEFAULT 0,   -- popup impressions (anonymous)
   plays      INTEGER NOT NULL DEFAULT 0,   -- anonymous counters: no wallet, no device id
   likes      INTEGER NOT NULL DEFAULT 0,
   tokens     INTEGER NOT NULL DEFAULT 0,   -- spend: longer run, higher in the strip

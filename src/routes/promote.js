@@ -60,7 +60,7 @@ export async function handlePromotions(request, env) {
 }
 
 /**
- * POST /api/promo/event  { url, kind: 'play' | 'like' }
+ * POST /api/promo/event  { url, kind: 'view' | 'play' | 'like' }
  * Anonymous engagement ping for a promoted track. Deliberately takes no
  * wallet and stores no identifier — it only nudges a counter on the
  * promotion row, so a promoter sees totals and never sees people.
@@ -70,7 +70,7 @@ export async function handlePromotions(request, env) {
 export async function handlePromoEvent(request, env) {
   const body = await readJson(request);
   const canonical = canonicalYouTubeUrl(String(body?.url || ''));
-  const kind = body?.kind === 'like' ? 'like' : 'play';
+  const kind = ['view', 'like', 'play'].includes(body?.kind) ? body.kind : 'play';
   if (!canonical) return errorJson(env, 'url must be a YouTube video link or id', 400);
 
   const changed = await bumpPromotion(env.DB, canonical, kind, nowIso());

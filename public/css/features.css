@@ -1,0 +1,415 @@
+/* riffrolled — features.css
+   Per-panel styling: Playlist, Search, Import, Database, Random Mix,
+   Mine, Promote, About/Your data. Most UI tweaks live here. */
+
+/* About & Legal panel */
+.info-tabs { display:flex; gap:4px; padding:10px 12px 0; flex:0 0 auto; }
+
+.info-tab { flex:1; font-size:12px; padding:6px 4px; border-radius:7px 7px 0 0; background:transparent; border:0; color:rgba(255,255,255,0.5); cursor:pointer; }
+
+.info-tab.active { color:#fff; background:rgba(140,123,255,0.18); }
+
+.info-content { padding:12px 14px; flex:1; overflow:auto; font-size:12px; line-height:1.5; color:rgba(255,255,255,0.75); }
+
+.info-content h4 { color:#fff; font-size:13px; margin:2px 0 6px; }
+
+.info-content p { margin:0 0 9px; }
+
+.info-content ul { margin:0 0 9px; padding-left:18px; }
+
+.info-content li { margin:0 0 4px; }
+
+.info-content a { color:#8a7bff; }
+
+.info-meta { font-size:10px; color:rgba(255,255,255,0.4); margin-top:4px; }
+
+/* one consistent thin scrollbar for every scroll area (Current Playlist now matches Search Tracks) */
+.scrollable::-webkit-scrollbar,
+.active-pl-tracks::-webkit-scrollbar,
+.mainC::-webkit-scrollbar { width:6px; }
+
+.scrollable::-webkit-scrollbar-thumb,
+.active-pl-tracks::-webkit-scrollbar-thumb,
+.mainC::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:4px; }
+
+.scrollable::-webkit-scrollbar-track,
+.active-pl-tracks::-webkit-scrollbar-track,
+.mainC::-webkit-scrollbar-track { background:transparent; }
+
+.act-btn { flex:1; padding:7px 4px; font-size:12px; }
+
+.act-btn.primary { border-color:rgba(140,123,255,0.5); color:#c8bcff; background:rgba(140,123,255,0.14); }
+
+.act-btn.primary:hover { background:rgba(140,123,255,0.24); }
+
+/* shared track / row item look (used by playlist tracks + library results) */
+.row-item { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:5px; cursor:pointer; font-size:13px; border:1px solid transparent; margin-bottom:2px; }
+
+.row-item:hover { background:rgba(255,255,255,0.06); }
+
+.row-item:hover .del-btn { opacity:1; }
+
+.row-item .name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.row-item.active { background:rgba(140,123,255,0.18); border-color:rgba(140,123,255,0.35); }
+
+/* ── CURRENT PLAYLIST PANEL ── */
+.active-pl { display:flex; flex-direction:column; flex:1; min-height:0; }
+
+.active-pl-header { padding:8px 12px 2px; font-size:11px; }
+
+.pl-status { font-weight:600; }
+
+.active-pl-name-row { display:flex; align-items:center; gap:7px; padding:2px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
+
+.pl-name-icon { font-size:15px; flex-shrink:0; }
+
+.active-pl-name-row .pl-add { flex-shrink:0; }
+
+.active-pl-name {
+  flex:1; min-width:0; font-size:15px; font-weight:700;
+  background:transparent; border:none !important; outline:none;
+  color:white; padding:0;
+}
+
+.active-pl-name:focus { border-bottom:1px solid rgba(140,123,255,0.5) !important; }
+
+/* "Tracks · N   +" toolbar */
+.active-pl-sub { display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:12px; color:rgba(255,255,255,0.55); border-bottom:1px solid rgba(255,255,255,0.05); }
+
+.active-pl-sub .count { color:rgba(255,255,255,0.3); }
+
+/* small transient message line */
+.active-pl-msg { padding:6px 12px 0; font-size:11px; min-height:0; color:rgba(255,255,255,0.45); transition:color .15s; }
+
+.active-pl-msg:not(:empty) { padding-bottom:2px; }
+
+/* per-playlist track filter */
+.active-pl-tracks { flex:1; overflow-y:auto; min-height:0; padding:6px; }
+
+/* drag-to-reorder affordances */
+.track-handle { color:rgba(255,255,255,0.22); cursor:grab; font-size:13px; flex-shrink:0; line-height:1; touch-action:none; }
+
+.row-item:hover .track-handle { color:rgba(255,255,255,0.5); }
+
+.track-num { color:rgba(255,255,255,0.22); font-size:11px; min-width:16px; text-align:right; flex-shrink:0; }
+
+.row-item.dragging { opacity:.35; }
+
+.row-item.drop-into { box-shadow: inset 0 2px 0 0 #8a7bff; }
+
+.now-dot { color:#8a7bff; flex-shrink:0; font-size:11px; }
+
+/* ── PLAYLISTS PANEL ── */
+.pl-item-count { font-size:11px; color:rgba(255,255,255,0.28); flex-shrink:0; }
+
+/* ── LIBRARY ADD button (shared by Search Tracks) ── */
+
+/* ── mini transport inside Current Playlist ── */
+.mini-transport { margin-left:auto; display:flex; gap:4px; align-items:center; }
+
+.mini-transport .icon-btn { width:26px; height:26px; font-size:11px; }
+
+.mini-transport .mini-play { color:#c8bcff; background:rgba(140,123,255,0.16); border-color:rgba(140,123,255,0.38); }
+
+.mini-transport .mini-play:hover { background:rgba(140,123,255,0.3); }
+
+/* ── Search Tracks panel ── */
+.st-results { padding:6px; }
+
+.st-play { width:26px; height:26px; font-size:11px; padding:0; flex-shrink:0; }
+
+/* ── channel import (Tracks panel) ── */
+/* Database panel: pinned feedback bar + readable rows */
+.data-panel .mainC { display:flex; flex-direction:column; overflow:hidden; }
+
+.data-panel .sec { display:flex; flex-direction:column; flex:1; min-height:0; }
+
+.data-panel .dbs-results { flex:1; min-height:0; overflow-y:auto; }
+
+.data-panel .dbs-status { flex-shrink:0; min-height:22px; margin-top:4px; padding:6px 8px;
+  border-top:1px solid rgba(255,255,255,0.1); background:rgba(20,20,40,0.92); border-radius:0 0 10px 10px; }
+
+/* rows never wrap: one line = one track (▶ · name · actions) */
+.st-item { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; padding:3px 2px; border-radius:7px; }
+
+.st-item .name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+
+.st-item .icon-btn { flex-shrink:0; }
+
+.st-item:hover { background:rgba(255,255,255,0.05); }
+
+/* clearer section separation */
+.dbs-results .srh-sec-head { position:sticky; top:0; z-index:2; background:rgba(23,23,44,0.97);
+  padding:7px 4px 5px; margin:0 0 2px; border-bottom:1px solid rgba(140,123,255,0.25); color:#b7aaff; font-size:10px; }
+
+/* promotion row controls */
+.promo-row.paused { border-color:rgba(224,163,77,0.45); background:rgba(224,163,77,0.07); }
+
+.promo-row.ended { opacity:.45; border-color:rgba(255,255,255,0.1); }
+
+.promo-actions { display:flex; gap:5px; margin-top:6px; }
+
+.promo-act { flex:1; font-size:10px; height:24px; padding:0 6px; }
+
+.promo-topup { color:#cfc7ff; border-color:rgba(157,140,255,0.35); }
+
+/* inline top-up row + wallet nudge flash */
+.promo-topup-row { display:none; gap:5px; align-items:center; margin-top:5px; }
+
+.promo-row.topping .promo-topup-row { display:flex; }
+
+.promo-row.topping .promo-topup { display:none; }
+
+.promo-add { width:62px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+  color:#fff; border-radius:6px; padding:3px 6px; font-size:11px; }
+
+.promo-add-dur { font-size:10px; color:#8fe3ff; flex:1; font-variant-numeric:tabular-nums; }
+
+.promo-confirm { flex:0 0 auto; color:#cfc7ff; border-color:rgba(157,140,255,0.4); }
+
+.promo-cancel { flex:0 0 auto; width:26px; padding:0; }
+
+@keyframes walletFlash { 0%,100%{ background:transparent; } 50%{ background:rgba(224,163,77,0.16); } }
+
+.wallet-sec.flash { animation:walletFlash 1s ease-in-out 3; }
+
+/* Your data tab */
+.data-btns { display:flex; gap:8px; margin:12px 0 4px; }
+
+.data-btns button { flex:1; font-size:12px; height:32px; }
+
+.data-export { background:rgba(90,184,138,0.14); border-color:rgba(90,184,138,0.4); color:#8fdcb2; }
+
+.data-export:hover { background:rgba(90,184,138,0.26); }
+
+/* Promote panel: picker, spend, wallet key */
+.promo-srh { flex:1; min-width:0; }
+
+.promo-results { max-height:150px; overflow-y:auto; }
+
+.promo-results:empty { display:none; }
+
+.promo-res { display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:7px; cursor:pointer; font-size:12px; }
+
+.promo-res:hover { background:rgba(140,123,255,0.16); }
+
+.promo-res .name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.promo-new { font-size:10px; color:#8fe3ff; flex-shrink:0; }
+
+.promo-pick { font-size:12px; color:rgba(255,255,255,0.75); padding:7px 3px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.promo-pick-lbl { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
+
+.promo-spend-row { align-items:center; padding-left:2px; }
+
+.promo-spend-lbl { font-size:11px; color:rgba(255,255,255,0.5); }
+
+.promo-tokens { width:74px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:7px; padding:6px 8px; font-size:12px; }
+
+.promo-dur { font-size:11px; color:#8fe3ff; font-variant-numeric:tabular-nums; }
+
+.promo-dur.low { color:#e0a34d; }
+
+.promo-go { width:100%; height:32px; font-size:12px; margin-top:6px;
+  background:rgba(157,140,255,0.16); border:1px solid rgba(157,140,255,0.4); color:#cfc7ff; }
+
+.promo-go:hover { background:rgba(157,140,255,0.3); }
+
+.wallet-sec { border-top:1px solid rgba(255,255,255,0.07); }
+
+.wallet-key { flex:1; min-width:0; font-family:monospace; font-size:10px; }
+
+.wallet-save { width:100%; font-size:11px; height:28px; margin-top:6px; }
+
+.wallet-note { font-size:10px; line-height:1.5; color:rgba(255,255,255,0.35); padding:7px 2px 0; }
+
+/* Promote panel (header line) */
+.promo-wallet { font-size:11px; color:rgba(255,255,255,0.5); padding:2px 2px 7px; font-variant-numeric:tabular-nums; }
+
+.promo-bal { color:#c7beff; font-weight:700; font-size:13px; }
+
+.promo-hint { font-size:10px; color:rgba(255,255,255,0.35); padding:6px 2px 0; }
+
+/* your promotions
+.promo-sec { border-top:1px solid rgba(255,255,255,0.07); }
+.promo-current { width:100%; font-size:12px; height:30px; margin-bottom:6px;
+  background:rgba(157,140,255,0.15); border:1px solid rgba(157,140,255,0.38); color:#cfc7ff; }
+.promo-current:hover { background:rgba(157,140,255,0.28); }
+.promo-list { display:flex; flex-direction:column; gap:5px; max-height:190px; overflow-y:auto; }
+.promo-empty { padding:14px 8px; font-size:12px; }
+.promo-row { padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(157,140,255,0.22); }
+.promo-name { font-size:12px; color:rgba(255,255,255,0.9); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.promo-stats { display:flex; gap:10px; align-items:center; font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; font-variant-numeric:tabular-nums; }
+.promo-time { margin-left:auto; color:rgba(255,255,255,0.35); }
+.promo-badge { font-size:10px; color:rgba(199,190,255,0.85); flex-shrink:0; font-variant-numeric:tabular-nums; }
+/* riff mine + promotions */
+.mine-balrow { display:flex; align-items:baseline; gap:7px; padding:4px 2px 0; }
+
+.mine-bal { font-size:30px; font-weight:800; background:linear-gradient(120deg,#9d8cff,#46e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+.mine-bal-lbl { font-size:11px; color:rgba(255,255,255,0.45); }
+
+.mine-meta { font-size:11px; color:rgba(255,255,255,0.45); padding:2px 2px; }
+
+.mine-ctl { padding-top:6px; }
+
+.mine-toggle { width:100%; font-size:13px; height:34px; }
+
+.mine-note { font-size:10px; line-height:1.5; color:rgba(255,255,255,0.35); padding:8px 2px 0; }
+
+.promo-item { border:1px solid rgba(157,140,255,0.4); border-radius:8px; padding:3px 5px; margin:2px 0;
+  background:linear-gradient(90deg, rgba(157,140,255,0.10), rgba(70,224,255,0.06));
+  box-shadow:0 0 10px rgba(140,123,255,0.15); }
+
+/* unified Search panel */
+.srh-top { align-items:center; }
+
+.srh-scopes { display:flex; gap:3px; flex-shrink:0; }
+
+.srh-scope { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.55); border-radius:7px; width:28px; height:28px; font-size:13px; cursor:pointer; padding:0; }
+
+.srh-scope.active { background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); color:#fff; }
+
+.st-search { flex:1; min-width:0; }
+
+.srh-sec-head { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); padding:6px 2px 3px; }
+
+.srh-limits { display:flex; gap:4px; align-items:center; padding:6px 2px 0; flex-shrink:0; }
+
+.srh-limits-label { font-size:10px; color:rgba(255,255,255,0.35); margin-right:2px; }
+
+.srh-limit { background:transparent; border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.5); border-radius:6px; font-size:10px; padding:2px 8px; cursor:pointer; }
+
+.srh-limit.active { background:rgba(140,123,255,0.2); border-color:rgba(140,123,255,0.45); color:#fff; }
+
+.srh-pl .pl-item-count { margin-left:auto; }
+
+.st-inlist { font-size:10px; color:#5ab88a; flex-shrink:0; }
+
+/* Import panel */
+.paste-sec { border-top:1px solid rgba(255,255,255,0.07); }
+
+.paste-box { width:100%; resize:vertical; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit; }
+
+.paste-row { justify-content:space-between; align-items:center; }
+
+.paste-count { font-size:11px; color:rgba(255,255,255,0.45); }
+
+.paste-go { width:auto; padding:0 12px; font-size:12px; }
+
+.ch-sec { border-top:1px solid rgba(255,255,255,0.07); }
+
+/* Search YouTube (server-side API) */
+.ch-input { flex:1; }
+
+.ch-limit { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 6px; font-size:12px; cursor:pointer; flex-shrink:0; }
+
+.ch-go { background:rgba(140,123,255,0.15); border:1px solid rgba(140,123,255,0.35); color:#c8bcff; }
+
+.ch-go:hover { background:rgba(140,123,255,0.28); }
+
+/* ── Playlists data footer (import / export) ── */
+/* random mix builder */
+.mix-sec { border-top:1px solid rgba(255,255,255,0.07); padding:8px 10px 9px; flex-shrink:0; }
+
+.mix-row { align-items:center; }
+
+.mix-tags { flex:1; min-width:0; font-size:12px; }
+
+.mix-bias, .mix-count { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); border-radius:7px; padding:0 5px; font-size:11px; cursor:pointer; flex-shrink:0; height:28px; }
+
+/* merged Playlist panel: search/create toolbar + playlist popup */
+.pl-toolbar { display:flex; gap:6px; padding:9px 10px 4px; align-items:center; flex-shrink:0; }
+
+.pl-srh-wrap { position:relative; flex:1; min-width:0; }
+
+.pl-srh { width:100%; }
+
+.pl-pop { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:6;
+  background:#20203a; border:1px solid rgba(255,255,255,0.14); border-radius:9px;
+  box-shadow:0 10px 26px rgba(0,0,0,0.5); max-height:210px; overflow-y:auto; padding:4px; }
+
+.pl-pop.open { display:block; }
+
+.pl-pop .empty { padding:10px; }
+
+.pl-title-name { font-weight:600; color:rgba(255,255,255,0.55); font-size:12px; margin-left:6px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
+
+.add-track-btn { margin-left:6px; }
+
+/* ── the promotion popup: a small gig poster, 200×200. Art edge to edge,
+   the band's name across the foot, play/add over the artwork. Bottom-left
+   so it never covers the record or the dock rail. ── */
+.promo-pop {
+  position:fixed; left:18px; bottom:18px; z-index:2600;
+  width:200px; height:200px; border-radius:10px; overflow:hidden;
+  background:#0d0d18; border:1px solid rgba(224,163,77,0.5);
+  box-shadow:0 14px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.5);
+  opacity:0; transform:translateY(10px) scale(.97);
+  transition:opacity .22s ease, transform .22s ease;
+}
+.promo-pop.show { opacity:1; transform:none; }
+.promo-pop[hidden] { display:none; }
+
+/* the artwork fills the poster; everything else sits on top of it */
+.pp-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.promo-pop::after {            /* darken top and bottom so text stays readable */
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 34%,
+                                     rgba(0,0,0,0) 46%, rgba(0,0,0,0.88) 100%);
+}
+.pp-tag {
+  position:absolute; top:7px; left:8px; z-index:2;
+  font-size:8px; font-weight:800; letter-spacing:1.3px; text-transform:uppercase;
+  color:#ffcc4d; text-shadow:0 1px 3px rgba(0,0,0,0.8);
+}
+/* the way out has to be obvious over any artwork, and easy to hit on a phone */
+.pp-close {
+  position:absolute; top:6px; right:6px; z-index:4;
+  display:flex; align-items:center; justify-content:center;
+  width:26px; height:26px; padding:0; border-radius:50%;
+  background:rgba(8,8,16,0.72); border:1px solid rgba(255,255,255,0.35);
+  color:#fff; font-size:13px; line-height:1; cursor:pointer;
+  backdrop-filter:blur(3px);
+  box-shadow:0 2px 8px rgba(0,0,0,0.5);
+}
+.pp-close:hover { background:#c0392b; border-color:#e8705f; transform:scale(1.08); }
+.pp-close:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+@media (hover: none) { .pp-close { width:30px; height:30px; font-size:15px; } }
+
+/* actions sit over the art, centred — big enough to hit on a phone */
+.pp-acts {
+  position:absolute; inset:0; z-index:2; display:flex; gap:10px;
+  align-items:center; justify-content:center;
+  opacity:0; transition:opacity .18s ease;
+}
+.promo-pop:hover .pp-acts, .promo-pop:focus-within .pp-acts { opacity:1; }
+.pp-acts button {
+  width:46px; height:46px; border-radius:50%; padding:0; font-size:17px;
+  background:rgba(12,12,24,0.78); border:1px solid rgba(255,255,255,0.3); color:#fff;
+  backdrop-filter:blur(3px);
+}
+.pp-play:hover { background:rgba(157,140,255,0.85); border-color:#c3b6ff; }
+.pp-add:hover  { background:rgba(90,184,138,0.85); border-color:#8fdcb2; }
+
+.pp-foot { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:8px 9px 8px; }
+.pp-name {
+  font-size:12px; font-weight:700; line-height:1.3; color:#fff;
+  text-shadow:0 1px 4px rgba(0,0,0,0.9);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.pp-why {
+  margin-top:3px; background:transparent; border:0; padding:0;
+  font-size:9px; color:rgba(255,255,255,0.45); cursor:pointer;
+}
+.pp-why:hover { color:rgba(255,255,255,0.85); text-decoration:underline; }
+
+/* touch has no hover, so the buttons are simply always visible */
+@media (hover: none) {
+  .pp-acts { opacity:1; }
+  .pp-acts button { width:42px; height:42px; }
+}
+body.mobile .promo-pop { left:12px; bottom:calc(74px + env(safe-area-inset-bottom)); }

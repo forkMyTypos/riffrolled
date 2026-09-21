@@ -12,6 +12,7 @@ import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import {
   WALLET_RE, ensureWallet, walletBalance, countMinedToday,
   addLedger, createChallenge, getChallenge, useChallenge,
+  walletLedger, walletTotals,
 } from '../db/queries.js';
 
 /** Tunables (override in wrangler.toml [vars]). */
@@ -104,12 +105,23 @@ export async function handleWallet(request, env, url) {
   await ensureWallet(env.DB, wallet, now);
   const balance = await walletBalance(env.DB, wallet);
   const minedToday = await countMinedToday(env.DB, wallet, now.slice(0, 10));
+  const totals = await walletTotals(env.DB, wallet);
   return json(env, {
     balance,
+    earned: totals.earned,
+    spent: totals.spent,
     mined_today: minedToday,
     daily_cap: cfg.dailyCap,
     promote_cost: cfg.promoteCost,
     promote_hours: cfg.promoteHours,
     difficulty_bits: cfg.difficulty,
   });
+}
+
+/** GET /api/ledger?wallet=… — the wallet's own recent mints and spends. */
+export async function handleLedger(request, env, url) {
+  const wallet = String(url.searchParams.get('wallet') || '');
+  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const rows = await walletLedger(env.DB, wallet, 40);
+  return json(env, rows);
 }

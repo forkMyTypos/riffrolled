@@ -1,0 +1,81 @@
+/* riffrolled — mobile.css
+   Phone layout: bottom tab bar, one full-screen view at a time.
+   Everything is scoped to body.mobile — desktop is untouched. */
+
+body.mobile .brand-burn { display:none; }
+
+/* ── MOBILE: app-style. A bottom tab bar switches between full-screen views —
+   Player (the deck), Search, Import, Playlist, Track, About. One thing on
+   screen at a time; each view scrolls internally. Desktop is untouched. */
+body.mobile { height:100dvh; overflow:hidden; }
+
+/* bottom tab bar (the dock, relaid) */
+body.mobile .rightM {
+  position:fixed; left:0; right:0; bottom:0; top:auto;
+  width:100%; height:auto; z-index:1000;
+  display:flex; flex-direction:row; justify-content:flex-start; align-items:stretch; gap:2px;
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; scroll-snap-type:x proximity;
+  border-left:0; border-top:1px solid rgba(255,255,255,0.09);
+  background:rgba(11,11,23,0.94); backdrop-filter:blur(10px);
+}
+
+body.mobile .rightM::-webkit-scrollbar { display:none; }
+
+body.mobile .dock-btn {
+  flex:0 0 auto; width:62px; height:50px; scroll-snap-align:center; border:0; background:transparent; border-radius:10px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  font-size:19px; padding:0;
+}
+
+body.mobile .dock-btn svg { width:21px; height:21px; }
+
+body.mobile .dock-btn .dock-lbl { font-size:9px; letter-spacing:0.2px; line-height:1; color:rgba(255,255,255,0.85); }
+
+body.mobile .dock-btn.active { background:color-mix(in srgb, var(--accent,#8a7bff) 18%, transparent); }
+
+body.mobile .dock-btn.dock-bottom { margin:0; }
+
+/* Player view: the deck fills the screen above the tab bar */
+body.mobile > .flex.flex1 { display:block; flex:0 0 auto; }
+
+body.mobile #deck {
+  width:100%; min-height:calc(100dvh - 70px); margin:0; padding:6px 0 74px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:visible;
+}
+
+body.mobile.m-view-panel #deck { display:none; }
+
+/* shrink the record responsively but keep the video at its required 200x200 */
+body.mobile #deck .plinth { width:min(86vw,340px); height:min(86vw,340px); margin:0 0 96px; }
+
+body.mobile #deck .turntable { width:88%; height:88%; }
+
+body.mobile #deck .platter { width:82%; height:82%; }
+
+/* controls sit below the record — the shrunken platter leaves no room over it */
+body.mobile #deck .np-area { width:92%; top:100%; bottom:auto; margin-top:6px; }
+
+/* panel views: only the active tab's panel exists on screen, filling it */
+body.mobile .panel { display:none !important; }
+
+body.mobile .panel.m-active {
+  display:flex !important;
+  position:fixed !important; left:0 !important; right:0 !important;
+  top:0 !important; bottom:calc(62px + env(safe-area-inset-bottom)) !important;
+  width:auto !important; height:auto !important; max-height:none !important;
+  margin:0; border-radius:0; border-left:0; border-right:0; border-top:0;
+  resize:none !important; z-index:80;
+}
+
+/* inner lists keep their own scrolling inside the fixed view */
+body.mobile .panel.m-active .mainC { overflow-y:auto; }
+
+/* tabs replace open/close: no ✕, and drag/resize don't apply */
+body.mobile .panel-close { display:none; }
+
+/* touch has no hover, so keep delete visible; handle is the touch reorder grip */
+body.mobile .del-btn { opacity:.55; }
+
+body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }

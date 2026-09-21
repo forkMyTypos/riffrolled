@@ -1,0 +1,161 @@
+/* riffrolled — deck.css
+   The record player: plinth, platter, tonearm, video screen, transport,
+   Spin/Awake toggles, first-run hint, Current Track body. */
+
+/* ── PLAYER ── */
+.deck { display:flex; align-items:center; justify-content:center; position:relative; z-index:60; pointer-events:none; }
+
+/* re-enable clicks only on the interactive bits so panels behind the deck's empty areas stay usable */
+.deck .screen, .deck .np-area, .deck .np-area * { pointer-events:auto; }
+
+.plinth {
+  width:36rem; height:36rem;
+ box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+ margin:2em;
+  border-radius:1rem;
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+
+.turntable { width:30rem; height:30rem; border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
+
+.platter {
+  width:28rem; height:28rem; border-radius:50%;
+  background:
+    repeating-radial-gradient(circle at center, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px),
+    radial-gradient(circle, #1c1c1c 0 18%, #0d0d0d 18% 70%, #000 70%);
+  animation:spin 3.2s linear infinite; animation-play-state:paused;
+}
+
+.platter.playing { animation-play-state:running; }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Video player — exactly 200x200, upright, unobscured (YouTube API requirement) */
+.screen {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:200px; height:200px; border-radius:4px; overflow:hidden;
+  background:#000; z-index:3;
+  box-shadow:0 0 0 7px #0a0a0a, 0 10px 30px rgba(0,0,0,0.65);
+}
+
+.screen #ytFrame, .screen iframe { width:200px; height:200px; display:block; border:0; }
+
+/* idle placeholder: shows YouTube's red play button over the (empty) player, like older versions; hidden once a track loads */
+.screen-ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; z-index:4; pointer-events:none; }
+
+/* Arm */
+.arm { position:absolute; top:18px; right:28px; width:80px; height:150px; transform-origin:68px 16px; transform:rotate(-30deg); transition:transform 0.6s ease; pointer-events:none; }
+
+.arm.playing { transform:rotate(-10deg); }
+
+.arm-pivot { position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:#333; border:1px solid #555; }
+
+.arm-rod   { position:absolute; top:16px; right:15px; width:3px; height:120px; background:linear-gradient(to bottom,#999,#555); border-radius:2px; transform:rotate(4deg); transform-origin:top center; }
+
+.arm-head  { position:absolute; bottom:8px; right:8px; width:14px; height:5px; background:#444; border-radius:1px; }
+
+/* Transport */
+.np-area { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); width:28rem; max-width:92vw; display:flex; flex-direction:column; align-items:center; gap:7px; z-index:5; }
+
+.np-title { font-size:12px; color:rgba(255,255,255,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
+
+#npTitle { display:flex; align-items:center; justify-content:center; gap:6px; }
+
+#npTitle .np-ico { width:14px; height:14px; flex-shrink:0; color:#8a7bff; opacity:.9; }
+
+#npTitle .np-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+
+.np-meta { display:flex; gap:6px; width:100%; }
+
+.np-meta input { flex:1; min-width:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); border-radius:7px; padding:5px 9px; font-size:12px; }
+
+.np-meta input:focus { outline:none; border-color:rgba(122,162,247,0.5); }
+
+.np-react { display:flex; gap:8px; }
+
+/* Current Track panel body (same elements, laid out for a panel instead of the deck) */
+.ct-body { display:flex; flex-direction:column; gap:11px; padding:12px 13px; }
+
+.ct-body .np-title { font-size:14px; color:rgba(255,255,255,0.92); font-weight:600; white-space:normal; text-align:left; line-height:1.35; }
+
+.ct-body .np-meta { flex-direction:column; gap:8px; }
+
+.ct-body .np-react { gap:9px; }
+
+.ct-titlebar { display:flex; flex-direction:column; gap:3px; }
+
+.ct-tlabel { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
+
+.ct-title-edit { font-size:14px; font-weight:600; color:#fff; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:7px; padding:6px 8px; width:100%; }
+
+.ct-autopop { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(255,255,255,0.6); cursor:pointer; margin-top:2px; }
+
+.ct-autopop input { accent-color:#8a7bff; }
+
+/* ── RIFFROLLED: roll feature + brand accents ── */
+/* the logo dice tumble like they're mid-roll; each die pivots about its own centre */
+/* a real roll: dice spin fully */
+.transport { display:flex; gap:10px; align-items:center; }
+
+.t-btn { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.65); border-radius:50%; width:36px; height:36px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
+
+.t-btn:hover { background:rgba(255,255,255,0.14); color:white; }
+
+.t-btn.play { width:46px; height:46px; font-size:18px; }
+
+/* ── spin on/off switch under the deck ── */
+.spin-toggle { display:flex; align-items:center; gap:8px; font-size:11px; color:rgba(255,255,255,0.55); user-select:none; cursor:pointer; margin-top:8px; }
+
+.spin-toggle input { position:absolute; opacity:0; width:0; height:0; }
+
+.spin-track {
+  position:relative; width:46px; height:24px; border-radius:999px; flex-shrink:0;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.14);
+  transition:background .2s, border-color .2s, box-shadow .2s;
+}
+
+.spin-thumb {
+  position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+  background:#cfcfcf; color:#333; font-size:10px;
+  display:flex; align-items:center; justify-content:center;
+  transition:left .2s, background .2s;
+}
+
+.spin-thumb::before { content:'♪'; }
+
+.spin-toggle input:checked + .spin-track {
+  background:linear-gradient(90deg,#6c5ce7,#8a7bff);
+  border-color:rgba(140,123,255,0.65);
+  box-shadow:0 0 10px rgba(140,123,255,0.5);
+}
+
+.spin-toggle input:checked + .spin-track .spin-thumb {
+  left:24px; background:#fff; animation:thumbspin 2.4s linear infinite;
+}
+
+.spin-toggle input:focus-visible + .spin-track { outline:2px solid #8a7bff; outline-offset:2px; }
+
+@keyframes thumbspin { to { transform:rotate(360deg); } }
+
+.spin-label { letter-spacing:.03em; }
+
+/* first-run hint over the deck */
+.deck-hint { position:absolute; inset:auto 0 34%; z-index:6; display:flex; flex-direction:column;
+  align-items:center; gap:6px; text-align:center; pointer-events:auto; padding:0 18px; }
+
+.deck-hint[hidden] { display:none; }
+
+.dh-title { font-size:15px; font-weight:700; color:rgba(255,255,255,0.9); }
+
+.dh-sub { font-size:12px; color:rgba(255,255,255,0.5); max-width:280px; line-height:1.45; }
+
+.dh-go { margin-top:4px; font-size:12px; height:32px; padding:0 16px;
+  background:rgba(157,140,255,0.2); border:1px solid rgba(157,140,255,0.5); color:#d3caff; }
+
+.dh-go:hover { background:rgba(157,140,255,0.34); }
+
+/* reactions on the deck itself — the most common thing you want while a
+   record is spinning, so it shouldn't need a panel open */
+.deck-react { justify-content:center; gap:10px; margin-top:2px; }
+.deck-react .react-btn { padding:4px 14px; font-size:12px; background:rgba(0,0,0,0.35); }

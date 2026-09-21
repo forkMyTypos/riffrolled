@@ -1,0 +1,81 @@
+/* riffrolled — dock.css
+   Dock rail (desktop), brand mark, app-wide banner. */
+
+/* ── Links panel ── */
+
+/* ── DOCK / panel toggles (.rightM) ── */
+.rightM {
+  position:fixed; right:0; top:0; height:100vh; width:58px; z-index:1000;
+  display:flex; flex-direction:column; gap:10px; align-items:center;
+  padding:16px 0;
+  background:rgba(10,10,22,0.55); backdrop-filter:blur(8px);
+  border-left:1px solid rgba(255,255,255,0.07);
+}
+
+.dock-btn {
+  width:50px; min-height:46px; border-radius:11px; font-size:17px; padding:4px 0 3px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  cursor:pointer; transition:all .15s;
+}
+
+.dock-btn .dock-lbl { font-size:8px; letter-spacing:.2px; line-height:1; color:rgba(255,255,255,0.55); }
+
+.dock-btn.active .dock-lbl { color:rgba(255,255,255,0.9); }
+
+.dock-sep { width:26px; height:1px; background:rgba(255,255,255,0.12); flex-shrink:0; margin:1px 0; }
+
+.dock-btn:hover { background:rgba(255,255,255,0.12); }
+
+.dock-btn.active { background:color-mix(in srgb, var(--accent,#8a7bff) 22%, transparent);
+  border-color:color-mix(in srgb, var(--accent,#8a7bff) 55%, transparent); }
+
+.dock-btn:not(.active) { opacity:0.5; }
+
+.dock-btn svg { width:24px; height:24px; display:block; }
+
+.dock-btn.dock-bottom { margin-top:auto; }
+
+/* site brand: neon sign by the dock, beneath everything interactive */
+.brand-burn {
+  position:fixed; top:16px; right:74px; z-index:1; pointer-events:none; user-select:none;
+  display:flex; align-items:center; gap:13px;
+  color:rgba(120,200,255,0.8);
+  filter:drop-shadow(0 0 6px rgba(70,224,255,0.35));
+  transform:skewX(-4deg);              /* a little forward lean, like a stamp pressed at speed */
+}
+
+.brand-burn svg { width:52px; height:52px; }
+
+.bb-word { display:flex; align-items:baseline; font-size:27px; font-weight:900; letter-spacing:2px; line-height:1; }
+
+.bb-word em { font-style:normal; }
+
+.bb-riff {
+  color:#9d8cff;
+  text-shadow:0 0 10px rgba(138,123,255,0.6), 0 0 26px rgba(138,123,255,0.3);
+}
+
+.bb-rolled {
+  color:#46e0ff;
+  text-shadow:0 0 10px rgba(70,224,255,0.55), 0 0 26px rgba(70,224,255,0.28);
+}
+
+.bb-tld {
+  font-size:14px; font-weight:700; letter-spacing:3px; margin-left:4px;
+  color:rgba(235,245,255,0.65);
+  text-shadow:0 0 8px rgba(160,200,255,0.4);
+}
+
+/* app-wide notice / error banner */
+.app-banner { position:fixed; top:0; left:0; right:0; z-index:2000; display:flex; gap:10px; align-items:center; padding:11px 16px; font-size:13px; color:#fff; background:#c0392b; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
+
+.app-banner[hidden] { display:none; }
+
+.app-banner.warn { background:#b9770e; }
+
+.app-banner.ok { background:#2f8f5b; }
+
+.app-banner .x { margin-left:auto; cursor:pointer; opacity:.85; font-size:14px; }
+
+.app-banner .x:hover { opacity:1; }

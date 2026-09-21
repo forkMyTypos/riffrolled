@@ -7,7 +7,7 @@ import { errorJson, handleOptions } from './utils/response.js';
 import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
-import { handleMineChallenge, handleMineSubmit, handleWallet } from './routes/mine.js';
+import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
 import { handlePromote, handlePromotions, handlePromoEvent, handleMyPromotions, handlePromotionAction } from './routes/promote.js';
 
 const ROUTES = [
@@ -19,6 +19,7 @@ const ROUTES = [
   ['POST', /^\/api\/mine\/challenge$/, (req, env) => handleMineChallenge(req, env)],
   ['POST', /^\/api\/mine\/submit$/,    (req, env) => handleMineSubmit(req, env)],
   ['GET',  /^\/api\/wallet$/,           (req, env, url) => handleWallet(req, env, url)],
+  ['GET',  /^\/api\/ledger$/,           (req, env, url) => handleLedger(req, env, url)],
   ['POST', /^\/api\/promote$/,          (req, env) => handlePromote(req, env)],
   ['GET',  /^\/api\/promotions\/mine$/,  (req, env, url) => handleMyPromotions(req, env, url)],
   ['GET',  /^\/api\/promotions$/,       (req, env) => handlePromotions(req, env)],

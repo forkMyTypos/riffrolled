@@ -80,8 +80,6 @@ body.mobile .del-btn { opacity:.55; }
 
 body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }
 
-/* phones: Spin and Awake share one row under the reactions */
-body.mobile .np-toggles { display:flex; gap:22px; justify-content:center; }
-body.mobile .np-toggles .spin-toggle { margin-top:2px; }
-body.mobile .spin-side { position:static; transform:none; flex-direction:row; gap:8px; }
-body.mobile .spin-side .spin-label { font-size:11px; }
+/* phones: Awake gets its own row under the transport */
+body.mobile .np-toggles { display:flex; justify-content:center; }
+body.mobile .spin-side { left:10px; bottom:10px; }

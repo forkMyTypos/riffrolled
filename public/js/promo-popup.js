@@ -107,7 +107,18 @@ var promoPopup = {
           + "<div class='pp-name'>" + escapeHtml(this.cur.name) + "</div>"
           + "<button class='pp-why' title='Why am I seeing this?'>why?</button>"
         + "</div>";
+      this.el.style.left = ''; this.el.style.right = '';
       this.el.hidden = false;
+      // never over the YouTube player: try the other corner, else skip this one
+      if (window.ytGuard && ytGuard.overlaps(this.el)){
+        this.el.style.left = 'auto'; this.el.style.right = '76px';
+        if (ytGuard.overlaps(this.el)){
+          this.el.hidden = true; this.el.style.left = ''; this.el.style.right = '';
+          this.shown--; delete this.seen[p.id];            // not shown, so not counted
+          this._next = Date.now() + 60000;                 // try again in a minute
+          return;
+        }
+      }
       requestAnimationFrame(function(){ promoPopup.el.classList.add('show'); });
 
       this.count('view');                                  // an impression, anonymously

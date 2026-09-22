@@ -161,19 +161,41 @@
 .deck-react .react-btn { padding:4px 14px; font-size:12px; background:rgba(0,0,0,0.35); }
 
 /* ── deck layout ────────────────────────────────────────────────────────
-   The controls hang from the bottom edge of the video instead of the
-   bottom of the record, so the title can never slide over the player
-   (YouTube requires the 200x200 video to stay unobscured). */
+   YouTube's rule: nothing may sit on top of the player, and it must stay at
+   least 200x200. So everything on the deck is arranged AROUND the video —
+   the controls hang below its bottom edge, the first-run hint sits above its
+   top edge — and ytGuard (player.js) checks at runtime that it stays that way. */
+.screen { min-width:200px; min-height:200px; flex-shrink:0; }
+.screen #ytFrame, .screen iframe { min-width:200px; min-height:200px; }
+
+/* before the first track, the player itself stays hidden and the placeholder
+   stands in for it — so the placeholder never sits on top of a live player */
+.screen:not(.has-video) #ytFrame, .screen:not(.has-video) iframe { visibility:hidden; }
+.screen.has-video .screen-ph { display:none; }
+
+/* the controls start 16px below the video */
 .np-area { top:calc(50% + 100px + 16px); bottom:auto; }
 
-/* Spin: on the record, just left of the video, vertically centred on it */
+/* title and reactions on one row: [♪ title] [👍] [👎] */
+.np-titlerow { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-width:0; }
+.np-titlerow .np-title { width:auto; flex:0 1 auto; min-width:0; }
+.deck-react { flex-shrink:0; gap:6px; margin:0; }
+.deck-react .react-btn { padding:2px 9px; font-size:11px; background:rgba(0,0,0,0.35); }
+
+/* the first-run hint ends 16px above the video */
+.deck-hint { inset:auto 0 calc(50% + 100px + 16px) 0; }
+
+/* Spin: bottom-left corner of the plinth, clear of the record.
+   The deck ignores the mouse (so panels behind it stay clickable) and
+   only its controls opt back in — this one must opt in too. */
 .spin-side {
   position:absolute; z-index:5; margin:0;
-  top:50%; left:calc(50% - 100px - 22px);
-  transform:translate(-100%, -50%);
-  flex-direction:column; gap:5px;
+  left:16px; bottom:16px;
+  flex-direction:row; gap:8px;
+  pointer-events:auto;
 }
-.spin-side .spin-label { font-size:10px; }
+.spin-side * { pointer-events:auto; }
+.spin-side .spin-label { font-size:11px; }
 
 /* Awake keeps a phone screen on; a desktop has no use for it */
 .np-toggles { display:none; }

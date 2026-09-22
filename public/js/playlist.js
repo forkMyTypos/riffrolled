@@ -117,9 +117,9 @@ var plBoss = {
         </div>
 
         <div class="active-pl-name-row">
-          <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
           <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
+          <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
         </div>
 
         <div class="active-pl-sub">

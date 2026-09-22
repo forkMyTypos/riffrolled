@@ -74,9 +74,12 @@ var player = {
   },
 
   load: function (ytId, title) {
+    this.ensureVisible();
     this.currentYtId = ytId;
     if (this.el.screenPh) this.el.screenPh.style.display = 'none';
     if (window.deckHint) deckHint.hide();
+    var scr = document.querySelector('#deck .screen');
+    if (scr) scr.classList.add('has-video');
     this.el.title.textContent = title || ytId;
     if (this.el.panelTitle) this.el.panelTitle.value = title || ytId;
     // pop the Current Track panel on a track change (toggle in that panel; on by default)
@@ -121,7 +124,13 @@ var player = {
   },
 
   pause:  function () { if (this.yt && this.yt.pauseVideo) this.yt.pauseVideo(); this.setPlaying(false); },
-  resume: function () { if (this.yt && this.yt.playVideo)  this.yt.playVideo();  this.setPlaying(true);  },
+  resume: function () { this.ensureVisible(); if (this.yt && this.yt.playVideo)  this.yt.playVideo();  this.setPlaying(true);  },
+
+  // on phones, pressing play in Search, a playlist or the promotion poster
+  // switches to the Player tab first — the video is never playing out of sight
+  ensureVisible: function () {
+    if (window.dock && dock.mobile && dock._mActive !== 'player') dock.showMobile('player');
+  },
 
   setPlaying: function (on) {
     this.isPlaying = on;
@@ -255,6 +264,7 @@ var thumbPeek = {
     var top = Math.min(Math.max(8, r.top - 18), window.innerHeight - h - 8);
     this.pop.style.left = left + 'px';
     this.pop.style.top = top + 'px';
+    if (window.ytGuard && ytGuard.overlaps(this.pop)){ this.cancel(); return; }   // never over the player
     this.pop.classList.add('show');
   },
 
@@ -284,6 +294,59 @@ var deckHint = {
   hide(){ if (this.el) this.el.hidden = true; }
 };
 window.addEventListener('load', function(){ deckHint.init(); });
+
+/* ── ytGuard ─────────────────────────────────────────────────────────────
+   YouTube requires the embedded player to be at least 200x200 and never
+   covered by anything else. The deck is laid out around the video, but
+   floating things (the promotion poster, hover previews, the banner) can
+   appear anywhere — so they ask ytGuard before showing, and an audit runs
+   every couple of seconds as a safety net. */
+var ytGuard = {
+  MIN: 200,
+
+  // the player's box, or null when it isn't on screen (e.g. a phone tab is open)
+  rect(){
+    var s = document.querySelector('#deck .screen');
+    if (!s || !s.offsetParent) return null;
+    return s.getBoundingClientRect();
+  },
+
+  // would this element, where it is right now, touch the player?
+  overlaps(el){
+    var v = this.rect();
+    if (!v || !el) return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 &&
+           r.left < v.right && r.right > v.left && r.top < v.bottom && r.bottom > v.top;
+  },
+
+  /* Safety net. Samples a grid over the player: anything on top that isn't
+     part of the player is either stepped aside (our own floating UI) or
+     reported. elementFromPoint can't see things with pointer-events:none,
+     which is why the floating UI also checks overlaps() itself. */
+  audit(){
+    var v = this.rect();
+    if (!v) return [];
+    if (v.width < this.MIN || v.height < this.MIN)
+      console.warn('ytGuard: the YouTube player is ' + Math.round(v.width) + 'x' + Math.round(v.height) + ' — YouTube requires at least 200x200');
+    var bad = [];
+    for (var i = 0; i < 5; i++) for (var j = 0; j < 5; j++){
+      var e = document.elementFromPoint(v.left + v.width * (i + 0.5) / 5, v.top + v.height * (j + 0.5) / 5);
+      if (e && !e.closest('#deck .screen') && bad.indexOf(e) === -1) bad.push(e);
+    }
+    ['promoPop', 'thumbPop', 'appBanner'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el.hidden && ytGuard.overlaps(el) && bad.indexOf(el) === -1) bad.push(el);
+    });
+    bad.forEach(function(e){
+      var fl = e.closest ? e.closest('#promoPop, #thumbPop, #appBanner') : null;
+      if (fl){ fl.classList.remove('show'); fl.hidden = true; }
+      else console.warn('ytGuard: something is covering the YouTube player', e);
+    });
+    return bad;
+  }
+};
+setInterval(function(){ ytGuard.audit(); }, 2000);
 
 function ytPlay(id, title) { player.load(id, title); }
 

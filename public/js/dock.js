@@ -170,6 +170,16 @@ var dock = {
   showMobile(label){
     this._mActive = label;
     document.body.classList.toggle('m-view-panel', label !== 'player');
+    // YouTube: the player must be visible while it plays. Leaving the Player
+    // tab hides it, so pause — and pick up again on the way back, but only if
+    // it was this that paused it (a track you paused yourself stays paused).
+    if (label !== 'player' && window.player && player.isPlaying){
+      player.pause();
+      this._pausedForTab = true;
+    } else if (label === 'player' && this._pausedForTab){
+      this._pausedForTab = false;
+      if (window.player) player.resume();
+    }
     this.items.forEach(it => { if (it.el) it.el.classList.toggle('m-active', it.label === label); });
     if (this._mBtns) this._mBtns.forEach(([l, b]) => b.classList.toggle('active', l === label));
   },
@@ -338,13 +348,7 @@ dock.items.forEach(it => {
 /* desktop vs mobile based on screen width */
 (function(){
   const mq = window.matchMedia('(max-width: 760px)');
-  // one Spin switch: beside the video on desktop, in the toggle row on phones
-  const placeSpin = (mobile) => {
-    const spin = document.getElementById('spinWrap');
-    const home = mobile ? document.querySelector('.np-toggles') : document.querySelector('#deck .plinth');
-    if (spin && home) mobile ? home.prepend(spin) : home.appendChild(spin);
-  };
-  const apply = () => { document.body.classList.toggle('mobile', mq.matches); dock.setMode(mq.matches); placeSpin(mq.matches); };
+  const apply = () => { document.body.classList.toggle('mobile', mq.matches); dock.setMode(mq.matches); };
   if (mq.addEventListener) mq.addEventListener('change', apply);
   else if (mq.addListener) mq.addListener(apply); // older Safari
   apply();

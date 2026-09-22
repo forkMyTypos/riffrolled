@@ -49,7 +49,13 @@
             </div>
 
             <div class="np-area">
-                <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text">No track loaded</span></div>
+                <div class="np-titlerow">
+                    <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text">No track loaded</span></div>
+                    <div class="np-react deck-react">
+                        <button class="react-btn react-like" title="Like this track">👍 <span class="count like-count">0</span></button>
+                        <button class="react-btn react-dislike" title="Dislike this track">👎 <span class="count dislike-count">0</span></button>
+                    </div>
+                </div>
 
                 <div class="transport">
                     <button class="t-btn" id="btnPrev">⏮</button>
@@ -57,12 +63,8 @@
                     <button class="t-btn" id="btnNext">⏭</button>
                 </div>
 
-                <div class="np-react deck-react">
-                    <button class="react-btn react-like" title="Like this track">👍 <span class="count like-count">0</span></button>
-                    <button class="react-btn react-dislike" title="Dislike this track">👎 <span class="count dislike-count">0</span></button>
-                </div>
 
-                <!-- phones only: the Spin switch joins Awake in this row (see placeSpin) -->
+                <!-- phones only: Awake keeps the screen on while music plays -->
                 <div class="np-toggles">
                     <label class="spin-toggle" id="wakeToggleWrap" title="Keep the screen on while music plays (uses more battery). Phones pause YouTube when the screen turns off.">
                         <input type="checkbox" id="wakeToggle">
@@ -72,7 +74,7 @@
                 </div>
             </div>
 
-            <!-- desktop: sits on the record, to the left of the video -->
+            <!-- bottom-left corner of the plinth, like a real turntable's start switch -->
             <label class="spin-toggle spin-side" id="spinWrap" title="Spin the record while it plays">
                 <input type="checkbox" id="spinToggle" checked>
                 <span class="spin-track"><span class="spin-thumb"></span></span>

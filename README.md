@@ -62,8 +62,12 @@ Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quot
 ## AI DJ
 
 You say what you want to hear, your own AI writes the playlist, riffrolled turns it into real
-tracks and plays it. Copy and paste is deliberate: nobody needs a key, an account or a
-subscription to use their own AI, and riffrolled never sees it.
+YouTube videos and plays them. Copy and paste is deliberate: nobody needs a key, an account or
+a subscription to use their own AI, and riffrolled never sees it.
+
+**riffrolled hosts no music.** Every track is a YouTube video played through YouTube's embedded
+player, so an AI DJ playlist is a list of YouTube videos — the prompt asks for watch links, and
+anything missing or unverifiable is looked up. Copy anywhere in the app should say so.
 
 ```
 you ask → your AI writes a playlist → riffrolled resolves it → saves it → plays it

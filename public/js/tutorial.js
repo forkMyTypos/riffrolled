@@ -58,9 +58,9 @@ var tourBoss = {
       title: 'Or let an AI DJ',
       body: "Tell the <b>🤖 AI DJ</b> what you're after — <i>“something chilled for working”</i>, " +
             "<i>“only stuff I've never heard”</i> — and it writes you a playlist.<br><br>" +
-            "Riffrolled supplies the music. <b>Your AI supplies the taste.</b> You copy a prompt, " +
-            "paste it into whichever AI you already use, paste the answer back. No key, no account, " +
-            "nothing to pay for.",
+            "<b>Your AI picks the tracks, YouTube plays them.</b> You copy a prompt, paste it into " +
+            "whichever AI you already use, paste the answer back, and riffrolled turns it into a " +
+            "playlist of real YouTube videos. No key, no account, nothing to pay for.",
       panel: function(){ return window.aiDjBoss && aiDjBoss.el; },
       cta: 'Next'
     },

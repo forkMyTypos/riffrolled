@@ -3,7 +3,11 @@
    riffrolled resolves it against real YouTube videos, saves it like any
    other playlist, and plays it.
 
-   Riffrolled supplies the music. Your AI supplies the taste.
+   Your AI picks the tracks. YouTube has them. riffrolled does the rest.
+
+   riffrolled supplies no music: every track is a YouTube video, played
+   through YouTube's embedded player. What riffrolled does here is turn an
+   AI's answer into real, verified YouTube videos and put them on the deck.
 
    Why copy and paste: nobody needs an API key, a subscription or an
    account to use this — they use the AI they already have open. That is
@@ -138,6 +142,8 @@ var aiDj = {
 
     L.push('You are my personal music DJ.');
     L.push('You are not creating music. You are choosing what I should listen to next.');
+    L.push('Everything I listen to plays from YouTube, so the playlist you write is a list of');
+    L.push('YouTube videos.');
     L.push('');
     L.push('WHAT I WANT: ' + (brief.request || 'your choice — surprise me'));
     L.push('HOW MANY TRACKS: ' + brief.count);
@@ -159,20 +165,24 @@ var aiDj = {
     L.push('');
     L.push('RIFFROLLED-PLAYLIST');
     L.push('NAME: a short name for this playlist');
-    L.push('1 | Artist | Track title | optional youtube link | why it is here (a few words)');
-    L.push('2 | Artist | Track title | | why it is here');
+    L.push('1 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | why it is here (a few words)');
+    L.push('2 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | why it is here');
     L.push('END');
     L.push('');
     L.push('Rules:');
     L.push('  - One track per line, numbered, in the order I should hear them.');
-    L.push('  - Artist and title are required, and must be accurate enough to find the track on YouTube.');
-    L.push('  - The link is OPTIONAL. Only include one if you have genuinely verified that video exists.');
-    L.push('    A wrong link is worse than none: leave it blank and riffrolled will find the track itself.');
+    L.push('  - Every track is played from YouTube, so give me the YouTube watch link for each one.');
+    L.push('    If you can search or browse the web, look the videos up so the links are real ones.');
+    L.push('  - Artist and title are required as well, and must be accurate enough to find the track');
+    L.push('    on YouTube on their own.');
+    L.push('  - If you are not certain a link is real, leave that cell empty rather than guessing an');
+    L.push('    id. riffrolled checks every link against YouTube and looks up anything missing, so a');
+    L.push('    blank costs nothing and an invented id just wastes the slot.');
     L.push('  - Real, released tracks only. Do not invent songs, and do not repeat a track.');
     L.push('  - No commentary outside the block.');
     L.push('');
     L.push('JSON is also accepted if you prefer:');
-    L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"","why":"..."}]}');
+    L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID","why":"..."}]}');
 
     return L.join('\n');
   },
@@ -514,7 +524,7 @@ var aiDjBoss = {
 
     var main =
       "<div class='sec dj-top'>" +
-        "<div class='dj-tag'>Riffrolled supplies the music.<br><b>Your AI supplies the taste.</b></div>" +
+        "<div class='dj-tag'>Your AI picks the tracks.<br><b>YouTube plays them. riffrolled does the rest.</b></div>" +
         "<textarea class='dj-req' rows='2' placeholder='Dark electronic for a late-night drive…'></textarea>" +
         "<div class='dj-objs'>" + objs + "</div>" +
         "<div class='row dj-countrow'>" +

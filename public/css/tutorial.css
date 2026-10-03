@@ -1,0 +1,98 @@
+/* riffrolled — tutorial.css
+   The seven-step tour card, and the outline it puts round whichever real
+   panel the current step is talking about. Deliberately a card in the
+   corner rather than a full-screen takeover: the app stays usable, and
+   the ✕ is always the nearest thing to hand. */
+
+.tour-card {
+  position:fixed; z-index:2400; width:min(360px, calc(100vw - 32px));
+  background:#1a1a2e; border:1px solid rgba(255,255,255,0.1);
+  border-top:2px solid #ff9de2; border-radius:0.7rem;
+  box-shadow:0 14px 44px rgba(0,0,0,0.6);
+  padding:16px 18px 12px; color:#e0e0e0;
+}
+
+.tour-card[hidden] { display:none; }
+
+.tt-x {
+  position:absolute; top:8px; right:8px; background:transparent; border:0;
+  color:rgba(255,255,255,0.35); font-size:14px; line-height:1; padding:3px 5px; border-radius:5px; cursor:pointer;
+}
+
+.tt-x:hover { color:#fff; background:rgba(255,255,255,0.12); }
+
+.tt-step { font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.3); }
+
+.tt-title { font-size:17px; font-weight:650; margin:4px 0 8px; color:#fff; }
+
+.tt-body { font-size:13px; line-height:1.55; color:rgba(255,255,255,0.72); }
+
+.tt-body b { color:#fff; font-weight:600; }
+
+.tt-body i { color:rgba(255,255,255,0.85); font-style:italic; }
+
+.tt-dim { color:rgba(255,255,255,0.4); font-size:12px; }
+
+/* the mental model, on the last step */
+.tt-loop { display:flex; flex-direction:column; gap:4px; margin:2px 0 12px; }
+
+.tt-loop span {
+  font-size:15px; font-weight:650; color:#fff; letter-spacing:0.01em;
+  padding-left:14px; position:relative;
+}
+
+.tt-loop span::before {
+  content:'↓'; position:absolute; left:0; top:-1px;
+  color:#ff9de2; font-size:12px; font-weight:400;
+}
+
+.tt-loop span:first-child::before { content:'▸'; }
+
+.tt-foot { display:flex; align-items:center; gap:10px; margin-top:14px; }
+
+.tt-dots { display:flex; gap:5px; margin:0 auto; }
+
+.tt-dot {
+  width:7px; height:7px; padding:0; border-radius:50%; border:0;
+  background:rgba(255,255,255,0.18); cursor:pointer;
+}
+
+.tt-dot:hover { background:rgba(255,255,255,0.4); }
+
+.tt-dot.on { background:#ff9de2; }
+
+.tt-next { font-size:12px; padding:7px 12px; }
+
+.tour-card.tt-final .tt-next {
+  background:rgba(255,157,226,0.22); border-color:rgba(255,157,226,0.5); color:#fff; font-weight:600;
+}
+
+.tt-back { font-size:11px; color:rgba(255,255,255,0.45); }
+
+/* whichever panel this step is about */
+.tour-spot {
+  outline:2px solid rgba(255,157,226,0.65);
+  outline-offset:2px;
+  animation:ttpulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ttpulse {
+  0%, 100% { outline-color:rgba(255,157,226,0.25); }
+  50%      { outline-color:rgba(255,157,226,0.8); }
+}
+
+/* the deck isn't a panel, so outline it without the offset covering the video */
+#deck.tour-spot { outline-offset:-6px; }
+
+/* phones: the card sits above the tab bar, full width */
+body.mobile .tour-card {
+  left:10px; right:10px; width:auto;
+  bottom:calc(72px + env(safe-area-inset-bottom)); top:auto;
+  padding:14px 15px 10px;
+}
+
+body.mobile .tt-title { font-size:16px; }
+
+/* on a phone the outline would sit under a full-screen panel view, and the
+   pulse is a distraction on a small screen — the card does the teaching */
+body.mobile .tour-spot { outline:none; animation:none; }

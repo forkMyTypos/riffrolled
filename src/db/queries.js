@@ -65,7 +65,7 @@ export async function listTracks(db, genre, limit) {
  * Insert tracks, skipping any url we already have (dedupe by url).
  * Works whether or not the unique index exists.
  */
-const SOURCES = new Set(['search', 'channel', 'playlist', 'paste']);
+const SOURCES = new Set(['search', 'channel', 'playlist', 'paste', 'ai']);
 
 export async function insertTracks(db, tracks, source = '') {
   // sanitise at the single choke point: canonical YouTube urls only, clamped text
@@ -90,6 +90,24 @@ export async function getTrackByUrl(db, url) {
     .prepare(`SELECT id, name, artist, genre, url FROM tracks WHERE url = ?1`)
     .bind(url)
     .first();
+}
+
+/* ── AI DJ lookup budget ──────────────────────────────────────────────
+   Resolving an AI playlist can fall back to YouTube search.list at 100
+   quota units a call, and the whole site shares 10,000 units a day. One
+   counter per UTC day is all the bookkeeping that needs: the resolver
+   checks it before spending and adds to it after. */
+
+export async function countAiLookups(db, day) {
+  const row = await db.prepare(`SELECT searches FROM ai_lookups WHERE day = ?1`).bind(day).first();
+  return row?.searches ?? 0;
+}
+
+export async function addAiLookups(db, day, n, now) {
+  await db.prepare(
+    `INSERT INTO ai_lookups (day, searches, updated_at) VALUES (?1, ?2, ?3)
+     ON CONFLICT(day) DO UPDATE SET searches = searches + ?2, updated_at = ?3`
+  ).bind(day, n, now).run();
 }
 
 /** Total rows in tracks (used to report how many an import actually added). */

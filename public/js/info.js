@@ -5,6 +5,7 @@
 var ABOUT_HTML =
   "<h4>riffrolled</h4>" +
   "<p>A vinyl-styled player and discovery tool for your YouTube music. Search YouTube, import whole channels, and build playlists on a spinning record deck.</p>" +
+  "<p><button class='tour-open'>🎓 How riffrolled works</button> <span class='info-meta'>— the seven-step tour, any time you want it.</span></p>" +
   "<p>Your playlists, tracks, reactions, and layout are saved locally on your device — there is no account to create and nothing to sign in to. A shared catalogue of tracks (name, artist, genre, link) lives on riffrolled's own server so searches and imports get faster for everyone.</p>" +
   "<p>riffrolled is an independent project and is <strong>not affiliated with, endorsed by, or sponsored by YouTube or Google LLC</strong>. Playback is provided through YouTube’s embedded player; all videos remain subject to YouTube’s Terms of Service.</p>" +
   "<p class='info-meta'>Beta · riffrolled.com</p>";
@@ -66,7 +67,14 @@ var infoBoss = {
         self.show(b.dataset.t);
       };
     });
+    this.bindTour();
   },
+  /* the tour's permanent home: it auto-runs once, then lives here */
+  bindTour(){
+    var btn = this.el.querySelector('.tour-open');
+    if (btn) btn.onclick = function(){ if (window.tourBoss) tourBoss.start(0); };
+  },
+
   show(t){
     var c = this.el.querySelector('.info-content');
     c.innerHTML = t === 'terms' ? TERMS_HTML
@@ -75,6 +83,7 @@ var infoBoss = {
       : ABOUT_HTML;
     c.scrollTop = 0;
     if (t === 'data') this.bindData();
+    else this.bindTour();
   },
 
   /* Export / import everything held on this device. Worth taking seriously:

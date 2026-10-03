@@ -155,6 +155,12 @@
 
 .dh-go:hover { background:rgba(157,140,255,0.34); }
 
+/* the quieter of the two: adding music is the main road, the tour is the offer */
+.dh-tour { font-size:11px; height:28px; padding:0 12px; color:rgba(255,255,255,0.5);
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); }
+
+.dh-tour:hover { color:#fff; background:rgba(255,157,226,0.18); border-color:rgba(255,157,226,0.45); }
+
 /* reactions on the deck itself — the most common thing you want while a
    record is spinning, so it shouldn't need a panel open */
 .deck-react { justify-content:center; gap:10px; margin-top:2px; }

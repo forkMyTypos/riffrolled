@@ -10,6 +10,7 @@ import { BUILD } from './build-info.js';
 import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
+import { handleResolve } from './routes/resolve.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
 import { handlePromote, handlePromotions, handlePromoEvent, handleMyPromotions, handlePromotionAction } from './routes/promote.js';
 
@@ -17,6 +18,7 @@ const ROUTES = [
   ['GET',  /^\/api\/search$/, (req, env, url) => handleSearch(req, env, url)],
   ['GET',  /^\/api\/tracks$/, (req, env, url) => handleListTracks(req, env, url)],
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
+  ['POST', /^\/api\/resolve$/, (req, env) => handleResolve(req, env)],
   ['GET',  /^\/api\/channel$/, (req, env, url) => handleChannelImport(req, env, url)],
   ['GET',  /^\/api\/playlist$/, (req, env, url) => handlePlaylistImport(req, env, url)],
   ['POST', /^\/api\/mine\/challenge$/, (req, env) => handleMineChallenge(req, env)],

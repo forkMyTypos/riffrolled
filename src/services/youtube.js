@@ -69,6 +69,30 @@ export async function searchYouTube(env, query, limit = 15) {
 }
 
 /**
+ * Search for one specific track (AI DJ resolution). Same cost as
+ * searchYouTube — 100 units — but asks only for videos that are actually
+ * embeddable, so the deck never loads a result it will have to skip.
+ */
+export async function searchYouTubeTrack(env, query, limit = 6) {
+  const data = await ytFetch(env, 'search', {
+    part: 'snippet',
+    type: 'video',
+    videoCategoryId: '10',        // Music
+    videoEmbeddable: 'true',
+    maxResults: String(Math.min(Math.max(limit, 1), 10)),
+    q: query,
+  });
+  return (data.items || [])
+    .filter((it) => /^[A-Za-z0-9_-]{11}$/.test(it?.id?.videoId || ''))
+    .map((it) => ({
+      name: it.snippet?.title || '',
+      artist: it.snippet?.channelTitle || '',
+      genre: '',
+      url: watchUrl(it.id.videoId),
+    }));
+}
+
+/**
  * Resolve any channel reference — /channel/UC…, a bare UC… id, an @handle,
  * a /user/name URL, or a plain name — to { channelId, title, uploadsPlaylistId }.
  * Tries the cheap lookups (1 unit) before falling back to search (100 units).

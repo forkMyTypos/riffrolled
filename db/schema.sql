@@ -67,3 +67,16 @@ CREATE TABLE IF NOT EXISTS promotions (
 );
 CREATE INDEX IF NOT EXISTS idx_promo_active ON promotions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_promo_wallet ON promotions(wallet_id, created_at);
+
+-- ── AI DJ lookup budget ──────────────────────────────────────────────
+-- Resolving an AI-generated playlist prefers free paths (a link the
+-- browser validated via YouTube's keyless oEmbed endpoint, then our own
+-- catalogue) and only falls back to YouTube search.list, which costs 100
+-- quota units a call out of 10,000 a day for the whole site. One counter
+-- per UTC day; nothing about who asked is recorded.
+
+CREATE TABLE IF NOT EXISTS ai_lookups (
+  day        TEXT PRIMARY KEY,              -- YYYY-MM-DD (UTC)
+  searches   INTEGER NOT NULL DEFAULT 0,    -- search.list calls spent that day
+  updated_at TEXT NOT NULL DEFAULT ''
+);

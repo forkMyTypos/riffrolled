@@ -90,6 +90,22 @@ db.version(8).stores({
   trackPairs: '++id, &key, a, b, count, lastTs'
 });
 
+// v9: aiSessions — what the AI DJ was asked for, what it answered, and
+// what each line resolved to (including what didn't). The playlist itself
+// is an ordinary playlists row; this is its provenance. Local, like the
+// rest of this database — no AI DJ request ever leaves the browser.
+db.version(9).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  trackLinks: '++id, a, b, createdAt',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  trackPairs: '++id, &key, a, b, count, lastTs',
+  aiSessions: '++id, ts, playlistId'
+});
+
 var dbBoss = {
   createPl: async function(n){
     if(!n) n = 'Playlist';

@@ -402,3 +402,87 @@
   .pp-acts button { width:42px; height:42px; }
 }
 body.mobile .promo-pop { left:12px; bottom:calc(74px + env(safe-area-inset-bottom)); }
+
+/* ── AI DJ ─────────────────────────────────────────────────────────────
+   You say what you want, your own AI writes the playlist, riffrolled
+   resolves it and plays it. Three steps down the panel, in order. */
+
+.dj-tag { font-size:12px; line-height:1.45; color:rgba(255,255,255,0.5); padding:2px 4px 8px; }
+
+.dj-tag b { color:rgba(255,255,255,0.86); font-weight:600; }
+
+.dj-req, .dj-reply, .dj-promptbox {
+  width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  border-radius:5px; color:#fff; font-size:13px; padding:8px 10px; outline:none; resize:vertical;
+  font-family:inherit; line-height:1.4;
+}
+
+.dj-req:focus, .dj-reply:focus { border-color:color-mix(in srgb, var(--accent,#ff9de2) 60%, transparent); }
+
+.dj-req::placeholder, .dj-reply::placeholder { color:rgba(255,255,255,0.26); }
+
+.dj-promptbox { margin-top:8px; font-size:11px; color:rgba(255,255,255,0.6); }
+
+/* the familiar ←→ discovery spectrum, as four words */
+.dj-objs { display:flex; gap:4px; padding:8px 0 2px; flex-wrap:wrap; }
+
+.dj-obj { flex:1 1 auto; font-size:11px; padding:5px 6px; border-radius:6px; }
+
+.dj-obj.active {
+  background:color-mix(in srgb, var(--accent,#ff9de2) 26%, transparent);
+  border-color:color-mix(in srgb, var(--accent,#ff9de2) 55%, transparent);
+  color:#fff;
+}
+
+.dj-countrow { padding:6px 0 0; }
+
+.dj-lbl { font-size:11px; color:rgba(255,255,255,0.4); }
+
+.dj-copy { margin-left:auto; }
+
+.dj-say { font-size:11.5px; line-height:1.5; color:rgba(255,255,255,0.42); padding:0 4px 2px; }
+
+.dj-step { border-top:1px solid rgba(255,255,255,0.06); }
+
+/* step 3 lifts once there's a prompt in the clipboard */
+.dj-step3 { opacity:0.72; transition:opacity .2s; }
+
+.dj-step3.ready, .dj-step3:focus-within { opacity:1; }
+
+.dj-gorow { padding:8px 0 0; }
+
+.dj-parsed { font-size:11px; color:rgba(255,255,255,0.45); }
+
+.dj-go { margin-left:auto; }
+
+/* what each line of the AI's playlist turned into */
+.dj-results { display:flex; flex-direction:column; gap:1px; padding-top:6px; }
+
+.dj-res { display:flex; align-items:baseline; gap:7px; padding:4px 5px; border-radius:4px; font-size:11.5px; }
+
+.dj-res.ok { background:rgba(90,184,138,0.07); }
+
+.dj-res.bad { background:rgba(212,96,96,0.07); }
+
+.dj-res-mark { flex-shrink:0; font-size:11px; }
+
+.dj-res.ok .dj-res-mark { color:#5ab88a; }
+
+.dj-res.bad .dj-res-mark { color:#d46060; }
+
+.dj-res-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,0.8); }
+
+.dj-res.bad .dj-res-name { color:rgba(255,255,255,0.45); text-decoration:line-through; text-decoration-color:rgba(255,255,255,0.2); }
+
+.dj-res-via { flex-shrink:0; font-size:9.5px; color:rgba(255,255,255,0.3); }
+
+/* past sets — click one to reopen its playlist */
+.dj-sessions-sec { border-top:1px solid rgba(255,255,255,0.06); }
+
+.dj-session { padding:5px 6px; border-radius:5px; cursor:pointer; display:flex; flex-direction:column; gap:1px; }
+
+.dj-session:hover { background:rgba(255,255,255,0.06); }
+
+.dj-sess-req { font-size:12px; color:rgba(255,255,255,0.78); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.dj-sess-meta { font-size:10px; color:rgba(255,255,255,0.3); }

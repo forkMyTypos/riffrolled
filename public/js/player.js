@@ -289,6 +289,8 @@ var deckHint = {
     el.querySelector('.dh-go').onclick = function(){
       if (window.dock && window.importBoss) dock.openPanel(importBoss.el);
     };
+    var tour = el.querySelector('.dh-tour');
+    if (tour) tour.onclick = function(){ if (window.tourBoss) tourBoss.start(0); };
     this.el = el;
   },
   hide(){ if (this.el) this.el.hidden = true; }

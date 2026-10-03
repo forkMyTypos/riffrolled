@@ -69,13 +69,80 @@ async function runSelfTests(){
       assert(rows.length === 1, 'one row per pair');
       assert(rows[0].a === 'aaaaaaaaaaa' && rows[0].b === 'bbbbbbbbbbb', 'normalised a<b');
       assert(rows[0].count === 2, 'count strengthens');
+    }],
+
+    /* ── AI DJ: the parser is the part most likely to meet something
+       unexpected, because it reads whatever a stranger's AI felt like
+       writing. Every case here is a shape a real model has produced. ── */
+    ['AI DJ parses the pipe format', async () => {
+      const r = aiDj.parseReply(
+        "RIFFROLLED-PLAYLIST\nNAME: Late night drive\n" +
+        "1 | Burial | Archangel | | ghostly and patient\n" +
+        "2 | Boards of Canada | Dayvan Cowboy | https://www.youtube.com/watch?v=abcdefghijk | opens up\n" +
+        "END");
+      assert(r.name === 'Late night drive', 'name read');
+      assert(r.items.length === 2, 'two tracks');
+      assert(r.items[0].artist === 'Burial' && r.items[0].title === 'Archangel', 'fields split');
+      assert(r.items[0].why === 'ghostly and patient', 'why kept');
+      assert(r.items[1].url === 'abcdefghijk', 'link reduced to an id');
+      assert(r.items[0].url === '', 'empty link cell stays empty');
+    }],
+    ['AI DJ parses JSON, prose and fences around it', async () => {
+      const r = aiDj.parseReply(
+        "Sure! Here's a playlist:\n```json\n" +
+        '{"name":"Rainy","tracks":[{"artist":"Nujabes","title":"Aruarian Dance","why":"soft"},' +
+        '{"artist":"Mono","song":"Ashes in the Snow","url":"https://youtu.be/bbbbbbbbbbb"}]}' +
+        "\n```\nEnjoy!");
+      assert(r.name === 'Rainy', 'json name');
+      assert(r.items.length === 2, 'json tracks');
+      assert(r.items[1].title === 'Ashes in the Snow', 'song key accepted');
+      assert(r.items[1].url === 'bbbbbbbbbbb', 'youtu.be id');
+    }],
+    ['AI DJ parses numbered dashes and markdown tables', async () => {
+      const dashes = aiDj.parseReply("1. Aphex Twin - Avril 14th\n2) Erik Satie — Gymnopédie No.1\n");
+      assert(dashes.items.length === 2, 'dash lines');
+      assert(dashes.items[0].artist === 'Aphex Twin' && dashes.items[0].title === 'Avril 14th', 'dash split');
+      const table = aiDj.parseReply(
+        "| # | Artist | Title |\n|---|---|---|\n| 1 | Portishead | Roads |\n| 2 | Massive Attack | Teardrop |");
+      assert(table.items.length === 2, 'table rows, header and rule skipped');
+      assert(table.items[1].artist === 'Massive Attack', 'index cell dropped');
+    }],
+    ['AI DJ parser dedupes, caps and never throws', async () => {
+      const dup = aiDj.parseReply("1 | A | Song\n2 | a | song\n3 | B | Other");
+      assert(dup.items.length === 2, 'case-insensitive dedupe');
+      let many = '';
+      for (let i = 0; i < 60; i++) many += (i + 1) + ' | Artist' + i + ' | Title' + i + '\n';
+      assert(aiDj.parseReply(many).items.length === aiDj.MAX_TRACKS, 'capped at MAX_TRACKS');
+      assert(aiDj.parseReply('').items.length === 0, 'empty input');
+      assert(aiDj.parseReply('I cannot help with that.').items.length === 0, 'refusal is not a playlist');
+      assert(aiDj.parseReply('{"broken": [').items.length === 0, 'broken json');
+    }],
+    ['AI DJ writes a playlist plus a session record', async () => {
+      const brief = { request:'dark electronic', objective:'fresh', count:2 };
+      const parsed = { name:'Night', items:[
+        { artist:'X', title:'One', why:'opener' },
+        { artist:'Y', title:'Two', why:'' }
+      ]};
+      const resolved = { tracks:[
+        { item: parsed.items[0], ok:true, via:'catalogue', ytId:'ccccccccccc', name:'One', artist:'X' },
+        { item: parsed.items[1], ok:false, via:null, reason:'no_match' }
+      ]};
+      const saved = await aiDj.save(brief, parsed, resolved, 'raw reply text');
+      assert(saved && saved.count === 1, 'only resolved tracks are saved');
+      const pl = await db.playlists.get(saved.playlistId);
+      assert(pl.source === 'ai' && pl.aiRequest === 'dark electronic', 'provenance on the playlist');
+      const joins = await db.playlistTracks.where('playlistId').equals(pl.id).toArray();
+      assert(joins.length === 1, 'one join row');
+      const sess = await db.aiSessions.toArray();
+      assert(sess.length === 1 && sess[0].items.length === 2, 'session keeps what failed too');
+      assert(sess[0].items[1].reason === 'no_match', 'and why it failed');
     }]
   ];
 
   // run against a throwaway DB so real data is never touched
   const realDb = db;
   const testDb = new Dexie('vinyl_selftest_' + Date.now());
-  testDb.version(8).stores({
+  testDb.version(9).stores({
     playlists: '++id, name, createdAt, plays, tags',
     tracks: '++id, ytId, name, artist, tags, plays',
     playlistTracks: '++id, playlistId, trackId, addedAt, order',
@@ -83,7 +150,8 @@ async function runSelfTests(){
     trackLinks: '++id, a, b, createdAt',
     settings: 'k',
     reactions: '++id, ytId, trackId, kind, ts',
-    trackPairs: '++id, &key, a, b, count, lastTs'
+    trackPairs: '++id, &key, a, b, count, lastTs',
+    aiSessions: '++id, ts, playlistId'
   });
   await testDb.open();
 
@@ -92,7 +160,7 @@ async function runSelfTests(){
   db = testDb;                       // dbBoss now operates on the throwaway DB
   try {
     for (const [name, fn] of tests){
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs, db.aiSessions].map(t => t.clear()));
       try { await fn(); results.push({ ok:true, name }); pass++; }
       catch (e){ results.push({ ok:false, name, msg:e.message }); fail++; }
     }

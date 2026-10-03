@@ -29,5 +29,13 @@ ALLOWED_ORIGIN = "https://riffrolled.com"
 # PROMOTE_COST = "5"            # tokens to promote a track
 # PROMOTE_HOURS = "24"          # how long a promotion stays live
 
+# ── AI DJ resolution (defaults shown) ──
+# Resolving an AI playlist tries free paths first (a link the browser
+# validated via YouTube's keyless oEmbed endpoint, then our own catalogue).
+# Only what's left falls back to YouTube search.list at 100 quota units a
+# call, inside these caps. Set AI_YT_DAILY = "0" to switch that off.
+# AI_YT_DAILY = "40"            # search.list calls a day, whole site
+# AI_YT_PER_REQUEST = "8"       # ...and at most this many per playlist
+
 # Secrets (set in dashboard → your Worker → Settings → Variables & Secrets):
 #   YT_API_KEY = your YouTube Data API v3 key

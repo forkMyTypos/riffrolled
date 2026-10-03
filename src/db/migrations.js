@@ -61,6 +61,14 @@ const MIGRATIONS = [
        id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL,
        action TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '')`,
   ]},
+  // AI DJ resolution falls back to YouTube search (100 quota units a call),
+  // so the site keeps a daily counter and stops when it's spent. One row
+  // per UTC day, and nothing about who asked.
+  { id: 9, name: 'ai lookup budget', sql: [
+    `CREATE TABLE IF NOT EXISTS ai_lookups (
+       day TEXT PRIMARY KEY, searches INTEGER NOT NULL DEFAULT 0,
+       updated_at TEXT NOT NULL DEFAULT '')`,
+  ]},
 ];
 
 // "already there" is success: the work this statement would do is done

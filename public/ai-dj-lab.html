@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI DJ lab — riffrolled</title>
+<!--
+  A bench, not a feature. Nothing links to this page: it exists so the
+  question "how reliably can an AI hand us a playlist we can actually
+  resolve?" can be answered with numbers instead of opinions.
+
+  Paste any AI's reply and it reports, line by line:
+    · did the parser read it
+    · did the AI supply a link, and was that link real (oEmbed, no key,
+      no YouTube API quota) and actually the track it claimed
+    · what /api/resolve made of it, and which tier answered —
+      the AI's link, our own catalogue, or a YouTube search
+
+  Run it on the deployed site so /api/resolve is same-origin. Safe to
+  delete whenever it has served its purpose.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font:14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+         background:#111; background-image:radial-gradient(circle at 20% 20%, #1a1a2e 0%, #111 60%);
+         color:#e0e0e0; padding:24px; max-width:900px; margin:0 auto; }
+  h1 { font-size:19px; margin-bottom:4px; }
+  h1 span { color:#ff9de2; }
+  .sub { color:rgba(255,255,255,0.45); font-size:12.5px; margin-bottom:18px; }
+  textarea { width:100%; min-height:190px; background:rgba(255,255,255,0.04);
+             border:1px solid rgba(255,255,255,0.12); border-radius:7px; color:#fff;
+             font:12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; padding:11px; resize:vertical; }
+  textarea:focus { outline:none; border-color:rgba(255,157,226,0.6); }
+  .bar { display:flex; gap:9px; align-items:center; margin:11px 0 20px; flex-wrap:wrap; }
+  button { background:rgba(255,157,226,0.18); border:1px solid rgba(255,157,226,0.45);
+           color:#fff; border-radius:6px; padding:8px 15px; font-size:13px; cursor:pointer; }
+  button:hover:not(:disabled) { background:rgba(255,157,226,0.3); }
+  button:disabled { opacity:0.5; cursor:default; }
+  button.sec { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.14); color:rgba(255,255,255,0.7); }
+  label.chk { font-size:12px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:5px; }
+  .msg { font-size:12px; color:rgba(255,255,255,0.5); min-height:18px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.07); vertical-align:top; }
+  th { font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.35); font-weight:500; }
+  td.n { color:rgba(255,255,255,0.3); width:26px; }
+  .tag { display:inline-block; font-size:10px; padding:1px 6px; border-radius:20px; white-space:nowrap; }
+  .t-link { background:rgba(90,184,138,0.2); color:#8fdcb2; }
+  .t-catalogue { background:rgba(70,224,255,0.16); color:#8fe3f7; }
+  .t-youtube { background:rgba(224,163,77,0.18); color:#e9bd7e; }
+  .t-none { background:rgba(212,96,96,0.16); color:#e29494; }
+  .t-warn { background:rgba(224,163,77,0.18); color:#e9bd7e; }
+  .scores { margin:20px 0 10px; display:flex; gap:10px; flex-wrap:wrap; }
+  .score { background:rgba(255,255,255,0.045); border:1px solid rgba(255,255,255,0.09);
+           border-radius:8px; padding:10px 14px; min-width:120px; }
+  .score b { display:block; font-size:21px; font-weight:650; color:#fff; }
+  .score span { font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.4); }
+  .note { font-size:11.5px; color:rgba(255,255,255,0.35); margin-top:16px; line-height:1.6; }
+  code { font-family:ui-monospace, Menlo, Consolas, monospace; color:rgba(255,255,255,0.6); }
+</style>
+</head>
+<body>
+
+<h1>AI DJ <span>lab</span></h1>
+<div class="sub">Paste any AI's playlist reply. This measures what riffrolled can actually do with it — parse rate, how many supplied links are real, and which tier resolved each track.</div>
+
+<textarea id="in" placeholder="Paste the whole reply from ChatGPT / Claude / Gemini / whatever you asked…"></textarea>
+
+<div class="bar">
+  <button id="run">Measure it</button>
+  <button id="parseOnly" class="sec">Parse only</button>
+  <label class="chk"><input type="checkbox" id="allowYt" checked> allow YouTube lookups (spends quota)</label>
+</div>
+<div class="msg" id="msg"></div>
+
+<div class="scores" id="scores" hidden></div>
+<table id="out" hidden>
+  <thead><tr><th class="n">#</th><th>Artist</th><th>Title</th><th>AI's link</th><th>Resolved as</th><th>How</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<div class="note">
+  <b>Reading this:</b> <span class="tag t-link">link</span> the AI gave a real link that matched the track it claimed — free, no quota.
+  <span class="tag t-catalogue">catalogue</span> already in riffrolled's own database — free.
+  <span class="tag t-youtube">youtube</span> found by search — 100 quota units each, inside the daily budget.
+  <span class="tag t-none">none</span> nothing close enough; nothing was saved.<br><br>
+  A link the AI supplied is validated in your browser against <code>youtube.com/oembed</code>, which needs no key and spends no API quota, and the real title it returns is checked against what the AI said it was. Unverified links never reach the database.
+</div>
+
+<script>
+  // the panel's helpers are not needed here, but aidj.js escapes text when
+  // it renders, so give it the one global it expects
+  function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+</script>
+<script src="js/aidj.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var msg = function(t){ $('msg').textContent = t || ''; };
+
+  function row(i, it, res){
+    var via = res && res.ok ? res.via : 'none';
+    var resolvedAs = res && res.ok ? ((res.artist ? res.artist + ' — ' : '') + res.name) : '—';
+    var how = res && res.ok ? via : (res && res.reason ? res.reason.replace(/_/g, ' ') : 'not found');
+    var link = !it.url ? '<span style="color:rgba(255,255,255,.25)">none</span>'
+      : (res && res.linkState === 'ok' ? '<span class="tag t-link">real ✓</span>'
+      : res && res.linkState === 'mismatch' ? '<span class="tag t-warn">wrong track</span>'
+      : '<span class="tag t-none">not a video</span>');
+    return '<tr><td class="n">' + (i + 1) + '</td>'
+      + '<td>' + escapeHtml(it.artist || '—') + '</td>'
+      + '<td>' + escapeHtml(it.title || '—') + '</td>'
+      + '<td>' + link + '</td>'
+      + '<td>' + escapeHtml(resolvedAs) + '</td>'
+      + '<td><span class="tag t-' + (via === 'none' ? 'none' : via) + '">' + escapeHtml(how) + '</span></td></tr>';
+  }
+
+  function scores(items, results, extra){
+    var n = items.length;
+    var gave = items.filter(function(it){ return !!it.url; }).length;
+    var realLinks = results.filter(function(r){ return r && r.linkState === 'ok'; }).length;
+    var by = { link:0, catalogue:0, youtube:0 };
+    results.forEach(function(r){ if (r && r.ok && by[r.via] != null) by[r.via]++; });
+    var resolved = by.link + by.catalogue + by.youtube;
+    var cards = [
+      ['tracks parsed', n],
+      ['resolved', resolved + '/' + n],
+      ['links given', gave],
+      ['links real', gave ? realLinks + '/' + gave : '—'],
+      ['free', by.link + by.catalogue],
+      ['yt lookups', extra.used == null ? '—' : extra.used]
+    ];
+    if (extra.left != null) cards.push(['budget left', extra.left + '/' + extra.limit]);
+    $('scores').innerHTML = cards.map(function(c){
+      return '<div class="score"><b>' + c[1] + '</b><span>' + c[0] + '</span></div>';
+    }).join('');
+    $('scores').hidden = false;
+  }
+
+  async function measure(withResolve){
+    var raw = $('in').value;
+    var parsed = aiDj.parseReply(raw);
+    $('out').hidden = false;
+    if (!parsed.items.length){
+      msg('The parser found no playlist in that. Paste the whole reply.');
+      $('out').querySelector('tbody').innerHTML = '';
+      $('scores').hidden = true;
+      return;
+    }
+    msg('Parsed ' + parsed.items.length + ' tracks' + (parsed.name ? ' · name: “' + parsed.name + '”' : ''));
+
+    var results = parsed.items.map(function(){ return null; });
+    if (!withResolve){
+      $('out').querySelector('tbody').innerHTML = parsed.items.map(function(it, i){ return row(i, it, null); }).join('');
+      scores(parsed.items, results, {});
+      return;
+    }
+
+    $('run').disabled = $('parseOnly').disabled = true;
+    try {
+      // validate supplied links here in the browser — free, no quota
+      for (var i = 0; i < parsed.items.length; i++){
+        var it = parsed.items[i];
+        results[i] = { ok:false };
+        if (!it.url) continue;
+        msg('Checking link ' + (i + 1) + '/' + parsed.items.length + '…');
+        var v = await aiDj.oembed(it.url);
+        results[i].verified = v;             // a real video, or null
+        results[i].linkState = v ? 'pending' : 'dead';
+      }
+
+      msg('Resolving against riffrolled…');
+      var resolved = await aiDj.resolve(parsed.items, { allowYouTube: $('allowYt').checked });
+
+      resolved.tracks.forEach(function(t, i){
+        var prev = results[i] || {};
+        results[i] = {
+          ok: t.ok, via: t.via, reason: t.reason, name: t.name, artist: t.artist,
+          linkState: !parsed.items[i].url ? null
+            : (!prev.verified ? 'dead' : (t.via === 'link' ? 'ok' : 'mismatch'))
+        };
+      });
+
+      $('out').querySelector('tbody').innerHTML = parsed.items.map(function(it, i){ return row(i, it, results[i]); }).join('');
+      scores(parsed.items, results, { used: resolved.lookupsUsed, left: resolved.lookupsLeft, limit: resolved.lookupsLimit });
+      msg(resolved.warning ? ('Done — YouTube reported: ' + resolved.warning)
+        : resolved.offline ? ('Done — the API was unreachable (' + resolved.offline + '), so only verified links count')
+        : 'Done.');
+    } catch(e){
+      msg('Failed: ' + e.message);
+    } finally {
+      $('run').disabled = $('parseOnly').disabled = false;
+    }
+  }
+
+  $('run').onclick = function(){ measure(true); };
+  $('parseOnly').onclick = function(){ measure(false); };
+})();
+</script>
+</body>
+</html>

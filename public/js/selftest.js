@@ -188,9 +188,9 @@ async function runSelfTests(){
       assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
       assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
       assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
-      assert(p.indexOf('LINKS — READ THIS CAREFULLY') > 0, 'link instructions present');
-      assert(p.indexOf('LEAVE THE LINK') > 0, 'an empty link cell is allowed');
-      assert(p.indexOf('from memory') > 0, 'and inventing one is forbidden');
+      assert(p.indexOf('YOUTUBE LINKS — REQUIRED') > 0, 'link instructions present');
+      assert(p.indexOf('HARD REQUIREMENT') > 0, 'and the hard requirement');
+      assert(p.indexOf('Never rely on') > 0, 'memory is not an acceptable source');
       assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
       assert(!/chatgpt|claude|gemini|openai/i.test(p), 'no AI provider is named');
       djAi.state.shareContext = false;
@@ -214,7 +214,12 @@ async function runSelfTests(){
       djAi.state.count = 15; djAi.state.minutes = 60; djAi.state.maxTrackMin = 8;
       djAi.state.shareContext = false;
       const p = await djAi.buildSpeedPrompt();
-      assert(p.indexOf('This is SPEED MODE') > 0, 'speed template used');
+      assert(p.indexOf('PHASE 1 — BE THE DJ') > 0, 'speed template used');
+      assert(p.indexOf('PHASE 2 — FIND THE YOUTUBE LINKS') > 0, 'the two phases are separate');
+      assert(p.indexOf('PHASE 1') < p.indexOf('PHASE 2'), 'and in that order — taste before lookup');
+      assert(p.indexOf('Never invent, guess, or recall a YouTube video ID') > 0, 'ids may not be recalled');
+      assert(p.indexOf('Choose exactly 15 tracks') > 0 && p.indexOf('exactly 15 real YouTube URLs') > 0,
+        'the count reaches both phases');
       assert(p.indexOf('{{') < 0, 'every placeholder filled');
       assert(p.indexOf('Tracks: 15') > 0 && p.indexOf('Return exactly 15 tracks') > 0, 'count in both places');
       assert(p.indexOf('WHAT I ALREADY LISTEN TO') < 0, 'listening block gone when not sharing');
@@ -244,6 +249,25 @@ async function runSelfTests(){
       assert(djAi.estimateSecs() > bare * 2, 'details mode estimates much longer');
       assert(djAi.estimateLabel().indexOf('min') > 0, 'label reads in minutes');
       djAi.state.textMode = 'speed';
+    }],
+    ['DJ AI speed mode: DISCOVERY appears only when there is something to say', async () => {
+      await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
+      djAi.state.textMode = 'speed'; djAi.state.picks = {}; djAi.state.shareContext = false;
+      djAi.state.familiarity = 30; djAi.state.chaos = false;
+      const bare = await djAi.buildSpeedPrompt();
+      assert(bare.indexOf('DISCOVERY') < 0, 'left alone, the DJ decides');
+      assert(bare.indexOf('{{') < 0 && !/\n\n\n\n/.test(bare), 'and the gap closes cleanly');
+      // moving familiarity alone is enough to say something
+      djAi.state.familiarity = 50;
+      const fam = await djAi.buildSpeedPrompt();
+      assert(fam.indexOf('DISCOVERY') > 0 && fam.indexOf('Roughly 50% things I might know') > 0, 'familiarity shows');
+      // a discovery pick brings its own line plus the fixed caveat
+      const d = djAi.cat('discovery');
+      await djAi.pick('discovery', d.options.find(o => o.label === 'Under-discovered artists').id);
+      const both = await djAi.buildSpeedPrompt();
+      assert(both.indexOf('people doing real work without much of an audience') > 0, 'the discovery line');
+      assert(both.indexOf('Do not turn this into an obscure-music exercise') > 0, 'and the caveat');
+      djAi.state.familiarity = 30;
     }],
     ['DJ AI speed mode shares the top ten, and only when asked', async () => {
       await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();

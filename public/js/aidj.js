@@ -445,26 +445,44 @@ var djAi = {
     var self = this, s = this.state;
     var tpl = (typeof DJ_SPEED_PROMPT !== 'undefined') ? DJ_SPEED_PROMPT : '';
 
-    // anything opened under More settings joins the brief — otherwise the
-    // extra controls would be decoration
+    /* Anything opened under More settings joins THE BRIEF as its own
+       question, in the same shape as the four on screen — otherwise those
+       controls would be decoration. Discovery and familiarity are the
+       exception: they get their own section below, because the brief for
+       "how far from home" needs more than a label. */
     var extras = [];
     this.cats.forEach(function(c){
-      if (!c.enabled || self.SPEED_CORE.indexOf(c.key) >= 0) return;
+      if (!c.enabled || self.SPEED_CORE.indexOf(c.key) >= 0 || c.key === 'discovery') return;
       var o = self.picked(c.key);
       if (!o) return;
-      extras.push(c.label + ' ' + o.label + (o.line ? '\n' + o.line : ''));
+      extras.push('\n' + c.label + '\n' + (o.line || o.label));
     });
-    if (s.familiarity !== 30){
-      extras.push('Familiarity\nRoughly ' + s.familiarity + '% things I might know, ' +
-                  (100 - s.familiarity) + '% discovery. A feel, not arithmetic.');
-    }
     if (s.chaos && typeof DJ_CHAOS_LINES !== 'undefined'){
-      extras.push('Chaos\n' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
+      extras.push('\nCHAOS\n' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
     }
-    var extrasBlock = extras.length ? '\n' + extras.join('\n\n') + '\n' : '\n';
+    var extrasBlock = extras.length ? extras.join('\n') + '\n' : '';
+
+    /* DISCOVERY appears when there is something to say: a discovery brief,
+       or a familiarity the listener has actually moved. Left alone, the DJ
+       decides — which is what speed mode is for. */
+    var disc = this.picked('discovery');
+    var famMoved = s.familiarity !== 30;
+    var discoveryBlock = '';
+    if ((disc || famMoved) && typeof DJ_DISCOVERY_BLOCK !== 'undefined'){
+      var famBlock = '';
+      if (famMoved && typeof DJ_FAMILIARITY_BLOCK !== 'undefined'){
+        famBlock = DJ_FAMILIARITY_BLOCK
+          .replace('{{familiar_pct}}', String(s.familiarity))
+          .replace('{{discovery_pct}}', String(100 - s.familiarity));
+      }
+      discoveryBlock = DJ_DISCOVERY_BLOCK
+        .replace('{{discovery_line}}', disc ? (disc.line || disc.label)
+          : 'No particular discovery brief — the familiarity below is the whole of it.')
+        .replace('{{familiarity}}', famBlock);
+    }
 
     // speed mode shares the top ten and nothing else
-    var listening = '\n';
+    var listening = '';
     if (s.shareContext){
       var top = await this.topTracks(10);
       if (top.length){
@@ -479,6 +497,7 @@ var djAi = {
       .replace('{{direction}}',          this._briefLineFor('direction'))
       .replace('{{dj_personality}}',     this._briefLineFor('personality'))
       .replace('{{extras}}',             extrasBlock)
+      .replace('{{discovery}}',          discoveryBlock)
       .replace('{{listening}}',          listening)
       .replace(/\{\{track_count\}\}/g,   String(s.count))
       .replace('{{target_minutes}}',     String(s.minutes))
@@ -494,8 +513,10 @@ var djAi = {
         .filter(function(t){ return (counts[t.ytId] || 0) > 0; })
         .sort(function(a, b){ return (counts[b.ytId] || 0) - (counts[a.ytId] || 0); })
         .slice(0, n || 10)
+        // "Artist - Title", the way a tracklist reads. No play counts: the
+        // order already says which ones get played most.
         .map(function(t){
-          return (t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId) + ' (' + counts[t.ytId] + ' plays)';
+          return (t.artist ? t.artist + ' - ' : '') + (t.name || t.ytId);
         });
     } catch(e){ return []; }
   },
@@ -568,34 +589,41 @@ var djAi = {
     L.push('');
     L.push('RIFFROLLED-PLAYLIST');
     L.push('NAME: a short name for this set');
-    L.push('1 | Artist | Track title | YouTube URL or empty | 4:12 | genre | why it is here');
-    L.push('2 | Artist | Track title | YouTube URL or empty | 3:48 | genre | why it is here');
+    L.push('1 | Artist | Track title | YouTube URL | 4:12 | genre | why it is here');
+    L.push('2 | Artist | Track title | YouTube URL | 3:48 | genre | why it is here');
     L.push('END');
     L.push('');
     L.push('Rules:');
     L.push('  - One track per line, numbered, in the order I should hear them.');
-    L.push('  - Artist, title, running time (m:ss), genre, and a few words on why it earns its');
-    L.push('    place. The link cell may be empty — keep the empty cell between the pipes.');
+    L.push('  - Artist, title, link, running time (m:ss), genre, and a few words on why it earns');
+    L.push('    its place in this journey.');
     L.push('  - Real, released tracks by real artists. Do not invent songs. Do not repeat a track.');
     L.push('  - No commentary outside the block.');
     L.push('');
-    L.push('LINKS — READ THIS CAREFULLY:');
-    L.push('Every track plays from YouTube, so a real link is useful. Only a real one.');
+    L.push('YOUTUBE LINKS — REQUIRED');
+    L.push('Every track MUST have a real YouTube watch URL.');
+    L.push('A playlist is not complete unless all ' + s.count + ' tracks have verified YouTube URLs.');
     L.push('');
-    L.push('If you can search the web: search YouTube for each track and copy the exact watch URL');
-    L.push('from the result you actually saw.');
+    L.push('For EACH track:');
+    L.push('  1. Search YouTube/web for the exact Artist + Track Title.');
+    L.push('  2. Find a real YouTube result for that exact recording.');
+    L.push('  3. Verify that the result matches the exact artist, the exact track title, and the');
+    L.push('     intended recording or version.');
+    L.push('  4. Copy the actual watch URL from the search result.');
+    L.push('  5. Never construct a YouTube URL yourself.');
+    L.push('  6. Never invent, guess, or recall a YouTube video ID.');
+    L.push('  7. Never use a different song, remix, cover, live version, lyric video, or similarly');
+    L.push('     titled track unless it is clearly the intended recording.');
+    L.push('  8. Prefer the official artist or channel upload when available.');
+    L.push('  9. Otherwise use another legitimate upload that clearly contains the exact track.');
+    L.push(' 10. Repeat the search if the first result is unsuitable.');
     L.push('');
-    L.push('If you cannot search, or you are not certain a particular video exists: LEAVE THE LINK');
-    L.push('CELL EMPTY. An empty cell is a correct answer — riffrolled finds the track from the');
-    L.push('artist and title, which costs it nothing.');
-    L.push('');
-    L.push('Never write a YouTube video ID from memory. IDs are random eleven-character strings;');
-    L.push('one that looks plausible is almost always wrong, and a wrong link is the only answer');
-    L.push('here that cannot be recovered from — it puts a dead track in my playlist.');
-    L.push('');
-    L.push('Getting the artist and title exactly right matters more than supplying a link.');
-    L.push('');
-    L.push('The playlist should contain ' + s.count + ' tracks.');
+    L.push('HARD REQUIREMENT');
+    L.push('Return exactly ' + s.count + ' tracks AND exactly ' + s.count + ' verified YouTube URLs.');
+    L.push('If a selected track cannot be confidently matched to a real YouTube result, replace it');
+    L.push('with another suitable track that can be verified.');
+    L.push('The URL must come from an actual search result made during this request. Never rely on');
+    L.push('memory. A plausible-looking URL is not acceptable.');
     L.push('');
     L.push('JSON is also accepted if you prefer:');
     L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID",' +

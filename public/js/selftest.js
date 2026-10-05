@@ -21,15 +21,65 @@ async function runSelfTests(){
       const j = await db.playlistTracks.where('playlistId').equals(pl).sortBy('order');
       assert(j.length === 2 && j[0].order === 0 && j[1].order === 1, 'orders 0,1');
     }],
-    ['linkTracks undirected/deduped/self-reject; unlink', async () => {
-      const x = await dbBoss.createTrack('x1111111111', 'X');
-      const y = await dbBoss.createTrack('y1111111111', 'Y');
-      assert((await dbBoss.linkTracks(x, y)) === 'added');
-      assert((await dbBoss.linkTracks(y, x)) === 'dupe', 'reverse is dup');
-      assert((await dbBoss.linkTracks(x, x)) === 'invalid', 'self invalid');
-      assert((await dbBoss.getLinkedTrackIds(x)).includes(y) && (await dbBoss.getLinkedTrackIds(y)).includes(x), 'bidirectional');
-      await dbBoss.unlinkTracks(x, y);
-      assert((await dbBoss.getLinkedTrackIds(x)).length === 0, 'unlinked');
+    ['links: manual and automatic, direction kept', async () => {
+      // PLAY_ORDER is directional and one row answers both questions
+      assert((await dbBoss.link('PLAY_ORDER', 'aaaaaaaaaaa', 'bbbbbbbbbbb', {})) === 'added');
+      assert((await dbBoss.link('PLAY_ORDER', 'aaaaaaaaaaa', 'bbbbbbbbbbb', {})) === 'strengthened');
+      assert((await db.links.count()) === 1, 'one row, not two');
+      const after = await dbBoss.linksFrom('PLAY_ORDER', 'aaaaaaaaaaa');
+      assert(after.length === 1 && after[0].ytId === 'bbbbbbbbbbb' && after[0].score === 2, 'what follows a');
+      const before = await dbBoss.linksTo('PLAY_ORDER', 'bbbbbbbbbbb');
+      assert(before.length === 1 && before[0].ytId === 'aaaaaaaaaaa', 'what precedes b');
+      assert((await dbBoss.linksFrom('PLAY_ORDER', 'bbbbbbbbbbb')).length === 0, 'b→a is a different thing');
+      // the reverse direction is its own row
+      await dbBoss.link('PLAY_ORDER', 'bbbbbbbbbbb', 'aaaaaaaaaaa', {});
+      assert((await db.links.count()) === 2, 'b→a recorded separately');
+      // RELATED is undirected: one row, readable from either end
+      assert((await dbBoss.linkManual('ddddddddddd', 'ccccccccccc', 'wallet1')) === 'added');
+      assert((await dbBoss.linkManual('ccccccccccc', 'ddddddddddd', 'wallet1')) === 'strengthened', 'reverse is the same link');
+      assert((await dbBoss.linksFrom('RELATED', 'ccccccccccc'))[0].ytId === 'ddddddddddd', 'readable forwards');
+      assert((await dbBoss.linksFrom('RELATED', 'ddddddddddd'))[0].ytId === 'ccccccccccc', 'and backwards');
+      assert((await dbBoss.link('X', 'aaaaaaaaaaa', 'aaaaaaaaaaa', {})) === 'invalid', 'self-link rejected');
+    }],
+    ['links: a person claiming one riffrolled only observed', async () => {
+      await dbBoss.link('RELATED', 'eeeeeeeeeee', 'fffffffffff', {});          // observed
+      let row = await db.links.where('key').equals('RELATED:eeeeeeeeeee>fffffffffff').first();
+      assert(row.origin === 'auto' && !row.createdBy, 'automatic links have no author');
+      const r = await dbBoss.linkManual('eeeeeeeeeee', 'fffffffffff', 'wallet9');
+      assert(r === 'claimed', 'a person can claim it');
+      row = await db.links.where('key').equals('RELATED:eeeeeeeeeee>fffffffffff').first();
+      assert(row.origin === 'manual' && row.createdBy === 'wallet9', 'and becomes its author');
+      assert(row.count === 2, 'the evidence already gathered carries over');
+    }],
+    ['links: play order ignores skips and stale gaps', async () => {
+      assert((await dbBoss.recordPair('aaaaaaaaaaa', 'bbbbbbbbbbb', { dwellMs: 3000 })) === 'skipped',
+        'a three-second skip is not evidence they go together');
+      assert((await db.links.count()) === 0, 'nothing written');
+      assert((await dbBoss.recordPair('aaaaaaaaaaa', 'bbbbbbbbbbb', { dwellMs: 3 * 3600 * 1000 })) === 'skipped',
+        'three hours later is a new session');
+      assert((await dbBoss.recordPair('aaaaaaaaaaa', 'bbbbbbbbbbb', { dwellMs: 120000 })) === 'added',
+        'two minutes of listening counts');
+      const row = await db.links.where('key').equals('PLAY_ORDER:aaaaaaaaaaa>bbbbbbbbbbb').first();
+      assert(row.origin === 'auto' && row.a === 'aaaaaaaaaaa' && row.b === 'bbbbbbbbbbb', 'auto, and in order');
+      assert((await dbBoss.recordPair('aaaaaaaaaaa', 'aaaaaaaaaaa', { dwellMs: 120000 })) === 'skipped', 'self ignored');
+    }],
+    ['links: same-playlist is derived, never stored', async () => {
+      const pl = await dbBoss.createPl('A set');
+      const t1 = await dbBoss.createTrack('p1111111111', 'One');
+      const t2 = await dbBoss.createTrack('p2222222222', 'Two');
+      const t3 = await dbBoss.createTrack('p3333333333', 'Three');
+      for (const t of [t1, t2, t3]) await dbBoss.addToPlaylist(pl, t);
+      const near = await dbBoss.samePlaylist('p1111111111');
+      assert(near.length === 2, 'the other two are its playlist neighbours');
+      assert((await db.links.count()) === 0, 'and not one row was written for it');
+      // a second shared playlist strengthens the pair
+      const pl2 = await dbBoss.createPl('Another');
+      await dbBoss.addToPlaylist(pl2, t1); await dbBoss.addToPlaylist(pl2, t2);
+      const again = await dbBoss.samePlaylist('p1111111111');
+      assert(again[0].ytId === 'p2222222222' && again[0].score === 2, 'two shared playlists outrank one');
+      // removing the track removes the relationship: nothing to go stale
+      await db.playlistTracks.where('playlistId').equals(pl2).delete();
+      assert((await dbBoss.samePlaylist('p1111111111'))[0].score === 1, 'derived answers stay current');
     }],
     ['logPlay records history', async () => {
       const t = await dbBoss.createTrack('zzzzzzzzzzz', 'Z');
@@ -44,7 +94,7 @@ async function runSelfTests(){
       await dbBoss.addToPlaylist(p, ta); await dbBoss.addToPlaylist(p, tb);
       await dbBoss.linkTracks(ta, tb);
       const dump = await dbBoss.exportData();
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.links, db.playHistory].map(t => t.clear()));
       const r1 = await dbBoss.importData(dump);
       assert(r1.addedPlaylists === 1 && r1.addedTracks === 2 && r1.addedJoins === 2 && r1.addedLinks === 1, 'import counts');
       const r2 = await dbBoss.importData(dump);
@@ -61,16 +111,6 @@ async function runSelfTests(){
       assert((await db.playlists.count()) === 1 && r.addedPlaylists === 0, 'no dup playlist');
       assert((await db.playlistTracks.where('playlistId').equals(p).count()) === 2, 'merged in');
     }],
-    ['recordPair normalises, dedupes and counts', async () => {
-      await dbBoss.recordPair('bbbbbbbbbbb', 'aaaaaaaaaaa');
-      await dbBoss.recordPair('aaaaaaaaaaa', 'bbbbbbbbbbb');
-      await dbBoss.recordPair('aaaaaaaaaaa', 'aaaaaaaaaaa');   // self: ignored
-      const rows = await db.trackPairs.toArray();
-      assert(rows.length === 1, 'one row per pair');
-      assert(rows[0].a === 'aaaaaaaaaaa' && rows[0].b === 'bbbbbbbbbbb', 'normalised a<b');
-      assert(rows[0].count === 2, 'count strengthens');
-    }],
-
     /* ── DJ AI: the parser meets whatever a stranger's AI felt like
        writing, and the roll has to stay unpredictable without going
        stupid. Every parser case here is a shape a real model produces. ── */
@@ -337,18 +377,17 @@ async function runSelfTests(){
   // run against a throwaway DB so real data is never touched
   const realDb = db;
   const testDb = new Dexie('vinyl_selftest_' + Date.now());
-  testDb.version(10).stores({
+  testDb.version(11).stores({
     playlists: '++id, name, createdAt, plays, tags',
     tracks: '++id, ytId, name, artist, tags, plays',
     playlistTracks: '++id, playlistId, trackId, addedAt, order',
     playHistory: '++id, trackId, ytId, ts',
-    trackLinks: '++id, a, b, createdAt',
     settings: 'k',
     reactions: '++id, ytId, trackId, kind, ts',
-    trackPairs: '++id, &key, a, b, count, lastTs',
     aiSessions: '++id, ts, playlistId',
     djCategories: '++id, &key, order',
-    djOptions: '++id, categoryId, favourite, useCount'
+    djOptions: '++id, categoryId, favourite, useCount',
+    links: '++id, &key, type, [type+a], [type+b], origin, createdBy, lastTs'
   });
   await testDb.open();
 
@@ -357,7 +396,7 @@ async function runSelfTests(){
   db = testDb;                       // dbBoss now operates on the throwaway DB
   try {
     for (const [name, fn] of tests){
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs, db.aiSessions, db.djCategories, db.djOptions].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.links, db.playHistory, db.reactions, db.aiSessions, db.djCategories, db.djOptions].map(t => t.clear()));
       try { await fn(); results.push({ ok:true, name }); pass++; }
       catch (e){ results.push({ ok:false, name, msg:e.message }); fail++; }
     }

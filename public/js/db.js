@@ -124,6 +124,68 @@ db.version(10).stores({
   djOptions: '++id, categoryId, favourite, useCount'
 });
 
+/* v11: one links table, replacing trackLinks (hand-made links) and
+   trackPairs (the quiet "played near each other" graph).
+
+   A link is two track ids, a type, and a score:
+
+     type     what the relationship is. PLAY_ORDER is directional —
+              a → b means a was played BEFORE b, and the same row answers
+              "what follows a" and "what comes before b". RELATED is not
+              directional, so those rows are stored with a < b and one row
+              serves both directions.
+     origin   'manual' when a person asserted it, 'auto' when riffrolled
+              observed it. Only manual links have an author, and only
+              manual links can ever earn their maker anything.
+     count    raw evidence, only ever incremented.
+     score    what consumers rank by. Today it equals count; keeping them
+              apart means a cleverer score later can be recomputed without
+              destroying the evidence underneath it.
+
+   Endpoints are ytIds, not row ids: ytIds survive export, import and a
+   second device, which is exactly what the old trackLinks table had to
+   translate around on every backup.
+
+   SAME_PLAYLIST is deliberately absent. Playlist membership is already
+   stored in playlistTracks, so co-occurrence is a query, not a table —
+   materialising it would duplicate data, go stale on every edit, and a
+   2,000-track channel import alone would write two million rows. */
+db.version(11).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  trackLinks: null,                       // migrated into links below
+  trackPairs: null,                       // direction was lost; not worth keeping
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  aiSessions: '++id, ts, playlistId',
+  djCategories: '++id, &key, order',
+  djOptions: '++id, categoryId, favourite, useCount',
+  links: '++id, &key, type, [type+a], [type+b], origin, createdBy, lastTs'
+}).upgrade(async tx => {
+  // hand-made links carry over as RELATED, keyed by ytId and marked manual
+  const tracks = await tx.table('tracks').toArray();
+  const ytOf = {};
+  tracks.forEach(t => { ytOf[t.id] = t.ytId; });
+  const old = await tx.table('trackLinks').toArray();
+  const now = Date.now();
+  for (const l of old){
+    const ya = ytOf[l.a], yb = ytOf[l.b];
+    if (!ya || !yb || ya === yb) continue;
+    const a = ya < yb ? ya : yb, b = ya < yb ? yb : ya;
+    const key = 'RELATED:' + a + '>' + b;
+    const exists = await tx.table('links').where('key').equals(key).first();
+    if (exists) continue;
+    await tx.table('links').add({
+      key, type:'RELATED', origin:'manual', a, b, count:1, score:1,
+      createdBy:'', firstTs: l.createdAt || now, lastTs: l.createdAt || now
+    });
+  }
+  // trackPairs is dropped on purpose: it stored a<b, so "a was played
+  // before b" was thrown away at write time and cannot be recovered.
+});
+
 var dbBoss = {
   createPl: async function(n){
     if(!n) n = 'Playlist';
@@ -183,12 +245,15 @@ var dbBoss = {
       out.playlists.push({ name: pl.name, tracks: items });
     }
     out.links = [];
-    const allLinks = await db.trackLinks.toArray();
-    for (const l of allLinks){
-      const ta = tracks.find(t => t.id === l.a);
-      const tb = tracks.find(t => t.id === l.b);
-      if (ta && tb) out.links.push({ a: ta.ytId, b: tb.ytId });
-    }
+    // links already speak in ytIds, so a backup carries them as they are —
+    // type, direction, origin, author and the evidence behind them
+    const allLinks = await db.links.toArray();
+    allLinks.forEach(l => {
+      out.links.push({
+        type: l.type, origin: l.origin, a: l.a, b: l.b,
+        count: l.count || 1, by: l.createdBy || ''
+      });
+    });
     return out;
   },
 
@@ -224,37 +289,165 @@ var dbBoss = {
     if (Array.isArray(obj.links)){
       for (const l of obj.links){
         if(!l || !l.a || !l.b) continue;
-        const ta = await db.tracks.where('ytId').equals(l.a).first();
-        const tb = await db.tracks.where('ytId').equals(l.b).first();
-        if (ta && tb){ const r = await this.linkTracks(ta.id, tb.id); if (r === 'added') addedLinks++; }
+        // a backup's links restore with their type, direction and author;
+        // older backups only carried a pair, which was always a manual one
+        const r = await this.link(l.type || 'RELATED', l.a, l.b, {
+          origin: l.origin === 'auto' ? 'auto' : 'manual',
+          by: l.by || '', inc: Math.max(1, Math.floor(Number(l.count) || 1))
+        });
+        if (r === 'added') addedLinks++;
       }
     }
     return { addedTracks, addedPlaylists, addedJoins, addedLinks };
   },
 
-  // ── explicit track <-> track links (undirected, stored as a<b) ──
-  linkTracks: async function(id1, id2){
-    if(!id1 || !id2 || id1 === id2) return 'invalid';
-    const a = Math.min(id1, id2), b = Math.max(id1, id2);
-    const exists = await db.trackLinks.where('a').equals(a).and(r => r.b === b).first();
-    if (exists) return 'dupe';
-    await db.trackLinks.add({ a, b, createdAt: Date.now() });
-    return 'added';
+  /* ── LINKS ───────────────────────────────────────────────────────────
+     Two kinds, one table.
+
+       MANUAL     a person said these belong together. Has an author, and
+                  is the kind that can earn its maker something when other
+                  people follow it.
+       AUTOMATIC  riffrolled noticed it. No author, nobody gets paid, and
+                  it is only ever evidence.
+
+     A human asserting a link riffrolled already observed upgrades that row
+     from auto to manual — the first person to say it out loud is its
+     author, and the evidence already gathered carries over. ── */
+
+  LINK_DIRECTED: { PLAY_ORDER: true },      // which types care about order
+
+  /** canonical key for a link; undirected types sort their endpoints so
+      one row answers both directions */
+  linkKey: function(type, a, b){
+    if (!dbBoss.LINK_DIRECTED[type] && b < a){ const t = a; a = b; b = t; }
+    return { key: type + ':' + a + '>' + b, a, b };
+  },
+
+  /**
+   * Record or strengthen a link.
+   *   type    'PLAY_ORDER' (a → b, directional) | 'RELATED' | your own
+   *   opts    { origin:'auto'|'manual', by:walletKey, inc:1 }
+   * Returns 'added' | 'strengthened' | 'claimed' | 'invalid'.
+   */
+  link: async function(type, aYt, bYt, opts){
+    opts = opts || {};
+    if (!type || !aYt || !bYt || aYt === bYt) return 'invalid';
+    const k = dbBoss.linkKey(type, aYt, bYt);
+    const origin = opts.origin === 'manual' ? 'manual' : 'auto';
+    const inc = Math.max(1, Math.floor(opts.inc || 1));
+    const now = Date.now();
+
+    const row = await db.links.where('key').equals(k.key).first();
+    if (!row){
+      await db.links.add({
+        key: k.key, type: type, origin: origin, a: k.a, b: k.b,
+        count: inc, score: inc,
+        createdBy: origin === 'manual' ? (opts.by || '') : '',
+        firstTs: now, lastTs: now
+      });
+      return 'added';
+    }
+
+    const fields = { count: (row.count || 0) + inc, score: (row.score || 0) + inc, lastTs: now };
+    // a person claiming a link riffrolled had only observed
+    let result = 'strengthened';
+    if (origin === 'manual' && row.origin !== 'manual'){
+      fields.origin = 'manual';
+      fields.createdBy = opts.by || '';
+      result = 'claimed';
+    }
+    await db.links.update(row.id, fields);
+    return result;
+  },
+
+  /** a person says these two belong together */
+  linkManual: async function(aYt, bYt, by, type){
+    return dbBoss.link(type || 'RELATED', aYt, bYt, { origin:'manual', by: by || '' });
+  },
+
+  unlink: async function(type, aYt, bYt){
+    const k = dbBoss.linkKey(type || 'RELATED', aYt, bYt);
+    const row = await db.links.where('key').equals(k.key).first();
+    if (row) await db.links.delete(row.id);
+  },
+
+  /** what tends to follow a — or, for an undirected type, what sits beside it */
+  linksFrom: async function(type, aYt, limit){
+    const rows = await db.links.where('[type+a]').equals([type, aYt]).toArray();
+    const out = rows.map(r => ({ ytId: r.b, score: r.score || 0, count: r.count || 0,
+                                 origin: r.origin, createdBy: r.createdBy || '' }));
+    if (!dbBoss.LINK_DIRECTED[type]){
+      const back = await db.links.where('[type+b]').equals([type, aYt]).toArray();
+      back.forEach(r => out.push({ ytId: r.a, score: r.score || 0, count: r.count || 0,
+                                   origin: r.origin, createdBy: r.createdBy || '' }));
+    }
+    out.sort((x, y) => y.score - x.score);
+    return limit ? out.slice(0, limit) : out;
+  },
+
+  /** what tends to come before b */
+  linksTo: async function(type, bYt, limit){
+    if (!dbBoss.LINK_DIRECTED[type]) return dbBoss.linksFrom(type, bYt, limit);
+    const rows = await db.links.where('[type+b]').equals([type, bYt]).toArray();
+    const out = rows.map(r => ({ ytId: r.a, score: r.score || 0, count: r.count || 0,
+                                 origin: r.origin, createdBy: r.createdBy || '' }));
+    out.sort((x, y) => y.score - x.score);
+    return limit ? out.slice(0, limit) : out;
+  },
+
+  /* ── SAME PLAYLIST, derived ──────────────────────────────────────────
+     Not a table: playlistTracks already holds every membership, so
+     "what shares a playlist with this" is a query. Always current, never
+     stale after an edit, and it cannot explode — materialising it would
+     write n(n−1)/2 rows per playlist, which is two million for one
+     2,000-track channel import. ── */
+  samePlaylist: async function(ytId, limit){
+    const track = await db.tracks.where('ytId').equals(ytId).first();
+    if (!track) return [];
+    const mine = await db.playlistTracks.where('trackId').equals(track.id).toArray();
+    if (!mine.length) return [];
+
+    const counts = {};
+    for (const join of mine){
+      const siblings = await db.playlistTracks.where('playlistId').equals(join.playlistId).toArray();
+      siblings.forEach(s => {
+        if (s.trackId === track.id) return;
+        counts[s.trackId] = (counts[s.trackId] || 0) + 1;    // how many playlists share them
+      });
+    }
+    const ids = Object.keys(counts).map(Number);
+    const rows = await db.tracks.bulkGet(ids);
+    return rows
+      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', score: counts[ids[i]] } : null)
+      .filter(Boolean)
+      .sort((x, y) => y.score - x.score)
+      .slice(0, limit || 20);
+  },
+
+  /* ── kept for the code that already speaks in track ids ── */
+  linkTracks: async function(id1, id2, by){
+    if (!id1 || !id2 || id1 === id2) return 'invalid';
+    const [ta, tb] = await db.tracks.bulkGet([id1, id2]);
+    if (!ta || !tb) return 'invalid';
+    const r = await dbBoss.linkManual(ta.ytId, tb.ytId, by);
+    return r === 'strengthened' ? 'dupe' : (r === 'claimed' ? 'added' : r);
   },
 
   unlinkTracks: async function(id1, id2){
-    const a = Math.min(id1, id2), b = Math.max(id1, id2);
-    const ex = await db.trackLinks.where('a').equals(a).and(r => r.b === b).first();
-    if (ex) await db.trackLinks.delete(ex.id);
+    const [ta, tb] = await db.tracks.bulkGet([id1, id2]);
+    if (ta && tb) await dbBoss.unlink('RELATED', ta.ytId, tb.ytId);
   },
 
   getLinkedTrackIds: async function(trackId){
-    const asA = await db.trackLinks.where('a').equals(trackId).toArray();
-    const asB = await db.trackLinks.where('b').equals(trackId).toArray();
-    const ids = new Set();
-    asA.forEach(r => ids.add(r.b));
-    asB.forEach(r => ids.add(r.a));
-    return [...ids];
+    const t = await db.tracks.get(trackId);
+    if (!t) return [];
+    const linked = await dbBoss.linksFrom('RELATED', t.ytId);
+    const ids = [];
+    for (const l of linked){
+      const row = await db.tracks.where('ytId').equals(l.ytId).first();
+      if (row) ids.push(row.id);
+    }
+    return ids;
   },
 
   getSetting: async function(k){ const r = await db.settings.get(k); return r ? r.v : null; },
@@ -270,16 +463,30 @@ var dbBoss = {
     const t = await db.tracks.where('ytId').equals(ytId).first();
     await db.reactions.add({ ytId:ytId, trackId: t ? t.id : null, kind:kind, ts: Date.now() });
   },
-  // passive link tracking: "a played next to b". Normalised a<b, one row
-  // per pair, count strengthens with every co-occurrence. Local only.
-  recordPair: async function(prevYt, curYt){
-    if (!prevYt || !curYt || prevYt === curYt) return;
-    const a = prevYt < curYt ? prevYt : curYt;
-    const b = prevYt < curYt ? curYt : prevYt;
-    const key = a + '|' + b;
-    const row = await db.trackPairs.where('key').equals(key).first();
-    if (row) await db.trackPairs.update(row.id, { count: (row.count || 1) + 1, lastTs: Date.now() });
-    else await db.trackPairs.add({ key, a, b, count: 1, lastTs: Date.now() });
+  /* ── PLAY ORDER, recorded automatically ──────────────────────────────
+     One track following another is evidence that they go together — but
+     only sometimes. Two gates, because unfiltered the graph fills with
+     noise:
+
+       dwell  the previous track must have actually played for a while. A
+              two-second skip is evidence of dislike; recording it as "a
+              goes with b" is worse than recording nothing.
+       gap    a track played hours later is a new session, not a sequence.
+
+     Direction is kept: a → b means a was played BEFORE b. The old
+     trackPairs table sorted its endpoints and threw that away. ── */
+  PLAY_DWELL_MS: 20000,          // the previous track has to have been listened to
+  PLAY_GAP_MS: 10 * 60 * 1000,   // and this one has to follow it reasonably soon
+
+  recordPair: async function(prevYt, curYt, meta){
+    if (!prevYt || !curYt || prevYt === curYt) return 'skipped';
+    meta = meta || {};
+    const dwell = Number(meta.dwellMs);
+    if (Number.isFinite(dwell)){
+      if (dwell < dbBoss.PLAY_DWELL_MS) return 'skipped';            // skipped past it
+      if (dwell > dbBoss.PLAY_GAP_MS) return 'skipped';              // different session
+    }
+    return dbBoss.link('PLAY_ORDER', prevYt, curYt, { origin:'auto' });
   },
 
   // play counts per ytId from local history (for most/least-played mixes)

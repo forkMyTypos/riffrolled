@@ -95,9 +95,18 @@ var player = {
     this.setPlaying(true);
     if (window.dbBoss) {
       dbBoss.logPlay(ytId);
-      // quiet local link tracking: this track followed the previous one
-      if (this._lastYtId && this._lastYtId !== ytId) dbBoss.recordPair(this._lastYtId, ytId);
+      /* Quiet local link tracking: this track followed the previous one,
+         and in that order. How long the previous one actually played goes
+         with it — dbBoss decides what counts, so a two-second skip or a
+         track resumed hours later doesn't become evidence that they go
+         together. */
+      if (this._lastYtId && this._lastYtId !== ytId){
+        dbBoss.recordPair(this._lastYtId, ytId, {
+          dwellMs: this._lastLoadTs ? (Date.now() - this._lastLoadTs) : undefined
+        });
+      }
       this._lastYtId = ytId;
+      this._lastLoadTs = Date.now();
       if (window.promoTrack) promoTrack.event(ytId, 'play');
       this.refreshMeta(ytId, title || ytId);
     }

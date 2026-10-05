@@ -128,6 +128,41 @@ Playlists and tracks deliberately never appear in the DJ AI menu: an imported se
 to the Playlist panel and starts playing. `/api/resolve` is dormant — nothing calls it now that
 the AI does its own verifying.
 
+## Links
+
+One table for every relationship between two tracks, replacing the old `trackLinks` (hand-made)
+and `trackPairs` (observed) tables.
+
+```
+links: type | origin | a | b | count | score | createdBy | firstTs | lastTs
+```
+
+**Two origins.** `manual` is a person saying these belong together — it has an author, and it is
+the kind that can earn its maker something when other people follow it. `auto` is riffrolled
+noticing; no author, nobody paid, evidence only. A person claiming a link riffrolled had only
+observed upgrades the row to manual and keeps the evidence already gathered.
+
+**Direction is a property of the type.** `PLAY_ORDER` is directional: `a → b` means a was played
+*before* b, and one row answers both "what follows a" (`linksFrom`) and "what comes before b"
+(`linksTo`). Undirected types like `RELATED` sort their endpoints so one row serves both ways.
+The old `trackPairs` sorted everything, which threw the direction away at write time — those rows
+are dropped on upgrade rather than carried over as something they aren't.
+
+**Play order is gated.** A track that played for three seconds before you skipped it is evidence
+of dislike, not of sequence; one resumed three hours later is a new session. `PLAY_DWELL_MS` and
+`PLAY_GAP_MS` decide, from the dwell time the player passes in.
+
+**`count` and `score` are separate.** Count is raw evidence and is only ever incremented; score is
+what consumers rank by and today equals count. A cleverer score later — recency, likes, skips —
+gets recomputed without destroying what it was computed from.
+
+**SAME_PLAYLIST is derived, not stored.** `playlistTracks` already holds every membership, so
+`dbBoss.samePlaylist(ytId)` is a query: always current, never stale after an edit, and incapable
+of exploding. Materialising it would write n(n−1)/2 rows per playlist — two million for a single
+2,000-track channel import, and the least meaningful links in the database.
+
+Endpoints are ytIds rather than row ids, so links survive export, import and a second device.
+
 ## Tutorial Mode
 
 `public/js/tutorial.js` — seven steps over the real UI (listen → discover → choose → promote),

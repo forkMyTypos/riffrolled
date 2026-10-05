@@ -92,6 +92,36 @@ export async function getTrackByUrl(db, url) {
     .first();
 }
 
+/* ── playlists: riffrolled's own copy of a DJ AI set ──────────────────
+   Name plus track ids in order, and nothing about who made it. Kept
+   because a set is evidence of which tracks belong together — the raw
+   material for the link layer later. */
+
+export async function createPlaylist(db, name, source, now) {
+  const res = await db.prepare(
+    `INSERT INTO playlists (name, source, created_at) VALUES (?1, ?2, ?3)`
+  ).bind(name, source || '', now).run();
+  return res.meta.last_row_id;
+}
+
+export async function addPlaylistTracks(db, playlistId, trackIds) {
+  if (!trackIds.length) return 0;
+  const stmt = db.prepare(
+    `INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, ?3)`
+  );
+  await db.batch(trackIds.map((id, i) => stmt.bind(playlistId, id, i)));
+  return trackIds.length;
+}
+
+export async function listPlaylists(db, limit = 30) {
+  const { results } = await db.prepare(
+    `SELECT p.id, p.name, p.source, p.created_at, COUNT(pt.track_id) AS tracks
+       FROM playlists p LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+      GROUP BY p.id ORDER BY p.id DESC LIMIT ?1`
+  ).bind(limit).all();
+  return results || [];
+}
+
 /* ── AI DJ lookup budget ──────────────────────────────────────────────
    Resolving an AI playlist can fall back to YouTube search.list at 100
    quota units a call, and the whole site shares 10,000 units a day. One

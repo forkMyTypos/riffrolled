@@ -55,13 +55,14 @@ var tourBoss = {
       cta: 'Next'
     },
     {
-      title: 'Or let an AI DJ',
-      body: "Tell the <b>🤖 AI DJ</b> what you're after — <i>“something chilled for working”</i>, " +
-            "<i>“only stuff I've never heard”</i> — and it writes you a playlist.<br><br>" +
-            "<b>Your AI picks the tracks, YouTube plays them.</b> You copy a prompt, paste it into " +
-            "whichever AI you already use, paste the answer back, and riffrolled turns it into a " +
-            "playlist of real YouTube videos. No key, no account, nothing to pay for.",
-      panel: function(){ return window.aiDjBoss && aiDjBoss.el; },
+      title: 'Or let DJ AI',
+      body: "Build a brief in <b>🤖 DJ AI</b> — what you're doing, how you want it to feel, how far " +
+            "from home to go — or hit <b>🎲 RIFF ROLL</b> and let it choose the lot.<br><br>" +
+            "<b>Your AI picks the tracks, YouTube plays them.</b> Copy the brief, paste it into " +
+            "whichever AI you already use, paste the answer back. No key, no account, nothing to " +
+            "pay for.<br><br>" +
+            "<span class='tt-dim'>DJ AI doesn't recommend music. It takes you somewhere.</span>",
+      panel: function(){ return window.djMenuBoss && djMenuBoss.el; },
       cta: 'Next'
     },
     {

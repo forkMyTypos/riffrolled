@@ -56,54 +56,61 @@ custom domain, and the WAF rate-limiting rules on `/api/*`.
 | GET    | /api/tracks?genre=&limit=| —                                | `[{id,name,artist,genre,url}]` |
 | POST   | /api/track              | `{name,url,artist?,genre?}`       | the created/existing track |
 | POST   | /api/resolve            | `{items:[{artist,title,videoId?,verified?}], allowYouTube?}` | `{results:[{i,ok,via,url,name,artist}], lookups_used, lookups_left}` |
+| POST   | /api/playlist/save      | `{name, tracks:[{name,artist,genre,url}]}` | `{id, name, tracks}` — riffrolled's own copy of a set |
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
 
-## AI DJ
+## DJ AI
 
-You say what you want to hear, your own AI writes the playlist, riffrolled turns it into real
-YouTube videos and plays them. Copy and paste is deliberate: nobody needs a key, an account or
-a subscription to use their own AI, and riffrolled never sees it.
-
-**riffrolled hosts no music.** Every track is a YouTube video played through YouTube's embedded
-player, so an AI DJ playlist is a list of YouTube videos — the prompt asks for watch links, and
-anything missing or unverifiable is looked up. Copy anywhere in the app should say so.
+An interactive prompt builder. You set the coordinates, your own AI writes the set, riffrolled
+imports it. **riffrolled calls no AI and touches no YouTube API here** — the AI is told to verify
+its own links, and what comes back is taken at its word. A dead id simply fails on the deck,
+which the player already handles by skipping.
 
 ```
-you ask → your AI writes a playlist → riffrolled resolves it → saves it → plays it
-                                             │
-                     ┌───────────────────────┼───────────────────────┐
-              1. the AI's link         2. our catalogue        3. YouTube search
-              oEmbed, in the browser   D1 LIKE query           search.list
-              no key, no quota         no quota                100 units, budgeted
+      brief  →  COPY  →  (whichever AI you already have)  →  PASTE  →  playlist
+        │                                                                  │
+   dj-data.js: categories, options, tags                      Dexie playlist + D1 copy
 ```
 
-**An AI's video id is a hint, never a fact.** A model reproducing an 11-character id from
-memory is guessing at a random string, so a supplied link is validated against YouTube's
-keyless `oembed` endpoint *and* checked against the title it claimed to be. Unvalidated ids
-never reach the catalogue. Everything resolved lands in `tracks` with `source='ai'`, so each
-session makes the next one cheaper for everyone.
+Three modes sit at the top of the menu. **TEXT** (copy + paste) is the whole of it today;
+**YOUR AI** and **RIFFROLL IT** are marked coming soon and implement nothing. They replace the
+middle step only — brief, parser and import are already independent of how the AI is reached.
 
-Quota is the real constraint — `search.list` is 100 units out of 10,000 a day for the whole
-site — so tier 3 is capped per request (`AI_YT_PER_REQUEST`, default 8) and per day
-(`AI_YT_DAILY`, default 40, counted in the `ai_lookups` table). Set `AI_YT_DAILY = "0"` to
-switch YouTube lookups off entirely and run on free tiers only. The panel always reports what
-it spent.
+**Riff Roll** is the central mechanic. Every option carries a few tags (`Night drive` → dark,
+night, motion, solo); shared tags mean related; the roll *weights* the dice by overlap but never
+filters, so `Funeral + Euphoric + Metal + 90% familiar` stays reachable. Linked is not
+constrained. **Chaos Mode** inverts the weighting for some sections *and says so in the brief* —
+without that sentence an AI reads a strange combination as contradictory instructions and
+returns mush; with it, the collision becomes the commission.
 
-Playlists and session records are **local** (Dexie): an AI playlist is an ordinary `playlists`
-row carrying `source:'ai'`, the request and the objective, and `aiSessions` keeps the brief,
-the raw reply and what each line resolved to — including what didn't. No request leaves the
-browser.
+Every section has its own 🎲 (which never lands on what you already had), a searchable picker
+with favourites and use counts, and room for your own options. Whole categories can be added;
+`Energy`, `Era` and `Speed` ship switched off under **More settings**. All of it is data —
+`public/js/dj-data.js` seeds Dexie once, and the vocabulary belongs to the user after that.
+
+**Time** is a first-class control because a text brief can't fix a 28-minute track on its own:
+track count, total minutes, a per-track ceiling, and the implied average shown live. The AI
+reports each track's running time, so an imported set knows what it runs to.
+
+**DJ KNOWS** is one toggle and a plain list of what it would share (most played, likes, recent,
+your tags, artists you already own). Off means the brief says "choose blind".
+
+What comes back is logged: artist, running time and genre land on the local track (genre also
+becomes a tag), and the set is posted to D1 as a name plus track ids — anonymous, no wallet, no
+device id. That is riffrolled's own record of which tracks belonged together.
 
 | file | what it is |
 |------|------------|
-| `public/js/aidj.js` | `aiDj` (prompt, parser, resolver, save) + `aiDjBoss` (the panel) |
-| `src/routes/resolve.js` | the three-tier resolver, matching and the quota budget |
-| `public/ai-dj-lab.html` | unlinked bench: paste any AI's reply, measure what resolves and how |
+| `public/js/dj-data.js` | the vocabulary: categories, options, tags, personality voices |
+| `public/js/aidj.js` | `djAi` — state, roll, prompt, parser, import, history |
+| `public/js/dj-menu.js` | `djMenuBoss` (the menu) and `djHistoryBoss` (past sets) |
+| `src/routes/playlists.js` | `POST /api/playlist/save` — name + track ids |
+| `public/ai-dj-lab.html` | unlinked bench: paste a reply, see what the parser makes of it |
 
-`aiDj.adapters` is where the copy/paste step lives. An automatic adapter only has to take a
-brief and return reply text — the prompt, parser, resolver and save path are already separate
-from it.
+Playlists and tracks deliberately never appear in the DJ AI menu: an imported set goes straight
+to the Playlist panel and starts playing. `/api/resolve` is dormant — nothing calls it now that
+the AI does its own verifying.
 
 ## Tutorial Mode
 

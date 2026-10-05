@@ -71,78 +71,146 @@ async function runSelfTests(){
       assert(rows[0].count === 2, 'count strengthens');
     }],
 
-    /* ── AI DJ: the parser is the part most likely to meet something
-       unexpected, because it reads whatever a stranger's AI felt like
-       writing. Every case here is a shape a real model has produced. ── */
-    ['AI DJ parses the pipe format', async () => {
-      const r = aiDj.parseReply(
+    /* ── DJ AI: the parser meets whatever a stranger's AI felt like
+       writing, and the roll has to stay unpredictable without going
+       stupid. Every parser case here is a shape a real model produces. ── */
+    ['DJ AI parses the full pipe format', async () => {
+      const r = djAi.parseReply(
         "RIFFROLLED-PLAYLIST\nNAME: Late night drive\n" +
-        "1 | Burial | Archangel | | ghostly and patient\n" +
-        "2 | Boards of Canada | Dayvan Cowboy | https://www.youtube.com/watch?v=abcdefghijk | opens up\n" +
+        "1 | Burial | Archangel | https://www.youtube.com/watch?v=abcdefghijk | 3:56 | dubstep | ghostly and patient\n" +
+        "2 | Boards of Canada | Dayvan Cowboy | https://youtu.be/bbbbbbbbbbb | 5:00 | ambient | it opens right up\n" +
         "END");
       assert(r.name === 'Late night drive', 'name read');
       assert(r.items.length === 2, 'two tracks');
       assert(r.items[0].artist === 'Burial' && r.items[0].title === 'Archangel', 'fields split');
+      assert(r.items[0].url === 'abcdefghijk', 'link reduced to an id');
+      assert(r.items[0].secs === 236, 'duration in seconds');
+      assert(r.items[0].genre === 'dubstep', 'genre kept');
       assert(r.items[0].why === 'ghostly and patient', 'why kept');
-      assert(r.items[1].url === 'abcdefghijk', 'link reduced to an id');
-      assert(r.items[0].url === '', 'empty link cell stays empty');
+      assert(djAi.totalSecs(r.items) === 536, 'runtime totals up');
     }],
-    ['AI DJ parses JSON, prose and fences around it', async () => {
-      const r = aiDj.parseReply(
+    ['DJ AI reads cells in any order, and older shapes', async () => {
+      const shuffled = djAi.parseReply("1 | Mono | Ashes | 7:12 | https://youtu.be/ccccccccccc | post-rock | builds");
+      assert(shuffled.items[0].url === 'ccccccccccc' && shuffled.items[0].secs === 432, 'duration and link found anywhere');
+      assert(shuffled.items[0].artist === 'Mono' && shuffled.items[0].title === 'Ashes', 'artist/title still first');
+      const old = djAi.parseReply("1 | Nujabes | Aruarian Dance | | soft entry");
+      assert(old.items[0].url === '' && old.items[0].why === 'soft entry', 'the old 5-cell shape still reads');
+    }],
+    ['DJ AI parses JSON, prose and fences around it', async () => {
+      const r = djAi.parseReply(
         "Sure! Here's a playlist:\n```json\n" +
-        '{"name":"Rainy","tracks":[{"artist":"Nujabes","title":"Aruarian Dance","why":"soft"},' +
+        '{"name":"Rainy","tracks":[{"artist":"Nujabes","title":"Aruarian Dance","duration":"4:12","genre":"hip-hop","why":"soft"},' +
         '{"artist":"Mono","song":"Ashes in the Snow","url":"https://youtu.be/bbbbbbbbbbb"}]}' +
         "\n```\nEnjoy!");
       assert(r.name === 'Rainy', 'json name');
       assert(r.items.length === 2, 'json tracks');
+      assert(r.items[0].secs === 252 && r.items[0].genre === 'hip-hop', 'json duration + genre');
       assert(r.items[1].title === 'Ashes in the Snow', 'song key accepted');
-      assert(r.items[1].url === 'bbbbbbbbbbb', 'youtu.be id');
     }],
-    ['AI DJ parses numbered dashes and markdown tables', async () => {
-      const dashes = aiDj.parseReply("1. Aphex Twin - Avril 14th\n2) Erik Satie — Gymnopédie No.1\n");
-      assert(dashes.items.length === 2, 'dash lines');
-      assert(dashes.items[0].artist === 'Aphex Twin' && dashes.items[0].title === 'Avril 14th', 'dash split');
-      const table = aiDj.parseReply(
+    ['DJ AI parses dashes and markdown tables', async () => {
+      const dashes = djAi.parseReply("1. Aphex Twin - Avril 14th\n2) Erik Satie — Gymnopédie No.1\n3 - Nils Frahm – Says");
+      assert(dashes.items.length === 3, 'dash lines');
+      assert(dashes.items[2].artist === 'Nils Frahm' && dashes.items[2].title === 'Says', 'numbered dash split');
+      const table = djAi.parseReply(
         "| # | Artist | Title |\n|---|---|---|\n| 1 | Portishead | Roads |\n| 2 | Massive Attack | Teardrop |");
       assert(table.items.length === 2, 'table rows, header and rule skipped');
       assert(table.items[1].artist === 'Massive Attack', 'index cell dropped');
     }],
-    ['AI DJ parser dedupes, caps and never throws', async () => {
-      const dup = aiDj.parseReply("1 | A | Song\n2 | a | song\n3 | B | Other");
+    ['DJ AI parser dedupes, caps and never throws', async () => {
+      const dup = djAi.parseReply("1 | A | Song\n2 | a | song\n3 | B | Other");
       assert(dup.items.length === 2, 'case-insensitive dedupe');
       let many = '';
       for (let i = 0; i < 60; i++) many += (i + 1) + ' | Artist' + i + ' | Title' + i + '\n';
-      assert(aiDj.parseReply(many).items.length === aiDj.MAX_TRACKS, 'capped at MAX_TRACKS');
-      assert(aiDj.parseReply('').items.length === 0, 'empty input');
-      assert(aiDj.parseReply('I cannot help with that.').items.length === 0, 'refusal is not a playlist');
-      assert(aiDj.parseReply('{"broken": [').items.length === 0, 'broken json');
+      assert(djAi.parseReply(many).items.length === djAi.MAX_TRACKS, 'capped at MAX_TRACKS');
+      assert(djAi.parseReply('').items.length === 0, 'empty input');
+      assert(djAi.parseReply('I cannot help with that.').items.length === 0, 'refusal is not a playlist');
+      assert(djAi.parseReply('{"broken": [').items.length === 0, 'broken json');
+      assert(djAi.parseReply('1 | Jay-Z | 99 Problems').items[0].artist === 'Jay-Z', 'hyphenated artist survives');
     }],
-    ['AI DJ writes a playlist plus a session record', async () => {
-      const brief = { request:'dark electronic', objective:'fresh', count:2 };
-      const parsed = { name:'Night', items:[
-        { artist:'X', title:'One', why:'opener' },
-        { artist:'Y', title:'Two', why:'' }
-      ]};
-      const resolved = { tracks:[
-        { item: parsed.items[0], ok:true, via:'catalogue', ytId:'ccccccccccc', name:'One', artist:'X' },
-        { item: parsed.items[1], ok:false, via:null, reason:'no_match' }
-      ]};
-      const saved = await aiDj.save(brief, parsed, resolved, 'raw reply text');
-      assert(saved && saved.count === 1, 'only resolved tracks are saved');
+    ['DJ AI seeds a vocabulary and rolls within it', async () => {
+      await djAi.seed();
+      await djAi.refresh();
+      assert(djAi.cats.length >= 5, 'categories seeded');
+      const activity = djAi.cat('activity');
+      assert(activity && activity.options.length > 10, 'options seeded');
+      assert(activity.options.every(o => Array.isArray(o.tags)), 'every option carries tags');
+      const rolled = djAi.rollOption('activity');
+      assert(rolled && activity.options.some(o => o.id === rolled.id), 'roll returns a real option');
+      // 60 rolls of a 15-option category should not keep landing on one thing
+      const seen = new Set();
+      for (let i = 0; i < 60; i++) seen.add(djAi.rollOption('activity').label);
+      assert(seen.size > 4, 'the dice are actually dice (' + seen.size + ' distinct)');
+    }],
+    ['DJ AI riff roll fills the brief; chaos still fills it', async () => {
+      await djAi.seed(); await djAi.refresh();
+      await djAi.rollAll({});
+      const enabled = djAi.cats.filter(c => c.enabled);
+      assert(enabled.every(c => djAi.picked(c.key)), 'every enabled section gets a pick');
+      assert(djAi.briefLine().indexOf('|') > 0, 'brief line assembles');
+      await djAi.rollAll({ chaos:true });
+      assert(djAi.state.chaos === true, 'chaos recorded on the state');
+      assert(enabled.every(c => djAi.picked(c.key)), 'chaos still fills every section');
+      // unusual combinations must stay reachable: nothing is ever excluded
+      assert(djAi.cat('activity').options.some(o => o.label === 'Funeral'), 'Funeral is still in the deck');
+    }],
+    ['DJ AI remembers favourites, use counts and custom options', async () => {
+      await djAi.seed(); await djAi.refresh();
+      const cat = djAi.cat('feel');
+      const id = await djAi.addOption(cat.id, 'Haunted', ['dark','weird']);
+      const mine = djAi.optionById(id);
+      assert(mine && mine.builtin === false, 'custom option added');
+      await djAi.pick('feel', id);
+      assert(djAi.picked('feel').label === 'Haunted', 'and picked');
+      assert(djAi.optionById(id).useCount === 1, 'use counted');
+      await djAi.setFavourite(id, true);
+      assert(djAi.optionById(id).favourite === 1, 'favourited');
+      await djAi.removeOption(id);
+      assert(!djAi.optionById(id), 'custom option deleted outright');
+      const builtin = djAi.cat('feel').options.find(o => o.builtin);
+      await djAi.removeOption(builtin.id);
+      assert(djAi.optionById(builtin.id).hidden === true, 'built-in hides rather than vanishing');
+    }],
+    ['DJ AI builds a prompt that carries the brief and the rules', async () => {
+      await djAi.seed(); await djAi.refresh();
+      await djAi.rollAll({});
+      djAi.state.count = 12; djAi.state.minutes = 48; djAi.state.maxTrackMin = 7;
+      const p = await djAi.buildPrompt();
+      assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
+      assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
+      assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
+      assert(p.indexOf('YOUTUBE LINK REQUIREMENT') > 0, 'link requirement present');
+      assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
+      assert(!/chatgpt|claude|gemini|openai/i.test(p), 'no AI provider is named');
+      djAi.state.shareContext = false;
+      const blind = await djAi.buildPrompt();
+      assert(blind.indexOf('have not shared my listening history') > 0, 'the share toggle is honoured');
+      djAi.state.shareContext = true;
+    }],
+    ['DJ AI imports a set into the playlist, keeping what the AI said', async () => {
+      await djAi.seed(); await djAi.refresh();
+      const parsed = djAi.parseReply(
+        "NAME: Night Roads\n" +
+        "1 | Burial | Archangel | https://www.youtube.com/watch?v=abcdefghijk | 3:56 | dubstep | ghostly\n" +
+        "2 | Nobody | Nothing | | 4:00 | ambient | no link, cannot play\n");
+      const saved = await djAi.importPlaylist(parsed, 'raw reply');
+      assert(saved.count === 1 && saved.skipped === 1, 'only linked tracks are playable');
+      assert(saved.totalSecs === 236, 'runtime from what the AI reported');
       const pl = await db.playlists.get(saved.playlistId);
-      assert(pl.source === 'ai' && pl.aiRequest === 'dark electronic', 'provenance on the playlist');
-      const joins = await db.playlistTracks.where('playlistId').equals(pl.id).toArray();
-      assert(joins.length === 1, 'one join row');
+      assert(pl.source === 'ai' && pl.name.indexOf('Night Roads') > 0, 'playlist named and marked');
+      assert(pl.aiBrief && typeof pl.aiBrief.picks === 'object', 'the brief is kept with it');
+      const t = await dbBoss.getTrack('abcdefghijk');
+      assert(t.artist === 'Burial' && t.durSec === 236, 'artist and duration logged on the track');
+      assert((t.tags || '').indexOf('dubstep') >= 0, 'genre logged as a tag too');
       const sess = await db.aiSessions.toArray();
-      assert(sess.length === 1 && sess[0].items.length === 2, 'session keeps what failed too');
-      assert(sess[0].items[1].reason === 'no_match', 'and why it failed');
+      assert(sess.length === 1 && sess[0].items.length === 2, 'history keeps the unplayable line too');
+      assert(sess[0].reply === 'raw reply', 'and the raw reply');
     }]
   ];
 
   // run against a throwaway DB so real data is never touched
   const realDb = db;
   const testDb = new Dexie('vinyl_selftest_' + Date.now());
-  testDb.version(9).stores({
+  testDb.version(10).stores({
     playlists: '++id, name, createdAt, plays, tags',
     tracks: '++id, ytId, name, artist, tags, plays',
     playlistTracks: '++id, playlistId, trackId, addedAt, order',
@@ -151,7 +219,9 @@ async function runSelfTests(){
     settings: 'k',
     reactions: '++id, ytId, trackId, kind, ts',
     trackPairs: '++id, &key, a, b, count, lastTs',
-    aiSessions: '++id, ts, playlistId'
+    aiSessions: '++id, ts, playlistId',
+    djCategories: '++id, &key, order',
+    djOptions: '++id, categoryId, favourite, useCount'
   });
   await testDb.open();
 
@@ -160,7 +230,7 @@ async function runSelfTests(){
   db = testDb;                       // dbBoss now operates on the throwaway DB
   try {
     for (const [name, fn] of tests){
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs, db.aiSessions].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.trackLinks, db.playHistory, db.reactions, db.trackPairs, db.aiSessions, db.djCategories, db.djOptions].map(t => t.clear()));
       try { await fn(); results.push({ ok:true, name }); pass++; }
       catch (e){ results.push({ ok:false, name, msg:e.message }); fail++; }
     }

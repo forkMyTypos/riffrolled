@@ -106,6 +106,24 @@ db.version(9).stores({
   aiSessions: '++id, ts, playlistId'
 });
 
+// v10: the DJ AI menu is data, not markup. djCategories/djOptions are
+// seeded from dj-data.js on first run and belong to the user after that —
+// they can favourite options, hide ones they never pick, add their own,
+// and add whole categories, all of which join the Riff Roll automatically.
+db.version(10).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  trackLinks: '++id, a, b, createdAt',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  trackPairs: '++id, &key, a, b, count, lastTs',
+  aiSessions: '++id, ts, playlistId',
+  djCategories: '++id, &key, order',
+  djOptions: '++id, categoryId, favourite, useCount'
+});
+
 var dbBoss = {
   createPl: async function(n){
     if(!n) n = 'Playlist';

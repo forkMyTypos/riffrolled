@@ -69,6 +69,18 @@ const MIGRATIONS = [
        day TEXT PRIMARY KEY, searches INTEGER NOT NULL DEFAULT 0,
        updated_at TEXT NOT NULL DEFAULT '')`,
   ]},
+  // riffrolled's own copy of a DJ set: the name, and which tracks were in
+  // it, in order. No wallet, no device id — a set, not a listener.
+  { id: 10, name: 'playlists', sql: [
+    `CREATE TABLE IF NOT EXISTS playlists (
+       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '',
+       source TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS playlist_tracks (
+       id INTEGER PRIMARY KEY AUTOINCREMENT, playlist_id INTEGER NOT NULL,
+       track_id INTEGER NOT NULL, position INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS idx_pl_tracks ON playlist_tracks(playlist_id, position)`,
+    `CREATE INDEX IF NOT EXISTS idx_pl_track_id ON playlist_tracks(track_id)`,
+  ]},
 ];
 
 // "already there" is success: the work this statement would do is done

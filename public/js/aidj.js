@@ -1,73 +1,329 @@
 /* riffrolled — aidj.js
-   AI DJ: you say what you want to hear, your own AI writes the playlist,
-   riffrolled resolves it against real YouTube videos, saves it like any
-   other playlist, and plays it.
+   DJ AI: the engine behind the DJ AI menu.
 
-   Your AI picks the tracks. YouTube has them. riffrolled does the rest.
+   riffrolled supplies no music and calls no AI. Every track is a YouTube
+   video, and the DJ is whichever AI the listener already has open. What
+   this file does is turn a brief into a prompt, read whatever comes back,
+   and keep what it learns.
 
-   riffrolled supplies no music: every track is a YouTube video, played
-   through YouTube's embedded player. What riffrolled does here is turn an
-   AI's answer into real, verified YouTube videos and put them on the deck.
+       brief  →  prompt  →  (the listener's AI)  →  reply  →  playlist
 
-   Why copy and paste: nobody needs an API key, a subscription or an
-   account to use this — they use the AI they already have open. That is
-   the feature, not a workaround. The flow is deliberately split so the
-   manual step is one replaceable adapter:
+   TEXT mode is the whole of it today: copy the brief out, paste the reply
+   back. `djAi.modes` lists the other two as coming soon; when one lands it
+   replaces the middle step only — the brief, the parser and the import are
+   already independent of how the AI is reached.
 
-     aiDj.brief()           what the DJ is being asked for (request, objective, length)
-     aiDj.buildPrompt()     brief + what you already listen to → prompt text
-     aiDj.parseReply()      whatever the AI said → [{ artist, title, url, why }]
-     aiDj.resolve()         items → real YouTube videos (validated, never trusted)
-     aiDj.save()            resolved items → a Dexie playlist + session record
-     aiDj.adapters.*        how the prompt reaches an AI and the reply comes back
+   DJ AI does not recommend music. It takes you somewhere. The brief is a
+   set of starting coordinates, not a filter, which is why Riff Roll weights
+   the dice instead of constraining them, and why Chaos Mode tells the AI
+   outright that a strange combination is deliberate.
 
-   adapters.copypaste is the only one today: it hands the prompt to the
-   clipboard and waits for the reply to be pasted. A future adapter (a
-   browser AI, a connected service) only has to implement run(brief) and
-   return reply text — nothing below it changes. */
+   No network calls are made to resolve anything: the AI is asked to verify
+   its own YouTube links, and riffrolled imports what it is given. A dead id
+   simply fails on the deck, which the player already handles by skipping. */
 
-var aiDj = {
+var djAi = {
 
-  MAX_TRACKS: 30,          // /api/resolve won't take more in one request
+  MAX_TRACKS: 50,
 
-  /* ── objectives: the familiar ←→ discovery spectrum, as plain words ── */
-  OBJECTIVES: {
-    familiar: {
-      label: 'Familiar',
-      hint: 'Mostly things I already listen to.',
-      line: 'Stay close to what I already listen to. Favour the artists and styles listed below; a couple of their lesser-known tracks is fine.'
-    },
-    mixed: {
-      label: 'Mixed',
-      hint: 'Half what I know, half new.',
-      line: 'Mix it: about half from the artists and styles I already listen to, about half from artists I have not listened to.'
-    },
-    fresh: {
-      label: 'Fresh',
-      hint: 'Only things I have not heard.',
-      line: 'Only artists and tracks that are NOT in my library below. This is a discovery session — do not include anything I already have.'
-    },
-    surprise: {
-      label: 'Surprise me',
-      hint: 'Take me somewhere else.',
-      line: 'Take me somewhere I would not have gone myself. Deliberately away from the styles listed below, while still being genuinely good listening.'
+  /* ── the three ways a brief can reach an AI ── */
+  modes: [
+    { id:'text',  label:'TEXT',        sub:'COPY + PASTE', state:'ACTIVE',
+      blurb:'Build the brief, copy it, paste your AI\'s answer back.' },
+    { id:'byoai', label:'YOUR AI',     sub:'BRING YOUR OWN', state:'COMING SOON',
+      blurb:'Connect the AI you already pay for and skip the clipboard.' },
+    { id:'riffroll', label:'RIFFROLL IT', sub:'WE HANDLE IT', state:'COMING SOON',
+      blurb:'riffrolled talks to the DJ for you. One button, one journey.' }
+  ],
+
+  /* ── brief state. Picks are keyed by category key; everything here is
+     persisted to settings so the menu looks the same tomorrow. ── */
+  state: {
+    mode: 'text',
+    picks: {},            // { activity: optionId, feel: optionId, … }
+    familiarity: 30,      // % familiar; the rest is discovery
+    chaos: false,
+    count: 15,
+    minutes: 60,
+    maxTrackMin: 8,
+    shareContext: true
+  },
+
+  cats: [],               // categories with their options, in order
+
+  /* ── load: seed the vocabulary once, then read it back ── */
+  async load(){
+    await this.seed();
+    await this.refresh();
+    try {
+      var saved = await dbBoss.getSetting('djState');
+      if (saved) this.state = Object.assign(this.state, JSON.parse(saved));
+    } catch(e){ /* a bad saved state is not worth failing over */ }
+    // anything picked that has since been deleted quietly clears
+    var self = this;
+    Object.keys(this.state.picks).forEach(function(k){
+      if (!self.optionById(self.state.picks[k])) delete self.state.picks[k];
+    });
+    return this.cats;
+  },
+
+  async save(){
+    try { await dbBoss.setSetting('djState', JSON.stringify(this.state)); } catch(e){}
+  },
+
+  /* first run only: copy dj-data.js into the database, after which the
+     vocabulary belongs to the user */
+  async seed(){
+    if ((await db.djCategories.count()) > 0) return;
+    if (typeof DJ_CATEGORIES === 'undefined') return;
+    for (var i = 0; i < DJ_CATEGORIES.length; i++){
+      var c = DJ_CATEGORIES[i];
+      var catId = await db.djCategories.add({
+        key: c.key, label: c.label, icon: c.icon || '🎚', order: c.order,
+        enabled: c.enabled !== false, builtin: true,
+        note: c.note || '', placeholder: c.placeholder || 'Pick one…'
+      });
+      for (var j = 0; j < c.options.length; j++){
+        var o = c.options[j];
+        await db.djOptions.add({
+          categoryId: catId, label: o.label, tags: o.tags || [],
+          line: o.line || '', builtin: true, hidden: false,
+          favourite: 0, useCount: 0, lastTs: 0
+        });
+      }
     }
   },
 
-  /* ── what the DJ is being asked for ── */
-  brief(){
-    return {
-      request: this._request || '',
-      objective: this._objective || 'mixed',
-      count: this._count || 15
-    };
+  async refresh(){
+    var cats = await db.djCategories.orderBy('order').toArray();
+    for (var i = 0; i < cats.length; i++){
+      cats[i].options = await db.djOptions.where('categoryId').equals(cats[i].id).toArray();
+    }
+    this.cats = cats;
+    return cats;
   },
 
-  /* ── the listening profile, from data riffrolled already keeps ──
-     Most played, recently played, what got a 👍, the tags you type and
-     the artists you fill in. All local — this is read out of Dexie and
-     pasted into your AI by you; riffrolled sends none of it anywhere. */
-  async profile(limit){
+  cat(key){ return this.cats.find(function(c){ return c.key === key; }); },
+
+  optionById(id){
+    for (var i = 0; i < this.cats.length; i++){
+      var o = (this.cats[i].options || []).find(function(x){ return x.id === id; });
+      if (o) return o;
+    }
+    return null;
+  },
+
+  /** the option currently chosen in a category, or null */
+  picked(key){
+    var id = this.state.picks[key];
+    return id ? this.optionById(id) : null;
+  },
+
+  /** every option chosen across every enabled category */
+  chosen(){
+    var self = this, out = [];
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      var o = self.picked(c.key);
+      if (o) out.push(o);
+    });
+    return out;
+  },
+
+  async pick(key, optionId){
+    this.state.picks[key] = optionId;
+    var o = this.optionById(optionId);
+    if (o){   // remembering what gets used is what makes the picker useful
+      await db.djOptions.update(o.id, { useCount: (o.useCount || 0) + 1, lastTs: Date.now() });
+      o.useCount = (o.useCount || 0) + 1;
+    }
+    await this.save();
+  },
+
+  async clearPick(key){ delete this.state.picks[key]; await this.save(); },
+
+  async setFavourite(optionId, on){
+    await db.djOptions.update(optionId, { favourite: on ? 1 : 0 });
+    var o = this.optionById(optionId);
+    if (o) o.favourite = on ? 1 : 0;
+  },
+
+  /* ── user-owned vocabulary ── */
+  async addOption(categoryId, label, tags){
+    var id = await db.djOptions.add({
+      categoryId: categoryId, label: String(label || '').trim().slice(0, 80),
+      tags: tags || [], line: '', builtin: false, hidden: false,
+      favourite: 0, useCount: 0, lastTs: 0
+    });
+    await this.refresh();
+    return id;
+  },
+
+  // built-in options hide rather than delete, so "reset" can bring them back
+  async removeOption(optionId){
+    var o = this.optionById(optionId);
+    if (!o) return;
+    if (o.builtin) await db.djOptions.update(optionId, { hidden: true });
+    else await db.djOptions.delete(optionId);
+    var self = this;
+    Object.keys(this.state.picks).forEach(function(k){
+      if (self.state.picks[k] === optionId) delete self.state.picks[k];
+    });
+    await this.save();
+    await this.refresh();
+  },
+
+  async updateOption(optionId, fields){
+    await db.djOptions.update(optionId, fields);
+    await this.refresh();
+  },
+
+  async addCategory(label, icon){
+    var max = this.cats.length ? Math.max.apply(null, this.cats.map(function(c){ return c.order || 0; })) : 0;
+    var key = 'c' + Date.now().toString(36);
+    await db.djCategories.add({
+      key: key, label: String(label || 'New section').trim().slice(0, 60),
+      icon: icon || '🎚', order: max + 10, enabled: true, builtin: false,
+      note: '', placeholder: 'Pick one…'
+    });
+    await this.refresh();
+    return key;
+  },
+
+  async setCategoryEnabled(id, on){
+    await db.djCategories.update(id, { enabled: !!on });
+    await this.refresh();
+  },
+
+  async removeCategory(id){
+    var c = this.cats.find(function(x){ return x.id === id; });
+    if (!c || c.builtin) return;                      // built-ins switch off, not away
+    await db.djOptions.where('categoryId').equals(id).delete();
+    await db.djCategories.delete(id);
+    delete this.state.picks[c.key];
+    await this.save();
+    await this.refresh();
+  },
+
+  /* ── RIFF ROLL ────────────────────────────────────────────────────────
+     Options share tags; shared tags mean related. The roll weights the
+     dice by how much an option has in common with what is already picked,
+     but every option keeps a real chance — linked never means constrained,
+     so Funeral + Euphoric + Death Metal stays reachable.
+
+     Chaos inverts the weighting for some categories: it hunts for the
+     options with the *least* in common. That alone would just be noise,
+     so the prompt then tells the AI the collision is deliberate. ── */
+
+  _visible(cat){
+    return (cat.options || []).filter(function(o){ return !o.hidden; });
+  },
+
+  _tagBag(options){
+    var bag = {};
+    options.forEach(function(o){ (o.tags || []).forEach(function(t){ bag[t] = (bag[t] || 0) + 1; }); });
+    return bag;
+  },
+
+  _weights(options, bag, invert){
+    var scores = options.map(function(o){
+      var shared = (o.tags || []).reduce(function(n, t){ return n + (bag[t] ? 1 : 0); }, 0);
+      return shared;
+    });
+    var max = Math.max.apply(null, scores.concat([0]));
+    return scores.map(function(s){
+      // 1 is the floor that keeps an unrelated option possible
+      return invert ? 1 + 2 * (max - s) : 1 + 2 * s;
+    });
+  },
+
+  _sample(options, weights){
+    var total = weights.reduce(function(a, b){ return a + b; }, 0);
+    if (!total) return options[Math.floor(Math.random() * options.length)];
+    var r = Math.random() * total;
+    for (var i = 0; i < options.length; i++){
+      r -= weights[i];
+      if (r <= 0) return options[i];
+    }
+    return options[options.length - 1];
+  },
+
+  /** roll one category against everything else currently picked */
+  rollOption(key, opts){
+    opts = opts || {};
+    var cat = this.cat(key);
+    if (!cat) return null;
+    var options = this._visible(cat);
+    if (!options.length) return null;
+    // a dice that lands on what you already had reads as broken, so a
+    // single-category roll always moves (the whole-brief roll doesn't care)
+    var current = this.state.picks[key];
+    if (current && options.length > 1 && !opts.allowSame){
+      options = options.filter(function(o){ return o.id !== current; });
+    }
+    var others = this.chosen().filter(function(o){ return o.categoryId !== cat.id; });
+    var bag = this._tagBag(others);
+    return this._sample(options, this._weights(options, bag, !!opts.invert));
+  },
+
+  async roll(key, opts){
+    var o = this.rollOption(key, opts);
+    if (o) await this.pick(key, o.id);
+    return o;
+  },
+
+  /** roll the whole brief as one combination, not field by field */
+  async rollAll(opts){
+    opts = opts || {};
+    var chaos = !!opts.chaos;
+    var cats = this.cats.filter(function(c){ return c.enabled; });
+    if (!cats.length) return;
+
+    // a random anchor each time, so no category is permanently in charge
+    cats = cats.slice().sort(function(){ return Math.random() - 0.5; });
+
+    var picked = [], self = this;
+    // under chaos at least one category deliberately goes against the grain
+    var oddOne = chaos ? Math.floor(Math.random() * cats.length) : -1;
+
+    cats.forEach(function(c, i){
+      var options = self._visible(c);
+      if (!options.length) return;
+      var bag = self._tagBag(picked);
+      var invert = chaos && (i === oddOne || Math.random() < 0.4);
+      var o = self._sample(options, self._weights(options, bag, invert));
+      if (o){ picked.push(o); self.state.picks[c.key] = o.id; }
+    });
+
+    this.state.chaos = chaos;
+    if (!opts.keepFamiliarity){
+      // a roll moves the slider too — but in sane steps, not to a random integer
+      var steps = [0, 10, 20, 30, 50, 70, 90, 100];
+      this.state.familiarity = steps[Math.floor(Math.random() * steps.length)];
+    }
+    await this.save();
+    return picked;
+  },
+
+  /* ── the brief, as one line (what the menu shows) ── */
+  briefLine(){
+    var self = this, bits = [];
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      var o = self.picked(c.key);
+      if (o) bits.push(o.label);
+    });
+    bits.push(this.state.familiarity + '% familiar / ' + (100 - this.state.familiarity) + '% discovery');
+    bits.push(this.state.count + ' tracks · ' + this.state.minutes + ' min');
+    if (this.state.chaos) bits.push('CHAOS');
+    return bits.join(' | ');
+  },
+
+  /* ── what the DJ is allowed to know about the listener ──
+     Local data, shown in full in the menu before it goes anywhere, and
+     switched off with one toggle. Nothing is sent by riffrolled: the
+     listener pastes it themselves. ── */
+  async context(){
     var out = { top: [], liked: [], recent: [], tags: [], have: [], size: 0 };
     try {
       var tracks = await db.tracks.toArray();
@@ -77,38 +333,28 @@ var aiDj = {
       var counts = await dbBoss.getPlayCounts();
       var byYt = {};
       tracks.forEach(function(t){ byYt[t.ytId] = t; });
+      var label = function(t){ return (t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId); };
 
-      var label = function(t){
-        return (t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId);
-      };
-
-      // most played
       out.top = tracks.slice()
         .sort(function(a, b){ return (counts[b.ytId] || 0) - (counts[a.ytId] || 0); })
         .filter(function(t){ return (counts[t.ytId] || 0) > 0; })
-        .slice(0, limit || 12)
-        .map(function(t){ return label(t) + ' (' + counts[t.ytId] + ' plays)'; });
+        .slice(0, 12).map(function(t){ return label(t) + ' (' + counts[t.ytId] + ')'; });
 
-      // liked (a tally, so count them)
       var likes = {};
       (await db.reactions.where('kind').equals('like').toArray())
         .forEach(function(r){ likes[r.ytId] = (likes[r.ytId] || 0) + 1; });
       out.liked = Object.keys(likes)
-        .sort(function(a, b){ return likes[b] - likes[a]; })
-        .slice(0, 10)
-        .map(function(y){ return byYt[y] ? label(byYt[y]) : null; })
-        .filter(Boolean);
+        .sort(function(a, b){ return likes[b] - likes[a]; }).slice(0, 10)
+        .map(function(y){ return byYt[y] ? label(byYt[y]) : null; }).filter(Boolean);
 
-      // recently played
       var hist = await db.playHistory.orderBy('ts').reverse().limit(40).toArray();
       var seen = {};
       hist.forEach(function(h){
-        if (seen[h.ytId] || !byYt[h.ytId]) return;
+        if (seen[h.ytId] || !byYt[h.ytId] || out.recent.length >= 10) return;
         seen[h.ytId] = 1;
-        if (out.recent.length < 10) out.recent.push(label(byYt[h.ytId]));
+        out.recent.push(label(byYt[h.ytId]));
       });
 
-      // tags the user types themselves
       var tagCount = {};
       tracks.forEach(function(t){
         (t.tags || '').split(',').forEach(function(raw){
@@ -117,96 +363,142 @@ var aiDj = {
         });
       });
       out.tags = Object.keys(tagCount)
-        .sort(function(a, b){ return tagCount[b] - tagCount[a]; })
-        .slice(0, 14);
+        .sort(function(a, b){ return tagCount[b] - tagCount[a]; }).slice(0, 14);
 
-      // for a discovery session: what NOT to hand back. Artists where we
-      // know them, titles otherwise — capped so the prompt stays pasteable.
       var artists = {};
       tracks.forEach(function(t){ if (t.artist) artists[t.artist.trim()] = 1; });
       out.have = Object.keys(artists).slice(0, 60);
-      if (out.have.length < 12){
-        out.have = out.have.concat(tracks.slice(0, 40).map(function(t){ return t.name || ''; }).filter(Boolean));
-      }
-    } catch(e){ /* a profile is a bonus, never a requirement */ }
+    } catch(e){ /* context is a bonus */ }
     return out;
   },
 
-  /* ── the prompt. No provider is named and no key is involved: this is
-     text for whichever AI the user already has open. ── */
-  async buildPrompt(brief){
-    brief = brief || this.brief();
-    var obj = this.OBJECTIVES[brief.objective] || this.OBJECTIVES.mixed;
-    var p = await this.profile();
-    var L = [];
+  /* ── the prompt ─────────────────────────────────────────────────────── */
+  async buildPrompt(){
+    var self = this, s = this.state, L = [];
+    var personality = this.picked('personality');
+    var perLine = personality && personality.line ? personality.line
+      : (personality ? 'You are "' + personality.label + '" — let that colour how you present the set.' : '');
 
-    L.push('You are my personal music DJ.');
-    L.push('You are not creating music. You are choosing what I should listen to next.');
-    L.push('Everything I listen to plays from YouTube, so the playlist you write is a list of');
-    L.push('YouTube videos.');
+    L.push('You are my DJ.');
     L.push('');
-    L.push('WHAT I WANT: ' + (brief.request || 'your choice — surprise me'));
-    L.push('HOW MANY TRACKS: ' + brief.count);
-    L.push('HOW FAMILIAR: ' + obj.line);
+    L.push('You are not recommending music and you are not making music. You are taking me');
+    L.push('somewhere. Everything I listen to plays from YouTube, so the set you write is a');
+    L.push('list of YouTube videos.');
+    if (perLine){ L.push(''); L.push(perLine); }
     L.push('');
 
-    if (p.top.length){      L.push('WHAT I PLAY MOST:');        p.top.forEach(function(x){ L.push('  - ' + x); }); }
-    if (p.liked.length){    L.push('TRACKS I HAVE LIKED:');     p.liked.forEach(function(x){ L.push('  - ' + x); }); }
-    if (p.recent.length){   L.push('PLAYED RECENTLY:');         p.recent.forEach(function(x){ L.push('  - ' + x); }); }
-    if (p.tags.length){     L.push('TAGS I USE: ' + p.tags.join(', ')); }
-    if (!p.size){           L.push('(My library is empty — this is my first session, so choose for me.)'); }
-    if (p.have.length && (brief.objective === 'fresh' || brief.objective === 'surprise')){
-      L.push('ALREADY IN MY LIBRARY — do not pick these: ' + p.have.join(', '));
+    L.push('THE BRIEF');
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      var o = self.picked(c.key);
+      if (!o) return;
+      L.push('  ' + c.label + ' ' + o.label);
+      if (o.line) L.push('      ' + o.line);
+    });
+
+    var fam = s.familiarity;
+    L.push('  Familiarity: roughly ' + fam + '% things I might know, ' + (100 - fam) + '% discovery.');
+    L.push('      Treat that as a feel, not arithmetic.');
+    if (this.picked('direction')){
+      L.push('  The direction above is a starting coordinate, not a genre filter. Wander from it');
+      L.push('      if the journey is better for it.');
+    }
+    if (s.chaos){
+      L.push('');
+      L.push('  ' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
     }
     L.push('');
+
+    L.push('LENGTH AND TIME');
+    L.push('  Exactly ' + s.count + ' tracks.');
+    L.push('  The whole set should run about ' + s.minutes + ' minutes, so aim for an average of');
+    L.push('      roughly ' + this.avgMinutes() + ' minutes a track.');
+    L.push('  No single track longer than ' + s.maxTrackMin + ' minutes. If a track you want is longer');
+    L.push('      than that, pick a different one — not a shortened edit of the same thing.');
+    L.push('');
+
+    if (s.shareContext){
+      var ctx = await this.context();
+      if (ctx.size){
+        L.push('WHAT I ALREADY LISTEN TO');
+        if (ctx.top.length){    L.push('  Played most: ' + ctx.top.join('; ')); }
+        if (ctx.liked.length){  L.push('  Liked: ' + ctx.liked.join('; ')); }
+        if (ctx.recent.length){ L.push('  Recent: ' + ctx.recent.join('; ')); }
+        if (ctx.tags.length){   L.push('  My tags: ' + ctx.tags.join(', ')); }
+        if (ctx.have.length){
+          L.push('  Already in my library, so nothing here counts as a discovery:');
+          L.push('      ' + ctx.have.join(', '));
+        }
+        L.push('');
+      }
+    } else {
+      L.push('I have not shared my listening history. Choose blind.');
+      L.push('');
+    }
 
     L.push('REPLY IN THIS EXACT FORMAT. I paste your whole reply straight back into riffrolled,');
     L.push('so put nothing before or after the block:');
     L.push('');
     L.push('RIFFROLLED-PLAYLIST');
-    L.push('NAME: a short name for this playlist');
-    L.push('1 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | why it is here (a few words)');
-    L.push('2 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | why it is here');
+    L.push('NAME: a short name for this set');
+    L.push('1 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | 4:12 | genre | why it is here');
+    L.push('2 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | 3:48 | genre | why it is here');
     L.push('END');
     L.push('');
     L.push('Rules:');
     L.push('  - One track per line, numbered, in the order I should hear them.');
-    L.push('  - Every track is played from YouTube, so give me the YouTube watch link for each one.');
-    L.push('    If you can search or browse the web, look the videos up so the links are real ones.');
-    L.push('  - Artist and title are required as well, and must be accurate enough to find the track');
-    L.push('    on YouTube on their own.');
-    L.push('  - If you are not certain a link is real, leave that cell empty rather than guessing an');
-    L.push('    id. riffrolled checks every link against YouTube and looks up anything missing, so a');
-    L.push('    blank costs nothing and an invented id just wastes the slot.');
-    L.push('  - Real, released tracks only. Do not invent songs, and do not repeat a track.');
+    L.push('  - Every cell matters: artist, title, link, running time (m:ss), genre, and a few');
+    L.push('    words on why it earns its place in this journey.');
+    L.push('  - Real, released tracks by real artists. Do not invent songs. Do not repeat a track.');
     L.push('  - No commentary outside the block.');
     L.push('');
+    L.push('YOUTUBE LINK REQUIREMENT — IMPORTANT:');
+    L.push('Every track MUST have a real, verified YouTube watch URL.');
+    L.push('');
+    L.push('Before returning the playlist, search/browse YouTube for EVERY track and verify that the');
+    L.push('specific video exists.');
+    L.push('');
+    L.push('Do NOT return a track with a blank URL.');
+    L.push('');
+    L.push('If you cannot verify a YouTube video for a chosen track, REMOVE THAT TRACK and choose');
+    L.push('another real released track that you can verify on YouTube.');
+    L.push('');
+    L.push('The final playlist MUST contain exactly ' + s.count + ' tracks, and all ' + s.count +
+            ' must have verified YouTube watch URLs.');
+    L.push('');
+    L.push('Never invent or guess a YouTube video ID.');
+    L.push('');
     L.push('JSON is also accepted if you prefer:');
-    L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID","why":"..."}]}');
+    L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID",' +
+           '"duration":"4:12","genre":"...","why":"..."}]}');
 
     return L.join('\n');
   },
 
-  /* ── parsing whatever came back ──────────────────────────────────────
-     Chat UIs reflow text, models add preambles, wrap things in code
-     fences, number lines differently or answer in JSON because they felt
-     like it. So: try JSON, then the pipe format, then a markdown table,
-     then plain "Artist - Title" lines. Returns { name, items } and never
-     throws — an empty items array is the "I could not read this" signal. */
+  avgMinutes(){
+    var avg = this.state.minutes / Math.max(this.state.count, 1);
+    return Math.round(avg * 10) / 10;
+  },
+
+  /* ── parsing ─────────────────────────────────────────────────────────
+     Whatever a stranger's AI felt like writing: the pipe block, JSON, a
+     markdown table, a numbered list of "Artist - Title". Cells are
+     identified by what they look like rather than by position, because
+     models drop and reorder them. Never throws; an empty items array is
+     the "couldn't read it" signal. ── */
   parseReply(text){
     var raw = String(text || '').trim();
     if (!raw) return { name:'', items:[] };
-
-    // strip code fences, keep their contents
     raw = raw.replace(/^\s*```[a-zA-Z]*\s*/gm, '').replace(/```\s*$/gm, '');
-
     var out = this._parseJson(raw);
     if (!out.items.length) out = this._parseLines(raw);
     out.items = this._dedupe(out.items).slice(0, this.MAX_TRACKS);
     return out;
   },
 
-  _clean(s){ return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().replace(/^["'`*_\s]+|["'`*_\s]+$/g, ''); },
+  _clean(s){
+    return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().replace(/^["'`*_\s]+|["'`*_\s]+$/g, '');
+  },
 
   _ytId(s){
     var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(s)
@@ -214,6 +506,30 @@ var aiDj = {
          || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(s)
          || /^([A-Za-z0-9_-]{11})$/.exec(String(s || '').trim());
     return m ? m[1] : null;
+  },
+
+  /** "4:12" / "1:02:30" / "4m12s" / "252" → seconds, or 0 */
+  _secs(s){
+    var t = String(s || '').trim();
+    var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+    if (m){
+      return m[3] ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : (+m[1]) * 60 + (+m[2]);
+    }
+    m = /^(\d{1,3})\s*m(?:in)?(?:\s*(\d{1,2})\s*s)?$/i.exec(t);
+    if (m) return (+m[1]) * 60 + (m[2] ? +m[2] : 0);
+    m = /^(\d{2,4})$/.exec(t);                 // bare seconds
+    if (m && +m[1] >= 30 && +m[1] <= 3600) return +m[1];
+    return 0;
+  },
+
+  _looksLikeDuration(s){ return this._secs(s) > 0 && /[:ms]/i.test(String(s)); },
+
+  // a genre is short and label-like; a reason is a phrase
+  _looksLikeGenre(s){
+    var t = String(s || '').trim();
+    if (!t || t.length > 28) return false;
+    if (/[.!?,;]/.test(t)) return false;
+    return t.split(/\s+/).length <= 3;
   },
 
   _dedupe(items){
@@ -228,14 +544,14 @@ var aiDj = {
     return out;
   },
 
+  _blank(){ return { artist:'', title:'', url:'', secs:0, genre:'', why:'' }; },
+
   _parseJson(raw){
     var self = this, res = { name:'', items:[] };
-    // the first {...} or [...] that parses — models like to chat first
     var starts = [raw.indexOf('{'), raw.indexOf('[')].filter(function(i){ return i >= 0; });
     if (!starts.length) return res;
     var from = Math.min.apply(null, starts);
-    var ends = [raw.lastIndexOf('}'), raw.lastIndexOf(']')];
-    var to = Math.max.apply(null, ends);
+    var to = Math.max(raw.lastIndexOf('}'), raw.lastIndexOf(']'));
     if (to <= from) return res;
     var obj;
     try { obj = JSON.parse(raw.slice(from, to + 1)); } catch(e){ return res; }
@@ -249,521 +565,235 @@ var aiDj = {
 
     list.forEach(function(row){
       if (typeof row === 'string'){
-        var dash = self._splitDash(row);
-        if (dash) res.items.push(dash);
+        var d = self._splitDash(row);
+        if (d) res.items.push(d);
         return;
       }
       if (!row || typeof row !== 'object') return;
-      var title = self._clean(row.title || row.track || row.song || row.name);
-      var artist = self._clean(row.artist || row.by || row.channel || row.band);
-      if (!title && !artist) return;
-      res.items.push({
-        artist: artist,
-        title: title,
-        url: self._ytId(row.url || row.link || row.youtube || row.videoId || row.id || '') || '',
-        why: self._clean(row.why || row.reason || row.note || row.comment)
-      });
+      var it = self._blank();
+      it.title  = self._clean(row.title || row.track || row.song || row.name);
+      it.artist = self._clean(row.artist || row.by || row.channel || row.band);
+      it.url    = self._ytId(row.url || row.link || row.youtube || row.videoId || row.id || '') || '';
+      it.secs   = self._secs(row.duration || row.length || row.time || row.runtime || '');
+      it.genre  = self._clean(row.genre || row.style || '');
+      it.why    = self._clean(row.why || row.reason || row.note || row.comment || '');
+      if (it.title || it.artist) res.items.push(it);
     });
     return res;
   },
 
-  // "Artist - Title" / "Artist – Title" / "Artist — Title", but not a
-  // title that merely contains a hyphen
   _splitDash(line){
     var m = /^(.{1,120}?)\s+[-–—]\s+(.+)$/.exec(this._clean(line));
     if (!m) return null;
-    return { artist: this._clean(m[1]), title: this._clean(m[2]), url:'', why:'' };
+    var it = this._blank();
+    it.artist = this._clean(m[1]);
+    it.title = this._clean(m[2]);
+    return it;
   },
 
   _parseLines(raw){
     var self = this, res = { name:'', items:[] };
-    var lines = raw.split(/\r?\n/);
 
-    lines.forEach(function(line){
+    raw.split(/\r?\n/).forEach(function(line){
       var l = line.trim();
       if (!l) return;
 
-      var nameM = /^#*\s*(?:NAME|PLAYLIST|TITLE)\s*[:\-]\s*(.+)$/i.exec(l);
+      var nameM = /^#*\s*(?:NAME|PLAYLIST|TITLE|SET)\s*[:\-]\s*(.+)$/i.exec(l);
       if (nameM && !res.name){ res.name = self._clean(nameM[1]); return; }
       if (/^(RIFFROLLED-PLAYLIST|END)\s*$/i.exec(l)) return;
 
-      // drop a leading "1.", "2)", "- ", "* ", or "3 - " (a numbered line
-      // whose separator is itself a dash — the dash split must not take
-      // the number for the artist)
       var body = l.replace(/^\s*(?:[-*•]\s*)?(?:\d{1,2}\s*[\.\)\:]\s*|\d{1,2}\s+[-–—]\s+)?/, '');
 
       if (body.indexOf('|') >= 0){
         var cells = body.split('|').map(function(c){ return self._clean(c); });
-        // a markdown table row starts and ends with a pipe, so loses an
-        // empty cell at each end; a separator row is all dashes
-        if (!cells[0] && cells.length > 1) cells.shift();
+        if (!cells[0] && cells.length > 1) cells.shift();          // markdown table edge
         if (cells.length && !cells[cells.length - 1]) cells.pop();
         if (!cells.length) return;
-        if (cells.every(function(c){ return /^:?-{2,}:?$/.test(c); })) return;
-        // a leftover index cell ("1" on its own) from the table form
-        if (/^\d{1,2}$/.test(cells[0]) && cells.length > 2) cells.shift();
-        if (/^(artist|#|no\.?)$/i.test(cells[0])) return;         // table header
+        if (cells.every(function(c){ return /^:?-{2,}:?$/.test(c); })) return;   // table rule
+        if (/^\d{1,2}$/.test(cells[0]) && cells.length > 2) cells.shift();       // index cell
+        if (/^(artist|#|no\.?)$/i.test(cells[0])) return;                        // table header
 
-        var artist = cells[0] || '', title = cells[1] || '', url = '', why = '';
-        for (var i = 2; i < cells.length; i++){
-          var id = self._ytId(cells[i]);
-          if (id && !url) url = id;
-          else if (cells[i] && !why) why = cells[i];
+        var it = self._blank(), rest = [];
+        cells.forEach(function(c){
+          if (!c) return;
+          var id = self._ytId(c);
+          if (id && !it.url){ it.url = id; return; }
+          if (!it.secs && self._looksLikeDuration(c)){ it.secs = self._secs(c); return; }
+          rest.push(c);
+        });
+        it.artist = rest.shift() || '';
+        it.title  = rest.shift() || '';
+        if (!it.title && it.artist){
+          var d = self._splitDash(it.artist);
+          if (d){ it.artist = d.artist; it.title = d.title; }
         }
-        if (!title && artist){ var d = self._splitDash(artist); if (d){ artist = d.artist; title = d.title; } }
-        if (!title && !artist) return;
-        res.items.push({ artist: artist, title: title, url: url, why: why });
+        // what's left is the genre and the reason. One cell on its own is
+        // the reason — that's the older five-cell shape, and a bare genre
+        // without a reason is rare enough to be worth losing.
+        if (rest.length === 1){
+          it.why = rest[0];
+        } else if (rest.length){
+          if (self._looksLikeGenre(rest[0])) it.genre = rest.shift();
+          it.why = rest.join(' · ');
+        }
+        if (it.title || it.artist) res.items.push(it);
         return;
       }
 
-      // plain "Artist - Title", optionally trailed by a link
       var urlM = /(https?:\/\/\S+)/.exec(body);
       var id2 = urlM ? self._ytId(urlM[1]) : null;
       var textPart = urlM ? body.replace(urlM[1], '').replace(/[\s\-–—|]+$/, '') : body;
-      var dash2 = self._splitDash(textPart);
-      if (dash2){ dash2.url = id2 || ''; res.items.push(dash2); }
+      var dash = self._splitDash(textPart);
+      if (dash){ dash.url = id2 || ''; res.items.push(dash); }
     });
 
     return res;
   },
 
-  /* ── resolution ──────────────────────────────────────────────────────
-     An AI's video id is a hint and nothing more — a model reproducing an
-     11-character id from memory is guessing at a random string. So:
-
-       1. if it gave a link, validate it here in the browser with
-          YouTube's oEmbed endpoint. No key, no API quota, and it returns
-          the real title and channel, which we check against what the AI
-          claimed it was.
-       2. whatever is left goes to /api/resolve, which tries our own
-          catalogue first (free) and only then spends YouTube search
-          quota, inside a per-request cap and a daily budget.
-
-     onProgress(done, total, label) is called as it goes. */
-  async resolve(items, opts){
-    opts = opts || {};
-    var self = this;
-    var progress = opts.onProgress || function(){};
-    var out = items.map(function(it){ return { item: it, ok:false, via:null }; });
-    var done = 0, total = items.length;
-
-    // ── 1. free validation of anything that came with a link ──
-    for (var i = 0; i < items.length; i++){
-      var it = items[i];
-      progress(done, total, it.title || it.artist);
-      if (it.url){
-        var v = await self.oembed(it.url);
-        if (v) out[i].verified = v;          // real title + channel, from YouTube
-      }
-      done++;
-    }
-    progress(done, total, 'checking the catalogue…');
-
-    // ── 2. the rest, server side: catalogue first, then capped YouTube ──
-    var payload = items.map(function(it, i){
-      return {
-        artist: it.artist, title: it.title,
-        videoId: it.url || '',
-        verified: out[i].verified || null
-      };
-    });
-
-    var data;
-    try {
-      var r = await fetch('/api/resolve', {
-        method:'POST', headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ items: payload, allowYouTube: opts.allowYouTube !== false })
-      });
-      data = await r.json();
-      if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
-    } catch(e){
-      // offline or the endpoint is down: anything we validated locally is
-      // still playable, the rest simply didn't resolve
-      data = { results: out.map(function(o, i){
-        return o.verified
-          ? { i:i, ok:true, via:'link', url:'https://www.youtube.com/watch?v=' + items[i].url,
-              name:o.verified.name, artist:o.verified.artist }
-          : { i:i, ok:false, reason:'offline' };
-      }) };
-      data.offline = e.message;
-    }
-
-    (data.results || []).forEach(function(r){
-      if (!r || typeof r.i !== 'number' || !out[r.i]) return;
-      out[r.i].ok = !!r.ok;
-      out[r.i].via = r.via || null;
-      out[r.i].reason = r.reason || '';
-      if (r.ok){
-        out[r.i].ytId = self._ytId(r.url);
-        out[r.i].name = r.name || items[r.i].title;
-        out[r.i].artist = r.artist || items[r.i].artist;
-      }
-    });
-
-    progress(total, total, '');
-    return {
-      tracks: out,
-      lookupsUsed: data.lookups_used || 0,
-      lookupsLeft: data.lookups_left,
-      lookupsLimit: data.lookups_limit,
-      warning: data.warning || '',
-      offline: data.offline || ''
-    };
+  /** total runtime of what was parsed, in seconds (0 where unknown) */
+  totalSecs(items){
+    return (items || []).reduce(function(n, it){ return n + (it.secs || 0); }, 0);
   },
 
-  /** YouTube's oEmbed endpoint: no key, no API quota, and a 404 for
-      anything that isn't a real, viewable video. Used by Import and
-      Promote too. */
-  async oembed(ytId){
-    try {
-      var r = await fetch('https://www.youtube.com/oembed?url=' +
-        encodeURIComponent('https://www.youtube.com/watch?v=' + ytId) + '&format=json');
-      if (!r.ok) return null;
-      var d = await r.json();
-      if (!d || !d.title) return null;
-      return { name: d.title, artist: d.author_name || '' };
-    } catch(e){ return null; }
+  fmtSecs(secs){
+    secs = Math.round(secs || 0);
+    if (!secs) return '—';
+    var h = Math.floor(secs / 3600), m = Math.round((secs % 3600) / 60);
+    return h ? (h + 'h ' + m + 'm') : (m + ' min');
   },
 
-  /* ── saving ──────────────────────────────────────────────────────────
-     An AI playlist becomes an ordinary riffrolled playlist — same table
-     Random Mix and channel imports write to — so it plays, reorders,
-     exports and gets promoted like anything else. What makes it an AI
-     playlist is provenance stored alongside it:
-       · on the playlist row: source, the request, the objective
-       · in aiSessions: the brief, the raw reply, every parsed item, and
-         what each one resolved to (including what didn't)
-     All of it local. The only thing that reaches the server is the
-     resolved tracks joining the shared catalogue. */
-  async save(brief, parsed, resolved, rawReply){
-    var picked = resolved.tracks.filter(function(t){ return t.ok && t.ytId; });
-    if (!picked.length) return null;
+  /* ── import ──────────────────────────────────────────────────────────
+     What comes back is the playlist. It lands in the Playlist panel as an
+     ordinary riffrolled playlist — the DJ AI menu never shows tracks —
+     and everything the AI told us (genre, running time, why) is kept:
+     locally on the track, and in the shared catalogue so riffrolled's own
+     database grows with every set anyone builds.
 
-    var base = parsed.name || (brief.request ? brief.request.slice(0, 40) : 'AI DJ set');
+     Nothing is looked up. The AI was asked to verify its links; a dead id
+     fails on the deck, which the player already handles. ── */
+  async importPlaylist(parsed, rawReply){
+    var playable = parsed.items.filter(function(it){ return !!it.url; });
+    if (!playable.length) return null;
+
+    var base = parsed.name || this.briefSummaryName();
     var pls = await dbBoss.getPlaylists();
     var name = '🤖 ' + base, n = 2;
     while (pls.some(function(p){ return p.name === name; })) name = '🤖 ' + base + ' ' + (n++);
 
     var plId = await dbBoss.createPl(name);
+    var total = this.totalSecs(playable);
     await db.playlists.update(plId, {
       source: 'ai',
-      aiRequest: brief.request,
-      aiObjective: brief.objective,
+      aiRequest: this.briefLine(),
+      aiBrief: this.briefObject(),
+      totalSecs: total,
       aiAt: Date.now()
     });
 
-    for (var i = 0; i < picked.length; i++){
-      var t = picked[i];
-      var tid = await dbBoss.createTrack(t.ytId, t.name);
-      // fill in the artist if this track is new or didn't have one
+    for (var i = 0; i < playable.length; i++){
+      var it = playable[i];
+      var title = it.title || it.url;
+      var tid = await dbBoss.createTrack(it.url, title);
+      var meta = {};
       try {
-        var row = await dbBoss.getTrack(t.ytId);
-        if (row && !row.artist && t.artist) await dbBoss.updateTrackMeta(t.ytId, { artist: t.artist });
-      } catch(e){}
+        var row = await dbBoss.getTrack(it.url);
+        if (row){
+          if (!row.artist && it.artist) meta.artist = it.artist;
+          if (it.secs) meta.durSec = it.secs;
+          if (it.genre){
+            meta.genre = it.genre;
+            // the AI's genre becomes a tag too, so Random Mix and search see it
+            var tags = (row.tags || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+            if (tags.indexOf(it.genre.toLowerCase()) === -1) tags.push(it.genre.toLowerCase());
+            meta.tags = tags.join(', ');
+          }
+          if (Object.keys(meta).length) await dbBoss.updateTrackMeta(it.url, meta);
+        }
+      } catch(e){ /* meta is best effort */ }
       await dbBoss.addToPlaylist(plId, tid);
     }
+
+    // riffrolled's own database: the tracks, then the set as name + ids
+    this.publish(name, playable);
 
     try {
       await db.aiSessions.add({
         ts: Date.now(),
         playlistId: plId,
         playlistName: name,
-        request: brief.request,
-        objective: brief.objective,
-        asked: brief.count,
-        resolvedCount: picked.length,
-        items: resolved.tracks.map(function(t){
-          return {
-            artist: t.item.artist, title: t.item.title, why: t.item.why || '',
-            ok: t.ok, via: t.via || '', reason: t.reason || '', ytId: t.ytId || ''
-          };
+        request: this.briefLine(),
+        brief: this.briefObject(),
+        mode: this.state.mode,
+        asked: this.state.count,
+        resolvedCount: playable.length,
+        totalSecs: total,
+        items: parsed.items.map(function(it){
+          return { artist:it.artist, title:it.title, ytId:it.url || '', secs:it.secs || 0,
+                   genre:it.genre || '', why:it.why || '' };
         }),
         reply: String(rawReply || '').slice(0, 20000)
       });
-    } catch(e){ /* the playlist is what matters; the record is a bonus */ }
+    } catch(e){ /* the playlist is what matters */ }
 
-    return { playlistId: plId, name: name, count: picked.length };
-  },
-
-  /* ── adapters: how a prompt reaches an AI and a reply comes back ──
-     Only the copy/paste one exists. An automatic adapter would implement
-     the same shape — run(brief) → reply text — and everything above it
-     would stay exactly as it is. */
-  adapters: {
-    copypaste: {
-      id: 'copypaste',
-      label: 'Bring your own AI',
-      manual: true,
-      async run(){ throw new Error('copy/paste is driven by the panel'); }
-    }
-  },
-  adapter: 'copypaste'
-};
-
-/* ── THE PANEL ───────────────────────────────────────────────────────── */
-
-var AIDJ_SVG =
-  "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
-    "<defs><linearGradient id='adg' x1='0' y1='0' x2='1' y2='1'>" +
-      "<stop offset='0' stop-color='#ff9de2'/><stop offset='1' stop-color='#8a7bff'/></linearGradient></defs>" +
-    "<rect x='3.5' y='7.5' width='17' height='12' rx='4' fill='none' stroke='url(#adg)' stroke-width='1.8'/>" +
-    "<circle cx='9' cy='13.5' r='1.6' fill='url(#adg)'/><circle cx='15' cy='13.5' r='1.6' fill='url(#adg)'/>" +
-    "<path d='M12 7.5V4.2' fill='none' stroke='url(#adg)' stroke-width='1.8' stroke-linecap='round'/>" +
-    "<circle cx='12' cy='3' r='1.3' fill='url(#adg)'/>" +
-    "<path d='M3.5 11.5h-1.3M21.8 11.5h-1.3' stroke='url(#adg)' stroke-width='1.8' stroke-linecap='round'/>" +
-  "</svg>";
-
-var aiDjBoss = {
-
-  setup(){
-    var objs = Object.keys(aiDj.OBJECTIVES).map(function(k){
-      var o = aiDj.OBJECTIVES[k];
-      return "<button class='dj-obj" + (k === 'mixed' ? ' active' : '') + "' data-o='" + k +
-        "' title='" + escapeHtml(o.hint) + "'>" + escapeHtml(o.label) + "</button>";
-    }).join('');
-
-    var main =
-      "<div class='sec dj-top'>" +
-        "<div class='dj-tag'>Your AI picks the tracks.<br><b>YouTube plays them. riffrolled does the rest.</b></div>" +
-        "<textarea class='dj-req' rows='2' placeholder='Dark electronic for a late-night drive…'></textarea>" +
-        "<div class='dj-objs'>" + objs + "</div>" +
-        "<div class='row dj-countrow'>" +
-          "<span class='dj-lbl'>Tracks</span>" +
-          "<select class='dj-count'>" +
-            "<option>10</option><option selected>15</option><option>20</option><option>30</option>" +
-          "</select>" +
-          "<button class='dj-copy' title='Copy the prompt for your AI'>⧉ Copy the prompt</button>" +
-        "</div>" +
-        "<div class='status-bar dj-status'></div>" +
-      "</div>" +
-
-      "<div class='sec dj-step dj-step2'>" +
-        "<div class='sec-head'>Then</div>" +
-        "<div class='dj-say'>Paste it into ChatGPT, Claude, Gemini — whichever you already have open. " +
-          "No key, no account, no subscription: riffrolled never sees your AI.</div>" +
-      "</div>" +
-
-      "<div class='sec dj-step dj-step3'>" +
-        "<div class='sec-head'>Then paste what it said back</div>" +
-        "<textarea class='dj-reply' rows='4' placeholder='Paste your AI&#39;s whole reply here…'></textarea>" +
-        "<div class='row dj-gorow'>" +
-          "<span class='dj-parsed'></span>" +
-          "<button class='dj-go'>▶ Build the playlist</button>" +
-        "</div>" +
-        "<div class='dj-results'></div>" +
-        "<div class='status-bar dj-bstatus'></div>" +
-      "</div>" +
-
-      "<div class='sec dj-sessions-sec'>" +
-        "<div class='sec-head'>Recent AI DJ sets</div>" +
-        "<div class='dj-sessions'></div>" +
-      "</div>";
-
-    this.el = menuB.createMenu(AIDJ_SVG.replace(/adg/g, 'adgT') + ' AI DJ', main);
-    menuB.place(this.el, { right:'800px', top:'120px', width:'330px', height:'560px' });
-    this.bind();
-    this.renderSessions();
-  },
-
-  bind(){
-    var self = this, root = this.el;
-
-    root.querySelector('.dj-objs').addEventListener('click', function(e){
-      var b = e.target.closest('.dj-obj'); if (!b) return;
-      root.querySelectorAll('.dj-obj').forEach(function(x){ x.classList.toggle('active', x === b); });
-      aiDj._objective = b.dataset.o;
-      self.status(aiDj.OBJECTIVES[b.dataset.o].hint);
-    });
-
-    root.querySelector('.dj-copy').onclick = function(){ self.copyPrompt(); };
-    root.querySelector('.dj-go').onclick = function(){ self.build(); };
-
-    var reply = root.querySelector('.dj-reply');
-    reply.addEventListener('input', function(){
-      var n = aiDj.parseReply(reply.value).items.length;
-      root.querySelector('.dj-parsed').textContent = n ? (n + ' track' + (n > 1 ? 's' : '') + ' read') : '';
-    });
-
-    root.querySelector('.dj-sessions').addEventListener('click', async function(e){
-      var row = e.target.closest('.dj-session'); if (!row) return;
-      var pl = await db.playlists.get(Number(row.dataset.pl));
-      if (!pl){ self.status('That playlist has been deleted', 'err'); return; }
-      await plBoss.setActivePlaylist(pl.id);
-      if (window.dock) dock.openPanel(plBoss.currentEl);
-      self.status('Opened “' + pl.name + '”', 'ok');
-    });
-  },
-
-  current(){
-    var root = this.el;
-    aiDj._request = (root.querySelector('.dj-req').value || '').trim();
-    aiDj._count = parseInt(root.querySelector('.dj-count').value, 10) || 15;
-    return aiDj.brief();
-  },
-
-  status(msg, kind){
-    var el = this.el.querySelector('.dj-status');
-    el.textContent = msg || '';
-    el.className = 'status-bar dj-status' + (kind ? ' ' + kind : '');
-    var self = this;
-    if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 6000); }
-  },
-
-  bstatus(msg, kind){
-    var el = this.el.querySelector('.dj-bstatus');
-    el.textContent = msg || '';
-    el.className = 'status-bar dj-bstatus' + (kind ? ' ' + kind : '');
-  },
-
-  async copyPrompt(){
-    var brief = this.current();
-    var btn = this.el.querySelector('.dj-copy');
-    btn.disabled = true;
-    try {
-      var text = await aiDj.buildPrompt(brief);
-      this._prompt = text;
-      try {
-        await navigator.clipboard.writeText(text);
-        this.status('Prompt copied — paste it into your AI ✓', 'ok');
-      } catch(e){
-        // clipboard blocked (http, old browser, permission): show it instead
-        this.showPromptFallback(text);
-        this.status('Select the text below and copy it', null);
-      }
-      this.el.querySelector('.dj-step3').classList.add('ready');
-    } catch(e){
-      this.status('Could not build the prompt: ' + e.message, 'err');
-    } finally { btn.disabled = false; }
-  },
-
-  showPromptFallback(text){
-    var sec = this.el.querySelector('.dj-top');
-    var box = sec.querySelector('.dj-promptbox');
-    if (!box){
-      box = document.createElement('textarea');
-      box.className = 'dj-promptbox';
-      box.rows = 6;
-      sec.appendChild(box);
-    }
-    box.value = text;
-    box.select();
-  },
-
-  /* parse → resolve → save → play */
-  async build(){
-    var root = this.el, self = this;
-    var brief = this.current();
-    var raw = root.querySelector('.dj-reply').value;
-    var parsed = aiDj.parseReply(raw);
-
-    if (!parsed.items.length){
-      this.bstatus('Could not read a playlist in that. Paste the whole reply, or ask your AI for the RIFFROLLED-PLAYLIST block again.', 'err');
-      return;
-    }
-
-    var go = root.querySelector('.dj-go');
-    go.disabled = true;
-    root.querySelector('.dj-results').innerHTML = '';
-    this.bstatus('Checking ' + parsed.items.length + ' tracks…');
-
-    try {
-      var resolved = await aiDj.resolve(parsed.items, {
-        onProgress: function(done, total, label){
-          self.bstatus('Checking ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
-        }
-      });
-
-      this.renderResults(parsed, resolved);
-
-      var saved = await aiDj.save(brief, parsed, resolved, raw);
-      if (!saved){
-        this.bstatus('Nothing could be resolved to a real video — try again, or ask for better-known tracks.', 'err');
-        go.disabled = false;
-        return;
-      }
-
-      // setActivePlaylist kicks off renderTracks but doesn't wait for it,
-      // and plBoss.queue is only filled when that finishes — so await the
-      // render before trying to play, or the set starts silent
-      await plBoss.setActivePlaylist(saved.playlistId);
-      await plBoss.renderTracks();
-      plBoss.renderPlaylists();
-      if (window.searchBoss) searchBoss.render();
-      this.renderSessions();
-
-      var bits = ['Saved “' + saved.name + '” · ' + saved.count + ' of ' + parsed.items.length + ' tracks'];
-      if (resolved.lookupsLeft != null && resolved.lookupsUsed){
-        bits.push(resolved.lookupsUsed + ' YouTube lookup' + (resolved.lookupsUsed > 1 ? 's' : '') +
-                  ' used · ' + resolved.lookupsLeft + ' left today');
-      }
-      if (resolved.warning === 'quota') bits.push('YouTube quota is spent for today — the rest came from the catalogue');
-      if (resolved.offline) bits.push('offline: only verified links could be used');
-      this.bstatus(bits.join(' · '), 'ok');
-
-      // and play it — this is a DJ, after all
-      if (plBoss.queue.length) plBoss.playIndex(0);
-      root.querySelector('.dj-reply').value = '';
-      root.querySelector('.dj-parsed').textContent = '';
-    } catch(e){
-      this.bstatus('Build failed: ' + e.message, 'err');
-    } finally {
-      go.disabled = false;
-    }
-  },
-
-  renderResults(parsed, resolved){
-    var box = this.el.querySelector('.dj-results');
-    var VIA = {
-      link: ['✓', 'from the AI’s link'],
-      catalogue: ['✓', 'from the riffrolled catalogue'],
-      youtube: ['✓', 'found on YouTube']
+    return {
+      playlistId: plId, name: name, count: playable.length,
+      skipped: parsed.items.length - playable.length,
+      totalSecs: total
     };
-    var WHY = {
-      no_match: 'nothing close enough on YouTube',
-      budget: 'today’s YouTube lookups are spent',
-      quota: 'YouTube quota exhausted',
-      rate_limit: 'YouTube is rate limiting — try again shortly',
-      not_searched: 'not looked up',
-      offline: 'riffrolled is offline',
-      empty: 'no artist or title'
-    };
-    box.innerHTML = resolved.tracks.map(function(t){
-      var v = VIA[t.via] || ['✗', WHY[t.reason] || 'not found'];
-      var label = t.ok ? (t.artist ? t.artist + ' — ' + t.name : t.name)
-                       : ((t.item.artist ? t.item.artist + ' — ' : '') + t.item.title);
-      return "<div class='dj-res " + (t.ok ? 'ok' : 'bad') + "'" + (t.ytId ? " data-yt='" + escapeHtml(t.ytId) + "'" : '') + ">"
-        + "<span class='dj-res-mark'>" + v[0] + "</span>"
-        + "<span class='dj-res-name'>" + escapeHtml(label) + "</span>"
-        + "<span class='dj-res-via'>" + escapeHtml(v[1]) + "</span>"
-        + "</div>";
-    }).join('');
   },
 
-  async renderSessions(){
-    var box = this.el.querySelector('.dj-sessions');
-    if (!box) return;
+  /** a name from the brief when the AI didn't give one */
+  briefSummaryName(){
+    var bits = [];
+    ['activity', 'feel', 'direction'].forEach(function(k){
+      var o = djAi.picked(k);
+      if (o) bits.push(o.label);
+    });
+    return bits.length ? bits.join(' · ') : 'DJ AI set';
+  },
+
+  briefObject(){
+    var self = this, picks = {};
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      var o = self.picked(c.key);
+      if (o) picks[c.key] = o.label;
+    });
+    return {
+      picks: picks, familiarity: this.state.familiarity, chaos: this.state.chaos,
+      count: this.state.count, minutes: this.state.minutes, maxTrackMin: this.state.maxTrackMin,
+      sharedContext: this.state.shareContext
+    };
+  },
+
+  /** send the set to riffrolled's own database: tracks, then name + ids.
+      Anonymous — no wallet, no device id. Fire and forget: offline is fine. */
+  publish(name, items){
     try {
-      var rows = await db.aiSessions.orderBy('ts').reverse().limit(6).toArray();
-      if (!rows.length){
-        box.innerHTML = "<div class='empty'>No sets yet. Tell the DJ what you want above.</div>";
-        return;
-      }
-      box.innerHTML = rows.map(function(s){
-        var when = new Date(s.ts);
-        var ago = (function(){
-          var sec = Math.max(0, (Date.now() - when.getTime()) / 1000);
-          if (sec < 90) return 'just now';
-          if (sec < 5400) return Math.round(sec / 60) + 'm ago';
-          if (sec < 172800) return Math.round(sec / 3600) + 'h ago';
-          return Math.round(sec / 86400) + 'd ago';
-        })();
-        return "<div class='dj-session' data-pl='" + s.playlistId + "' title='Open this playlist'>"
-          + "<span class='dj-sess-req'>" + escapeHtml(s.request || s.playlistName || 'AI DJ set') + "</span>"
-          + "<span class='dj-sess-meta'>" + s.resolvedCount + " tracks · " + ago + "</span>"
-          + "</div>";
-      }).join('');
-    } catch(e){
-      box.innerHTML = "<div class='empty'>Couldn’t load recent sets</div>";
-    }
+      fetch('/api/playlist/save', {
+        method: 'POST', headers: { 'content-type':'application/json' },
+        body: JSON.stringify({
+          name: name,
+          source: 'ai',
+          tracks: items.map(function(it){
+            return {
+              name: it.title || '', artist: it.artist || '', genre: it.genre || '',
+              url: 'https://www.youtube.com/watch?v=' + it.url,
+              duration: it.secs || 0
+            };
+          })
+        })
+      }).catch(function(){});
+    } catch(e){ /* offline: the local playlist is the one that matters */ }
+  },
+
+  /* ── history (local only) ── */
+  async history(limit){
+    try { return await db.aiSessions.orderBy('ts').reverse().limit(limit || 20).toArray(); }
+    catch(e){ return []; }
+  },
+
+  async forget(sessionId){
+    try { await db.aiSessions.delete(sessionId); } catch(e){}
   }
 };

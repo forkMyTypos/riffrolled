@@ -75,6 +75,27 @@ CREATE INDEX IF NOT EXISTS idx_promo_wallet ON promotions(wallet_id, created_at)
 -- quota units a call out of 10,000 a day for the whole site. One counter
 -- per UTC day; nothing about who asked is recorded.
 
+-- ── playlists: riffrolled's own copy of a DJ AI set ──────────────────
+-- Just the name and which tracks were in it, in order. No wallet, no
+-- device id, nothing about who built it — a set, not a listener. Kept
+-- because "these tracks belonged together" is the useful part.
+
+CREATE TABLE IF NOT EXISTS playlists (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL DEFAULT '',
+  source     TEXT NOT NULL DEFAULT '',     -- 'ai' today
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS playlist_tracks (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  playlist_id INTEGER NOT NULL,
+  track_id    INTEGER NOT NULL,            -- tracks.id
+  position    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_pl_tracks ON playlist_tracks(playlist_id, position);
+CREATE INDEX IF NOT EXISTS idx_pl_track_id ON playlist_tracks(track_id);
+
 CREATE TABLE IF NOT EXISTS ai_lookups (
   day        TEXT PRIMARY KEY,              -- YYYY-MM-DD (UTC)
   searches   INTEGER NOT NULL DEFAULT 0,    -- search.list calls spent that day

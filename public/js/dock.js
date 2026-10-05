@@ -9,7 +9,10 @@ dataBoss.setup();
 mineBoss.setup();
 promoBoss.setup();
 mixBoss.setup();
-aiDjBoss.setup();
+// the DJ AI menu builds its panel synchronously and fills it from Dexie
+// after, so dock.build below still finds its element
+djMenuBoss.setup();
+djHistoryBoss.setup();
 infoBoss.setup();
 
 
@@ -164,7 +167,7 @@ var dock = {
   },
 
   shortLabel(label){
-    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo', 'AI DJ':'AI DJ' }[label] || label.split(' ')[0];
+    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo', 'DJ AI':'DJ AI' }[label] || label.split(' ')[0];
   },
 
   // mobile: show exactly one view — 'player' (the deck) or a panel by label
@@ -334,7 +337,8 @@ dock.build([
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
-  { icon:'🤖', iconSvg: AIDJ_SVG.replace(/adg/g, 'adgD'), label:'AI DJ', el: aiDjBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
+  { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
+  { icon:'🕘', label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
   { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d' },

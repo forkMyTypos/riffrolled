@@ -142,13 +142,22 @@ async function runSelfTests(){
       assert(seen.size > 4, 'the dice are actually dice (' + seen.size + ' distinct)');
     }],
     ['DJ AI riff roll fills the brief; chaos still fills it', async () => {
-      await djAi.seed(); await djAi.refresh();
+      await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
+      djAi.state.textMode = 'details';      // details rolls everything enabled
       await djAi.rollAll({});
       const enabled = djAi.cats.filter(c => c.enabled);
       assert(enabled.every(c => djAi.picked(c.key)), 'every enabled section gets a pick');
       assert(djAi.briefLine().indexOf('|') > 0, 'brief line assembles');
       await djAi.rollAll({ chaos:true });
       assert(djAi.state.chaos === true, 'chaos recorded on the state');
+      // speed mode rolls only what is on screen
+      djAi.state.textMode = 'speed';
+      djAi.state.picks = {};
+      await djAi.rollAll({});
+      assert(djAi.SPEED_CORE.every(k => djAi.picked(k)), 'the four questions get rolled');
+      assert(!djAi.picked('discovery'), 'what speed mode hides is left alone');
+      djAi.state.textMode = 'details';
+      await djAi.rollAll({ chaos:true });     // back to the full desk
       assert(enabled.every(c => djAi.picked(c.key)), 'chaos still fills every section');
       // unusual combinations must stay reachable: nothing is ever excluded
       assert(djAi.cat('activity').options.some(o => o.label === 'Funeral'), 'Funeral is still in the deck');
@@ -172,9 +181,10 @@ async function runSelfTests(){
     }],
     ['DJ AI builds a prompt that carries the brief and the rules', async () => {
       await djAi.seed(); await djAi.refresh();
+      djAi.state.textMode = 'details';
       await djAi.rollAll({});
       djAi.state.count = 12; djAi.state.minutes = 48; djAi.state.maxTrackMin = 7;
-      const p = await djAi.buildPrompt();
+      const p = await djAi.buildDetailsPrompt();
       assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
       assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
       assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
@@ -182,9 +192,86 @@ async function runSelfTests(){
       assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
       assert(!/chatgpt|claude|gemini|openai/i.test(p), 'no AI provider is named');
       djAi.state.shareContext = false;
-      const blind = await djAi.buildPrompt();
+      const blind = await djAi.buildDetailsPrompt();
       assert(blind.indexOf('have not shared my listening history') > 0, 'the share toggle is honoured');
       djAi.state.shareContext = true;
+    }],
+    ['DJ AI speed mode: defaults, prompt and the dice', async () => {
+      await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
+      djAi.state.textMode = 'speed';
+      djAi.state.picks = {};
+      // every core category can say "you choose", and the dice never pick it
+      djAi.SPEED_CORE.forEach(k => {
+        const any = djAi.anyOption(k);
+        assert(any, k + ' has a don\'t-mind option');
+        assert(djAi.effective(k) === any, k + ' falls back to it');
+      });
+      for (let i = 0; i < 40; i++){
+        assert(!djAi.rollOption('feel').any, 'the dice never land on don\'t mind');
+      }
+      djAi.state.count = 15; djAi.state.minutes = 60; djAi.state.maxTrackMin = 8;
+      djAi.state.shareContext = false;
+      const p = await djAi.buildSpeedPrompt();
+      assert(p.indexOf('This is SPEED MODE') > 0, 'speed template used');
+      assert(p.indexOf('{{') < 0, 'every placeholder filled');
+      assert(p.indexOf('Tracks: 15') > 0 && p.indexOf('Return exactly 15 tracks') > 0, 'count in both places');
+      assert(p.indexOf('WHAT I ALREADY LISTEN TO') < 0, 'listening block gone when not sharing');
+      assert(p.indexOf('Nothing in particular') > 0, 'don\'t-mind reads as a sentence, not a label');
+      assert(p.indexOf('| duration | genre') > 0, 'speed output format, no why column');
+    }],
+    ['DJ AI speed mode: extras reach the prompt and the estimate', async () => {
+      await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
+      djAi.state.textMode = 'speed'; djAi.state.picks = {};
+      djAi.state.count = 15; djAi.state.chaos = false; djAi.state.familiarity = 30;
+      djAi.state.shareContext = false;
+      const bare = djAi.estimateSecs();
+      assert(bare === 60, '15 tracks of speed mode reads as a minute (' + bare + 's)');
+      const plain = await djAi.buildSpeedPrompt();
+      // open something under More settings: it must show up in both
+      const disc = djAi.cat('discovery');
+      await djAi.pick('discovery', disc.options.find(o => o.label === 'Deep cuts').id);
+      const withExtra = await djAi.buildSpeedPrompt();
+      assert(withExtra.indexOf('Deep cuts') > 0, 'the extra joins the brief');
+      assert(withExtra.length > plain.length, 'and makes the prompt longer');
+      assert(djAi.estimateSecs() > bare, 'and the estimate goes up');
+      djAi.state.chaos = true;
+      assert(djAi.estimateSecs() > bare * 1.2, 'chaos costs time too');
+      djAi.state.chaos = false;
+      // details mode is the slower read
+      djAi.state.textMode = 'details';
+      assert(djAi.estimateSecs() > bare * 2, 'details mode estimates much longer');
+      assert(djAi.estimateLabel().indexOf('min') > 0, 'label reads in minutes');
+      djAi.state.textMode = 'speed';
+    }],
+    ['DJ AI speed mode shares the top ten, and only when asked', async () => {
+      await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
+      for (let i = 0; i < 12; i++){
+        const yt = 'top' + String(i).padStart(8, 'x');
+        await dbBoss.createTrack(yt, 'Song ' + i);
+        await dbBoss.updateTrackMeta(yt, { artist: 'Artist ' + i });
+        for (let n = 0; n <= i; n++) await dbBoss.logPlay(yt);   // i+1 plays
+      }
+      const top = await djAi.topTracks(10);
+      assert(top.length === 10, 'ten of them');
+      assert(top[0].indexOf('Song 11') > 0, 'most played first');
+      djAi.state.textMode = 'speed'; djAi.state.shareContext = true;
+      const shared = await djAi.buildSpeedPrompt();
+      assert(shared.indexOf('10 most-played tracks') > 0, 'listening block present');
+      assert(shared.indexOf('Song 11') > 0 && shared.indexOf('Song 0') < 0, 'top ten only');
+      djAi.state.shareContext = false;
+      assert((await djAi.buildSpeedPrompt()).indexOf('Song 11') < 0, 'and gone when switched off');
+    }],
+    ['DJ AI reads a genre in the last cell, a reason in a sentence', async () => {
+      const speed = djAi.parseReply("1 | Burial | Archangel | https://youtu.be/aaaaaaaaaaa | 3:56 | dubstep");
+      assert(speed.items[0].genre === 'dubstep' && !speed.items[0].why, 'a known genre is a genre');
+      const twoWord = djAi.parseReply("1 | Mono | Ashes | https://youtu.be/bbbbbbbbbbb | 7:12 | post-rock");
+      assert(twoWord.items[0].genre === 'post-rock', 'hyphenated genre');
+      const suffix = djAi.parseReply("1 | Perturbator | Sentient | https://youtu.be/ccccccccccc | 5:00 | synthwave");
+      assert(suffix.items[0].genre === 'synthwave', 'suffix genres recognised');
+      const reason = djAi.parseReply("1 | Nujabes | Aruarian Dance | https://youtu.be/ddddddddddd | 4:12 | soft entry");
+      assert(reason.items[0].why === 'soft entry' && !reason.items[0].genre, 'a phrase is a reason');
+      const both = djAi.parseReply("1 | A | B | https://youtu.be/eeeeeeeeeee | 3:00 | techno | builds the set");
+      assert(both.items[0].genre === 'techno' && both.items[0].why === 'builds the set', 'both when both are given');
     }],
     ['DJ AI imports a set into the playlist, keeping what the AI said', async () => {
       await djAi.seed(); await djAi.refresh();

@@ -40,6 +40,7 @@ var djAi = {
      persisted to settings so the menu looks the same tomorrow. ── */
   state: {
     mode: 'text',
+    textMode: 'speed',    // 'speed' | 'details' — the two ways to brief
     picks: {},            // { activity: optionId, feel: optionId, … }
     familiarity: 30,      // % familiar; the rest is discovery
     chaos: false,
@@ -49,11 +50,17 @@ var djAi = {
     shareContext: true
   },
 
+  /* Speed mode asks four things and hides the rest behind More settings.
+     Anything revealed there still counts — towards the brief, and towards
+     how long the DJ will take. */
+  SPEED_CORE: ['activity', 'feel', 'direction', 'personality'],
+
   cats: [],               // categories with their options, in order
 
   /* ── load: seed the vocabulary once, then read it back ── */
   async load(){
     await this.seed();
+    await this.ensureAnyOptions();
     await this.refresh();
     try {
       var saved = await dbBoss.getSetting('djState');
@@ -92,6 +99,36 @@ var djAi = {
         });
       }
     }
+  },
+
+  /* "Don't mind" has to exist in every core category, including for
+     listeners whose vocabulary was seeded before it did — so this runs on
+     every load and only ever adds what's missing. */
+  async ensureAnyOptions(){
+    if (typeof DJ_ANY === 'undefined') return;
+    var cats = await db.djCategories.toArray();
+    for (var i = 0; i < cats.length; i++){
+      var spec = DJ_ANY[cats[i].key];
+      if (!spec) continue;
+      var existing = await db.djOptions.where('categoryId').equals(cats[i].id).toArray();
+      if (existing.some(function(o){ return o.any; })) continue;
+      await db.djOptions.add({
+        categoryId: cats[i].id, label: spec.label, tags: [], line: spec.line,
+        builtin: true, any: true, hidden: false, favourite: 0, useCount: 0, lastTs: 0
+      });
+    }
+  },
+
+  /** the "you choose" option for a category, if it has one */
+  anyOption(key){
+    var cat = this.cat(key);
+    if (!cat) return null;
+    return (cat.options || []).find(function(o){ return o.any; }) || null;
+  },
+
+  /** what this category is actually saying — the pick, or "don't mind" */
+  effective(key){
+    return this.picked(key) || this.anyOption(key);
   },
 
   async refresh(){
@@ -215,8 +252,10 @@ var djAi = {
      options with the *least* in common. That alone would just be noise,
      so the prompt then tells the AI the collision is deliberate. ── */
 
+  // what the dice may land on: never a hidden option, and never "don't
+  // mind" — a roll that rolls "you choose" has wasted the throw
   _visible(cat){
-    return (cat.options || []).filter(function(o){ return !o.hidden; });
+    return (cat.options || []).filter(function(o){ return !o.hidden && !o.any; });
   },
 
   _tagBag(options){
@@ -272,17 +311,24 @@ var djAi = {
     return o;
   },
 
-  /** roll the whole brief as one combination, not field by field */
+  /** roll the whole brief as one combination, not field by field.
+      In speed mode that means the four questions on screen — rolling
+      something the listener can't see would be a brief they never read,
+      so anything they opened under More settings keeps what they chose. */
   async rollAll(opts){
     opts = opts || {};
     var chaos = !!opts.chaos;
-    var cats = this.cats.filter(function(c){ return c.enabled; });
+    var self = this;
+    var speed = this.state.textMode === 'speed';
+    var cats = this.cats.filter(function(c){
+      return c.enabled && (!speed || self.SPEED_CORE.indexOf(c.key) >= 0);
+    });
     if (!cats.length) return;
 
     // a random anchor each time, so no category is permanently in charge
     cats = cats.slice().sort(function(){ return Math.random() - 0.5; });
 
-    var picked = [], self = this;
+    var picked = [];
     // under chaos at least one category deliberately goes against the grain
     var oddOne = chaos ? Math.floor(Math.random() * cats.length) : -1;
 
@@ -296,8 +342,10 @@ var djAi = {
     });
 
     this.state.chaos = chaos;
-    if (!opts.keepFamiliarity){
-      // a roll moves the slider too — but in sane steps, not to a random integer
+    // the slider moves with a details-mode roll, in sane steps rather than
+    // to a random integer. In speed mode it lives under More settings, so
+    // a roll leaves whatever the listener set there alone.
+    if (!opts.keepFamiliarity && !speed){
       var steps = [0, 10, 20, 30, 50, 70, 90, 100];
       this.state.familiarity = steps[Math.floor(Math.random() * steps.length)];
     }
@@ -313,7 +361,11 @@ var djAi = {
       var o = self.picked(c.key);
       if (o) bits.push(o.label);
     });
-    bits.push(this.state.familiarity + '% familiar / ' + (100 - this.state.familiarity) + '% discovery');
+    // speed mode only sends familiarity when it has been moved off the
+    // default, so the preview must not promise it either
+    if (this.state.textMode !== 'speed' || this.state.familiarity !== 30){
+      bits.push(this.state.familiarity + '% familiar / ' + (100 - this.state.familiarity) + '% discovery');
+    }
     bits.push(this.state.count + ' tracks · ' + this.state.minutes + ' min');
     if (this.state.chaos) bits.push('CHAOS');
     return bits.join(' | ');
@@ -372,8 +424,83 @@ var djAi = {
     return out;
   },
 
-  /* ── the prompt ─────────────────────────────────────────────────────── */
+  /* ── the prompt ──────────────────────────────────────────────────────
+     Two of them, because speed and detail want genuinely different things
+     from an AI. Speed says "decide and move"; details says "take me
+     somewhere". Same brief underneath, same reply format to parse. ── */
   async buildPrompt(){
+    return this.state.textMode === 'speed'
+      ? await this.buildSpeedPrompt()
+      : await this.buildDetailsPrompt();
+  },
+
+  /** the line a category contributes to a brief */
+  _briefLineFor(key){
+    var o = this.effective(key);
+    if (!o) return 'Your choice.';
+    return o.any ? (o.line || o.label) : o.label;
+  },
+
+  async buildSpeedPrompt(){
+    var self = this, s = this.state;
+    var tpl = (typeof DJ_SPEED_PROMPT !== 'undefined') ? DJ_SPEED_PROMPT : '';
+
+    // anything opened under More settings joins the brief — otherwise the
+    // extra controls would be decoration
+    var extras = [];
+    this.cats.forEach(function(c){
+      if (!c.enabled || self.SPEED_CORE.indexOf(c.key) >= 0) return;
+      var o = self.picked(c.key);
+      if (!o) return;
+      extras.push(c.label + ' ' + o.label + (o.line ? '\n' + o.line : ''));
+    });
+    if (s.familiarity !== 30){
+      extras.push('Familiarity\nRoughly ' + s.familiarity + '% things I might know, ' +
+                  (100 - s.familiarity) + '% discovery. A feel, not arithmetic.');
+    }
+    if (s.chaos && typeof DJ_CHAOS_LINES !== 'undefined'){
+      extras.push('Chaos\n' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
+    }
+    var extrasBlock = extras.length ? '\n' + extras.join('\n\n') + '\n' : '\n';
+
+    // speed mode shares the top ten and nothing else
+    var listening = '\n';
+    if (s.shareContext){
+      var top = await this.topTracks(10);
+      if (top.length){
+        listening = (typeof DJ_SPEED_LISTENING !== 'undefined' ? DJ_SPEED_LISTENING : '')
+          .replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n'));
+      }
+    }
+
+    return tpl
+      .replace('{{activity}}',           this._briefLineFor('activity'))
+      .replace('{{feeling}}',            this._briefLineFor('feel'))
+      .replace('{{direction}}',          this._briefLineFor('direction'))
+      .replace('{{dj_personality}}',     this._briefLineFor('personality'))
+      .replace('{{extras}}',             extrasBlock)
+      .replace('{{listening}}',          listening)
+      .replace(/\{\{track_count\}\}/g,   String(s.count))
+      .replace('{{target_minutes}}',     String(s.minutes))
+      .replace('{{max_track_minutes}}',  String(s.maxTrackMin));
+  },
+
+  /** most-played, as "Artist — Title (23 plays)" */
+  async topTracks(n){
+    try {
+      var counts = await dbBoss.getPlayCounts();
+      var tracks = await db.tracks.toArray();
+      return tracks
+        .filter(function(t){ return (counts[t.ytId] || 0) > 0; })
+        .sort(function(a, b){ return (counts[b.ytId] || 0) - (counts[a.ytId] || 0); })
+        .slice(0, n || 10)
+        .map(function(t){
+          return (t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId) + ' (' + counts[t.ytId] + ' plays)';
+        });
+    } catch(e){ return []; }
+  },
+
+  async buildDetailsPrompt(){
     var self = this, s = this.state, L = [];
     var personality = this.picked('personality');
     var perLine = personality && personality.line ? personality.line
@@ -480,6 +607,44 @@ var djAi = {
     return Math.round(avg * 10) / 10;
   },
 
+  /* ── how long the DJ will take ───────────────────────────────────────
+     An estimate, and shown as one. Speed mode is quick because it asks
+     for less thought; details mode asks for a reason per track. Anything
+     opened under More settings is another thing to weigh, so the number
+     goes up — which is the honest trade for the extra control. ── */
+  estimateSecs(){
+    var T = (typeof DJ_TIME !== 'undefined') ? DJ_TIME : {
+      speedPerTrack:4, detailsPerTrack:10, extraCategory:10, shareContext:15,
+      chaosMultiplier:1.25, minimum:30
+    };
+    var speed = this.state.textMode === 'speed';
+    var secs = this.state.count * (speed ? T.speedPerTrack : T.detailsPerTrack);
+
+    // every brief line beyond the core four is another consideration
+    var self = this, extras = 0;
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      if (self.SPEED_CORE.indexOf(c.key) >= 0) return;
+      if (self.picked(c.key)) extras++;
+    });
+    secs += extras * T.extraCategory;
+    if (this.state.shareContext) secs += T.shareContext;
+    if (this.state.familiarity <= 20) secs += T.extraCategory;   // real digging
+    if (this.state.chaos) secs *= T.chaosMultiplier;
+    return Math.max(Math.round(secs), T.minimum);
+  },
+
+  /** "≈ 1 min" / "≈ 2½ min" — half-minutes, because pretending to know
+      it to the second would be a lie */
+  estimateLabel(){
+    var secs = this.estimateSecs();
+    if (secs < 60) return '≈ under a minute';
+    var halves = Math.round(secs / 30) / 2;
+    var whole = Math.floor(halves);
+    var frac = halves - whole === 0.5 ? '½' : '';
+    return '≈ ' + (whole || '') + frac + ' min';
+  },
+
   /* ── parsing ─────────────────────────────────────────────────────────
      Whatever a stranger's AI felt like writing: the pipe block, JSON, a
      markdown table, a numbered list of "Artist - Title". Cells are
@@ -524,12 +689,32 @@ var djAi = {
 
   _looksLikeDuration(s){ return this._secs(s) > 0 && /[:ms]/i.test(String(s)); },
 
-  // a genre is short and label-like; a reason is a phrase
+  /* Is this cell a genre or a reason? It matters because speed mode's
+     format ends with a genre and the older one ended with a reason, and
+     both arrive as a single trailing cell. Word shape alone can't tell
+     "indie rock" from "soft entry", so: recognise the vocabulary. */
+  GENRE_WORDS: ('rock pop jazz funk soul blues metal punk indie folk country disco house techno trance ' +
+    'ambient electronic electronica edm dnb jungle garage grime dub reggae ska dancehall afrobeat ' +
+    'hiphop rap trap drill rnb gospel classical orchestral opera choral baroque romantic minimalism ' +
+    'experimental noise industrial gothic shoegaze psychedelic psych prog krautrock surf swing bebop ' +
+    'bossa samba salsa cumbia flamenco fado qawwali gamelan highlife soukous ' +
+    'lofi chillout downtempo triphop breakbeat hardcore hardstyle gabber acid ' +
+    'synthwave vaporwave darkwave coldwave newwave postpunk postrock mathrock emo grunge ' +
+    'bluegrass americana soundtrack score instrumental acoustic world fusion').split(' '),
+
   _looksLikeGenre(s){
     var t = String(s || '').trim();
     if (!t || t.length > 28) return false;
-    if (/[.!?,;]/.test(t)) return false;
-    return t.split(/\s+/).length <= 3;
+    if (/[.!?,;]/.test(t)) return false;              // a sentence is a reason
+    if (t.split(/\s+/).length > 3) return false;      // so is a phrase
+
+    var words = t.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).filter(Boolean);
+    var known = this.GENRE_WORDS;
+    return words.some(function(w){
+      if (known.indexOf(w) >= 0) return true;
+      // the suffixes that make a genre out of anything
+      return /(core|wave|step|tronica|punk|beat|billy|funk|hop|metal|jazz|pop|rock)$/.test(w) && w.length > 4;
+    });
   },
 
   _dedupe(items){
@@ -627,11 +812,12 @@ var djAi = {
           var d = self._splitDash(it.artist);
           if (d){ it.artist = d.artist; it.title = d.title; }
         }
-        // what's left is the genre and the reason. One cell on its own is
-        // the reason — that's the older five-cell shape, and a bare genre
-        // without a reason is rare enough to be worth losing.
+        // what's left is the genre, the reason, or both. Speed mode ends
+        // on a genre and the longer format ends on a reason, so a single
+        // trailing cell is decided by whether it reads as a genre.
         if (rest.length === 1){
-          it.why = rest[0];
+          if (self._looksLikeGenre(rest[0])) it.genre = rest[0];
+          else it.why = rest[0];
         } else if (rest.length){
           if (self._looksLikeGenre(rest[0])) it.genre = rest.shift();
           it.why = rest.join(' · ');

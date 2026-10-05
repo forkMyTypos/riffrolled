@@ -31,6 +31,36 @@ var menuB = {
 }
 
 
+/* ── toast ──────────────────────────────────────────────────────────────
+   For the small confirmations that belong next to the thing you just did
+   rather than in a banner across the top: "prompt copied", and friends.
+   Sits low on the screen, out of the way, and never over the YouTube
+   player — ytGuard has the final say on that, as it does for every other
+   floating thing in here. */
+function appToast(msg, kind){
+  let t = document.getElementById('appToast');
+  if (!t){
+    t = document.createElement('div');
+    t.id = 'appToast';
+    t.className = 'app-toast';
+    t.hidden = true;
+    document.body.appendChild(t);
+  }
+  t.textContent = msg || '';
+  t.className = 'app-toast' + (kind ? ' ' + kind : '');
+  t.hidden = false;
+  // force a reflow so the transition runs again on a repeat message
+  void t.offsetWidth;
+  t.classList.add('show');
+
+  if (window.ytGuard && ytGuard.overlaps(t)) t.classList.add('aside');
+  clearTimeout(t._t);
+  t._t = setTimeout(function(){
+    t.classList.remove('show');
+    setTimeout(function(){ if (!t.classList.contains('show')){ t.hidden = true; t.classList.remove('aside'); } }, 250);
+  }, 2600);
+}
+
 let z=10;
 // panels stay below the deck (z-index:60) so the record player is never covered by a menu
 function bringToFront(el){ el.style.zIndex = Math.min(++z, 50); }

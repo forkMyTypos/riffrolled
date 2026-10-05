@@ -53,14 +53,17 @@ var djMenuBoss = {
   async setup(){
     var main =
       "<div class='dj-modes'></div>" +
+      "<div class='dj-submodes'></div>" +
 
       "<div class='sec dj-rollbar'>" +
-        "<button class='dj-rollall' title='Roll the whole brief'>🎲 RIFF ROLL</button>" +
+        "<button class='dj-rollall' title='Roll the brief, build the prompt and copy it'>🎲 RIFF ROLL</button>" +
         "<label class='dj-chaos' title='Deliberately collide the choices — the brief tells the DJ it was on purpose'>" +
           "<input type='checkbox' class='dj-chaos-cb'><span class='spin-track'><span class='spin-thumb'></span></span>" +
           "<span class='spin-label'>🌀 Chaos</span>" +
         "</label>" +
       "</div>" +
+      "<div class='dj-est'></div>" +
+      "<div class='dj-used' hidden></div>" +
 
       "<div class='dj-sections'></div>" +
 
@@ -104,13 +107,42 @@ var djMenuBoss = {
       "</div>";
 
     this.el = menuB.createMenu(DJAI_SVG.replace(/adg/g, 'adgT') + ' DJ AI', main);
+    this.el.classList.add('dj-panel');          // this one menu gets a scrollbar
     menuB.place(this.el, { right:'800px', top:'80px', width:'360px', height:'640px' });
 
     await djAi.load();
     this.renderModes();
+    this.renderSubModes();
     this.renderSections();
     this.bind();
     this.sync();
+  },
+
+  speed(){ return djAi.state.textMode === 'speed'; },
+
+  /* which categories get a section of their own, and which wait behind
+     More settings. Speed mode asks four things; everything else is still
+     there, just not in the way. */
+  mainCats(){
+    var speed = this.speed();
+    return djAi.cats.filter(function(c){
+      return c.enabled && (!speed || djAi.SPEED_CORE.indexOf(c.key) >= 0);
+    });
+  },
+
+  extraCats(){
+    if (!this.speed()) return [];
+    return djAi.cats.filter(function(c){
+      return c.enabled && djAi.SPEED_CORE.indexOf(c.key) < 0;
+    });
+  },
+
+  /* ── the two ways to brief ── */
+  renderSubModes(){
+    var speed = this.speed();
+    this.el.querySelector('.dj-submodes').innerHTML =
+      "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed'>⚡ Speed mode</button>" +
+      "<button class='dj-sub" + (speed ? '' : ' on') + "' data-s='details'>🎛 The details mode</button>";
   },
 
   /* ── modes ── */
@@ -128,72 +160,87 @@ var djMenuBoss = {
     }).join('');
   },
 
-  /* ── one section per enabled category ── */
+  /* one category, as a collapsible row that shows its value when closed */
+  sectionHtml(c){
+    var openNow = !!this.open[c.key];
+    var shown = this.speed() ? djAi.effective(c.key) : djAi.picked(c.key);
+    return "<div class='dj-section" + (openNow ? ' open' : '') + "' data-k='" + escapeHtml(c.key) + "'>" +
+      "<div class='dj-sec-head'>" +
+        "<span class='dj-caret'>" + (openNow ? '▾' : '▸') + "</span>" +
+        "<span class='dj-sec-ico'>" + escapeHtml(c.icon || '🎚') + "</span>" +
+        "<span class='dj-sec-label'>" + escapeHtml(c.label) + "</span>" +
+        "<span class='dj-sec-value" + (shown && shown.any ? ' any' : '') + "'>" +
+          escapeHtml(shown ? shown.label : '—') + "</span>" +
+        "<button class='dj-dice' title='Roll just this one'>🎲</button>" +
+      "</div>" +
+      "<div class='dj-sec-body'>" +
+        (c.note ? "<div class='dj-note'>" + escapeHtml(c.note) + "</div>" : '') +
+        "<input type='text' class='dj-search' placeholder='Search…'>" +
+        "<div class='dj-opts'></div>" +
+        "<div class='row dj-addrow'>" +
+          "<input type='text' class='dj-newopt' placeholder='Add your own…'>" +
+          "<button class='icon-btn dj-addopt' title='Add this option'>＋</button>" +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  },
+
+  famHtml(){
+    return "<div class='dj-section dj-fixed'>" +
+      "<div class='dj-sec-head dj-fam-head'>" +
+        "<span class='dj-sec-ico'>🧭</span>" +
+        "<span class='dj-sec-label'>Familiarity</span>" +
+        "<span class='dj-sec-value dj-fam-value'></span>" +
+        "<button class='dj-dice dj-fam-dice' title='Roll familiarity'>🎲</button>" +
+      "</div>" +
+      "<div class='dj-fam-body'>" +
+        "<input type='range' class='dj-fam' min='0' max='100' step='10'>" +
+        "<div class='dj-fam-ends'><span>DISCOVERY</span><span>FAMILIAR</span></div>" +
+      "</div>" +
+    "</div>";
+  },
+
+  /* Length: a single line in speed mode with a ＋ to open the numbers,
+     always open in details mode where the brief is the point */
+  timeHtml(){
+    var speed = this.speed();
+    var open = !speed || this.open._time;
+    return "<div class='dj-section dj-fixed dj-timesec" + (open ? ' open' : '') + "'>" +
+      "<div class='dj-sec-head dj-time-head'>" +
+        "<span class='dj-sec-ico'>⏱</span>" +
+        "<span class='dj-sec-label'>Length</span>" +
+        "<span class='dj-sec-value dj-time-value'></span>" +
+        (speed ? "<button class='dj-expand' title='Set tracks, minutes and the per-track ceiling'>" +
+                 (open ? '－' : '＋') + "</button>" : '') +
+      "</div>" +
+      "<div class='dj-time-body'>" +
+        "<div class='row dj-timerow'>" +
+          "<span class='dj-lbl'>Tracks</span>" +
+          "<input type='number' class='dj-count' min='1' max='50' step='1'>" +
+          "<span class='dj-lbl'>Minutes</span>" +
+          "<input type='number' class='dj-minutes' min='5' max='600' step='5'>" +
+        "</div>" +
+        "<div class='row dj-timerow'>" +
+          "<span class='dj-lbl'>Max per track</span>" +
+          "<input type='number' class='dj-maxtrack' min='2' max='60' step='1'>" +
+          "<span class='dj-avg'></span>" +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  },
+
   renderSections(){
     var self = this;
     var box = this.el.querySelector('.dj-sections');
-    var html = djAi.cats.filter(function(c){ return c.enabled; }).map(function(c){
-      var picked = djAi.picked(c.key);
-      var openNow = !!self.open[c.key];
-      return "<div class='dj-section" + (openNow ? ' open' : '') + "' data-k='" + escapeHtml(c.key) + "'>" +
-        "<div class='dj-sec-head'>" +
-          "<span class='dj-caret'>" + (openNow ? '▾' : '▸') + "</span>" +
-          "<span class='dj-sec-ico'>" + escapeHtml(c.icon || '🎚') + "</span>" +
-          "<span class='dj-sec-label'>" + escapeHtml(c.label) + "</span>" +
-          "<span class='dj-sec-value'>" + escapeHtml(picked ? picked.label : '—') + "</span>" +
-          "<button class='dj-dice' title='Roll just this one'>🎲</button>" +
-        "</div>" +
-        "<div class='dj-sec-body'>" +
-          (c.note ? "<div class='dj-note'>" + escapeHtml(c.note) + "</div>" : '') +
-          "<input type='text' class='dj-search' placeholder='Search…'>" +
-          "<div class='dj-opts'></div>" +
-          "<div class='row dj-addrow'>" +
-            "<input type='text' class='dj-newopt' placeholder='Add your own…'>" +
-            "<button class='icon-btn dj-addopt' title='Add this option'>＋</button>" +
-          "</div>" +
-        "</div>" +
-      "</div>";
-    }).join('');
+    var cats = this.mainCats();
 
-    // the fixed controls live at the end of the same list so they scroll together
-    html +=
-      "<div class='dj-section dj-fixed'>" +
-        "<div class='dj-sec-head dj-fam-head'>" +
-          "<span class='dj-sec-ico'>🧭</span>" +
-          "<span class='dj-sec-label'>Familiarity</span>" +
-          "<span class='dj-sec-value dj-fam-value'></span>" +
-          "<button class='dj-dice dj-fam-dice' title='Roll familiarity'>🎲</button>" +
-        "</div>" +
-        "<div class='dj-fam-body'>" +
-          "<input type='range' class='dj-fam' min='0' max='100' step='10'>" +
-          "<div class='dj-fam-ends'><span>DISCOVERY</span><span>FAMILIAR</span></div>" +
-        "</div>" +
-      "</div>" +
-      "<div class='dj-section dj-fixed'>" +
-        "<div class='dj-sec-head dj-time-head'>" +
-          "<span class='dj-sec-ico'>⏱</span>" +
-          "<span class='dj-sec-label'>Length</span>" +
-          "<span class='dj-sec-value dj-time-value'></span>" +
-        "</div>" +
-        "<div class='dj-time-body'>" +
-          "<div class='row dj-timerow'>" +
-            "<span class='dj-lbl'>Tracks</span>" +
-            "<input type='number' class='dj-count' min='1' max='50' step='1'>" +
-            "<span class='dj-lbl'>Minutes</span>" +
-            "<input type='number' class='dj-minutes' min='5' max='600' step='5'>" +
-          "</div>" +
-          "<div class='row dj-timerow'>" +
-            "<span class='dj-lbl'>Max per track</span>" +
-            "<input type='number' class='dj-maxtrack' min='2' max='60' step='1'>" +
-            "<span class='dj-avg'></span>" +
-          "</div>" +
-        "</div>" +
-      "</div>";
+    var html = cats.map(function(c){ return self.sectionHtml(c); }).join('');
+    // familiarity is a details-mode control; in speed it waits behind More
+    if (!this.speed()) html += this.famHtml();
+    html += this.timeHtml();
 
     box.innerHTML = html;
-    djAi.cats.filter(function(c){ return c.enabled; }).forEach(function(c){
-      if (self.open[c.key]) self.renderOptions(c.key);
-    });
+    cats.forEach(function(c){ if (self.open[c.key]) self.renderOptions(c.key); });
     this.renderMore();
     // the slider and the number fields are rebuilt with the list, so they
     // have to be refilled from the state or they come back empty
@@ -232,29 +279,57 @@ var djMenuBoss = {
     }).join('');
   },
 
-  /** the switched-off categories, plus "add your own section" */
+  /* More settings: in speed mode this is where the rest of the details
+     menu lives — everything still works, it just isn't in the way until
+     you want it. Anything you set here shows up in the brief and in the
+     thinking-time estimate. */
   renderMore(){
+    var self = this;
     var box = this.el.querySelector('.dj-more-list');
     if (!box) return;
+
+    var html = '';
+    if (this.speed()){
+      var extra = this.extraCats();
+      if (extra.length) html += extra.map(function(c){ return self.sectionHtml(c); }).join('');
+      html += this.famHtml();
+    }
     var off = djAi.cats.filter(function(c){ return !c.enabled; });
-    box.innerHTML = off.map(function(c){
-      return "<button class='dj-more-cat' data-id='" + c.id + "'>" + escapeHtml(c.icon || '🎚') + ' ' + escapeHtml(c.label) + "</button>";
-    }).join('') +
-      "<div class='row dj-addcat'>" +
+    if (off.length){
+      html += "<div class='dj-more-chips'>" + off.map(function(c){
+        return "<button class='dj-more-cat' data-id='" + c.id + "'>" +
+          escapeHtml(c.icon || '🎚') + ' ' + escapeHtml(c.label) + "</button>";
+      }).join('') + "</div>";
+    }
+    html += "<div class='row dj-addcat'>" +
         "<input type='text' class='dj-newcat' placeholder='New section name…'>" +
         "<button class='icon-btn dj-addcat-go' title='Add section'>＋</button>" +
       "</div>";
+
+    box.innerHTML = html;
+    if (this.speed()) this.extraCats().forEach(function(c){
+      if (self.open[c.key]) self.renderOptions(c.key);
+    });
   },
 
   /* ── events (delegated, so re-rendering never loses them) ── */
   bind(){
     var self = this, root = this.el;
 
+    /* The main roll is the whole point of speed mode: one press rolls the
+       brief, builds the prompt, puts it on the clipboard and tells you
+       what it used. The per-section dice never copy — those are for
+       nudging a brief you're still working on. */
     root.querySelector('.dj-rollall').onclick = async function(){
-      await djAi.rollAll({ chaos: djAi.state.chaos });
-      self.renderSections();
-      self.sync();
-      self.status(djAi.state.chaos ? 'Chaos rolled — good luck' : 'Rolled', 'ok');
+      var btn = this;
+      btn.disabled = true;
+      try {
+        await djAi.rollAll({ chaos: djAi.state.chaos });
+        self.renderSections();
+        self.sync();
+        var copied = await self.copyBrief({ silent:true });
+        self.showUsed(copied);
+      } finally { btn.disabled = false; }
     };
 
     root.querySelector('.dj-chaos-cb').onchange = async function(){
@@ -263,87 +338,28 @@ var djMenuBoss = {
       self.sync();
     };
 
-    root.querySelector('.dj-sections').addEventListener('click', async function(e){
-      var sec = e.target.closest('.dj-section');
-      if (!sec) return;
-      var key = sec.dataset.k;
-
-      if (e.target.closest('.dj-fam-dice')){
-        var steps = [0, 10, 20, 30, 50, 70, 90, 100];
-        djAi.state.familiarity = steps[Math.floor(Math.random() * steps.length)];
-        await djAi.save(); self.sync(); return;
-      }
-      if (e.target.closest('.dj-dice') && key){
-        var rolled = await djAi.roll(key);
-        self.renderSections(); self.sync();
-        if (rolled) self.status(djAi.cat(key).label + ' → ' + rolled.label, 'ok');
-        return;
-      }
-      if (e.target.closest('.dj-sec-head') && key){
-        self.open[key] = !self.open[key];
-        self.renderSections();
-        if (self.open[key]) self.renderOptions(key);
-        return;
-      }
-      if (!key) return;
-
-      var optEl = e.target.closest('.dj-opt');
-      if (optEl){
-        var id = Number(optEl.dataset.id);
-        if (e.target.closest('.dj-fav')){
-          var o = djAi.optionById(id);
-          await djAi.setFavourite(id, !(o && o.favourite));
-          self.renderOptions(key);
-          return;
-        }
-        if (e.target.closest('.dj-opt-x')){
-          await djAi.removeOption(id);
-          self.renderSections(); self.renderOptions(key); self.sync();
-          return;
-        }
-        await djAi.pick(key, id);
-        self.open[key] = false;
-        self.renderSections(); self.sync();
-        return;
-      }
-
-      if (e.target.closest('.dj-addopt')){
-        var input = sec.querySelector('.dj-newopt');
-        var label = (input.value || '').trim();
-        if (!label) return;
-        var catId = djAi.cat(key).id;
-        var newId = await djAi.addOption(catId, label, self.guessTags(label));
-        input.value = '';
-        await djAi.pick(key, newId);
-        self.renderSections(); self.renderOptions(key); self.sync();
-      }
+    root.querySelector('.dj-submodes').addEventListener('click', async function(e){
+      var b = e.target.closest('.dj-sub');
+      if (!b || djAi.state.textMode === b.dataset.s) return;
+      djAi.state.textMode = b.dataset.s;
+      await djAi.save();
+      self.open = {};                       // a fresh mode opens tidily
+      self.renderSubModes();
+      self.renderSections();
+      self.el.querySelector('.dj-used').hidden = true;
+      self.sync();
     });
 
-    root.querySelector('.dj-sections').addEventListener('input', function(e){
-      if (e.target.classList.contains('dj-search')){
+    // the same section behaviour wherever a section is rendered — the main
+    // list in details mode, or inside More settings in speed mode
+    ['.dj-sections', '.dj-more-list'].forEach(function(sel){
+      root.querySelector(sel).addEventListener('click', function(e){ self.onSectionClick(e); });
+      root.querySelector(sel).addEventListener('input', function(e){ self.onSectionInput(e); });
+      root.querySelector(sel).addEventListener('keydown', function(e){
+        if (e.key !== 'Enter' || !e.target.classList.contains('dj-newopt')) return;
         var sec = e.target.closest('.dj-section');
-        if (sec) self.renderOptions(sec.dataset.k);
-        return;
-      }
-      if (e.target.classList.contains('dj-fam')){
-        djAi.state.familiarity = Number(e.target.value);
-        self.sync(); djAi.save();
-        return;
-      }
-      if (e.target.classList.contains('dj-count') || e.target.classList.contains('dj-minutes') ||
-          e.target.classList.contains('dj-maxtrack')){
-        djAi.state.count = Math.min(Math.max(Number(root.querySelector('.dj-count').value) || 15, 1), 50);
-        djAi.state.minutes = Math.min(Math.max(Number(root.querySelector('.dj-minutes').value) || 60, 5), 600);
-        djAi.state.maxTrackMin = Math.min(Math.max(Number(root.querySelector('.dj-maxtrack').value) || 8, 2), 60);
-        self.sync(); djAi.save();
-      }
-    });
-
-    // Enter in the "add your own" box adds it
-    root.querySelector('.dj-sections').addEventListener('keydown', function(e){
-      if (e.key !== 'Enter' || !e.target.classList.contains('dj-newopt')) return;
-      var sec = e.target.closest('.dj-section');
-      if (sec) sec.querySelector('.dj-addopt').click();
+        if (sec) sec.querySelector('.dj-addopt').click();
+      });
     });
 
     root.querySelector('.dj-more-btn').onclick = function(){
@@ -393,6 +409,109 @@ var djMenuBoss = {
     });
   },
 
+  /** what the roll settled on, shown so you know what you just copied */
+  showUsed(copied){
+    var box = this.el.querySelector('.dj-used');
+    var self = this;
+    var bits = djAi.cats.filter(function(c){ return c.enabled; }).map(function(c){
+      var o = self.speed() ? djAi.effective(c.key) : djAi.picked(c.key);
+      return o && !o.any ? "<span class='dj-used-bit'>" + escapeHtml(o.label) + "</span>" : '';
+    }).filter(Boolean).join('');
+    box.innerHTML =
+      "<div class='dj-used-head'>" + (copied ? '✓ Prompt copied · ' : '') +
+        djAi.state.count + " tracks · " + djAi.estimateLabel() + " of DJ time</div>" +
+      "<div class='dj-used-bits'>" + (bits || "<span class='dj-used-bit'>the DJ's choice throughout</span>") + "</div>";
+    box.hidden = false;
+  },
+
+  /* one handler for every section, wherever it is rendered */
+  onSectionClick: async function(e){
+    var self = this;
+    var sec = e.target.closest('.dj-section');
+    if (!sec) return;
+    var key = sec.dataset.k;
+
+    if (e.target.closest('.dj-fam-dice')){
+      var steps = [0, 10, 20, 30, 50, 70, 90, 100];
+      djAi.state.familiarity = steps[Math.floor(Math.random() * steps.length)];
+      await djAi.save(); this.sync(); return;
+    }
+    if (e.target.closest('.dj-expand')){            // speed mode: open the numbers
+      this.open._time = !this.open._time;
+      this.renderSections(); return;
+    }
+    // a single-section roll never copies — it is for nudging a brief you
+    // are still building. Only the main RIFF ROLL hands you a prompt.
+    if (e.target.closest('.dj-dice') && key){
+      var rolled = await djAi.roll(key);
+      this.renderSections(); this.sync();
+      if (rolled) this.status(djAi.cat(key).label + ' → ' + rolled.label, 'ok');
+      return;
+    }
+    if (e.target.closest('.dj-sec-head') && key){
+      this.open[key] = !this.open[key];
+      this.renderSections();
+      if (this.open[key]) this.renderOptions(key);
+      return;
+    }
+    if (!key) return;
+
+    var optEl = e.target.closest('.dj-opt');
+    if (optEl){
+      var id = Number(optEl.dataset.id);
+      if (e.target.closest('.dj-fav')){
+        var o = djAi.optionById(id);
+        await djAi.setFavourite(id, !(o && o.favourite));
+        this.renderOptions(key);
+        return;
+      }
+      if (e.target.closest('.dj-opt-x')){
+        await djAi.removeOption(id);
+        this.renderSections(); this.renderOptions(key); this.sync();
+        return;
+      }
+      // choosing "don't mind" means clearing the pick, not storing one
+      var opt = djAi.optionById(id);
+      if (opt && opt.any) await djAi.clearPick(key);
+      else await djAi.pick(key, id);
+      this.open[key] = false;
+      this.renderSections(); this.sync();
+      return;
+    }
+
+    if (e.target.closest('.dj-addopt')){
+      var input = sec.querySelector('.dj-newopt');
+      var label = (input.value || '').trim();
+      if (!label) return;
+      var catId = djAi.cat(key).id;
+      var newId = await djAi.addOption(catId, label, self.guessTags(label));
+      input.value = '';
+      await djAi.pick(key, newId);
+      this.renderSections(); this.renderOptions(key); this.sync();
+    }
+  },
+
+  onSectionInput: function(e){
+    var root = this.el;
+    if (e.target.classList.contains('dj-search')){
+      var sec = e.target.closest('.dj-section');
+      if (sec) this.renderOptions(sec.dataset.k);
+      return;
+    }
+    if (e.target.classList.contains('dj-fam')){
+      djAi.state.familiarity = Number(e.target.value);
+      this.sync(); djAi.save();
+      return;
+    }
+    if (e.target.classList.contains('dj-count') || e.target.classList.contains('dj-minutes') ||
+        e.target.classList.contains('dj-maxtrack')){
+      djAi.state.count = Math.min(Math.max(Number(root.querySelector('.dj-count').value) || 15, 1), 50);
+      djAi.state.minutes = Math.min(Math.max(Number(root.querySelector('.dj-minutes').value) || 60, 5), 600);
+      djAi.state.maxTrackMin = Math.min(Math.max(Number(root.querySelector('.dj-maxtrack').value) || 8, 2), 60);
+      this.sync(); djAi.save();
+    }
+  },
+
   /** a new option still needs to join the vocabulary: borrow the tags of
       whatever else in the category shares a word with it */
   guessTags(label){
@@ -432,11 +551,20 @@ var djMenuBoss = {
     root.querySelector('.dj-share-cb').checked = s.shareContext;
     root.querySelector('.dj-knows-state').textContent = s.shareContext ? 'sharing' : 'private';
     root.querySelector('.dj-knows-state').className = 'dj-knows-state' + (s.shareContext ? ' on' : '');
+    // speed mode shares the top ten and says so; details shares the lot
+    root.querySelector('.dj-share .spin-label').textContent = this.speed()
+      ? 'Share my top 10 most-played tracks'
+      : 'Share my listening with the DJ';
+    root.querySelector('.dj-knows .dj-sec-label').textContent = this.speed()
+      ? 'Share your track data' : 'DJ knows';
 
     root.querySelector('.dj-brief').textContent = djAi.briefLine();
-    var missing = djAi.cats.filter(function(x){ return x.enabled && !djAi.picked(x.key); }).length;
+    root.querySelector('.dj-est').textContent = 'DJ thinking time ' + djAi.estimateLabel();
+    // only count what's actually on screen — a section hidden behind More
+    // settings isn't something the listener has left blank
+    var missing = this.mainCats().filter(function(x){ return !djAi.picked(x.key); }).length;
     root.querySelector('.dj-copy-note').textContent = missing
-      ? (missing + ' section' + (missing > 1 ? 's' : '') + ' still empty — the DJ will choose')
+      ? (missing + ' left to the DJ')
       : '';
   },
 
@@ -482,14 +610,20 @@ var djMenuBoss = {
     el.className = 'status-bar dj-bstatus' + (kind ? ' ' + kind : '');
   },
 
-  async copyBrief(){
+  /** build the prompt and put it on the clipboard. Returns whether the
+      clipboard actually took it, so the caller can say so honestly. */
+  async copyBrief(opts){
+    opts = opts || {};
     var btn = this.el.querySelector('.dj-copy');
     btn.disabled = true;
     try {
       var text = await djAi.buildPrompt();
       try {
         await navigator.clipboard.writeText(text);
-        this.status('Brief copied — paste it into your AI ✓', 'ok');
+        if (window.appToast) appToast('Prompt copied — paste it into your AI', 'ok');
+        if (!opts.silent) this.status('Brief copied ✓', 'ok');
+        this.el.querySelector('.dj-import-sec').classList.add('ready');
+        return true;
       } catch(e){
         var box = this.el.querySelector('.dj-promptbox') || (function(sec){
           var t = document.createElement('textarea');
@@ -497,10 +631,13 @@ var djMenuBoss = {
         })(this.el.querySelector('.dj-brief-sec'));
         box.value = text; box.select();
         this.status('Select the text below and copy it');
+        if (window.appToast) appToast('Clipboard blocked — the prompt is in the box below', 'warn');
+        this.el.querySelector('.dj-import-sec').classList.add('ready');
+        return false;
       }
-      this.el.querySelector('.dj-import-sec').classList.add('ready');
     } catch(e){
       this.status('Could not build the brief: ' + e.message, 'err');
+      return false;
     } finally { btn.disabled = false; }
   },
 

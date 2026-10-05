@@ -1,4 +1,4 @@
 // Rewritten by riffrolled admin on every deploy. /api/health reports it back,
 // which is how the admin knows the new code is actually live — not just
 // committed, not just building: serving. 'manual' = uploaded by hand.
-export const BUILD = { id: '20261005024631-553a0e', at: '2026-10-05T02:46:31.238Z' };
+export const BUILD = { id: '20261005050727-e5f591', at: '2026-10-05T05:07:27.356Z' };

@@ -28,6 +28,29 @@ var DJ_TAGS = [
   'modern', 'cinematic', 'hypnotic', 'raw', 'polished', 'ritual', 'focus'
 ];
 
+/* Every category needs a way of saying "you choose". These are ordinary
+   options with one difference: the dice never land on them, because a roll
+   that rolls "don't mind" has wasted your throw. They are the Speed mode
+   defaults, so a brand-new listener can press one button and go. */
+var DJ_ANY = {
+  activity:    { label: 'Nothing special', line: 'Nothing in particular — your call.' },
+  feel:        { label: 'Don\'t mind',     line: 'No strong feeling — you decide the mood.' },
+  direction:   { label: 'Don\'t mind',     line: 'No direction set — take me wherever you think is good.' },
+  personality: { label: 'Don\'t mind',     line: 'Be whatever DJ this set needs.' }
+};
+
+/* How long the DJ is likely to take, in seconds. A guess, and said as one:
+   a model that browses YouTube for every track is far slower than one
+   answering from memory. Tune here. */
+var DJ_TIME = {
+  speedPerTrack: 4,      // speed mode: pick and move on
+  detailsPerTrack: 10,   // details mode: a reason per track, more care
+  extraCategory: 10,     // every extra thing the brief asks it to weigh
+  shareContext: 15,      // reading what you already listen to
+  chaosMultiplier: 1.25, // making an awkward combination work takes longer
+  minimum: 30
+};
+
 var DJ_CATEGORIES = [
 
   {
@@ -219,6 +242,102 @@ var DJ_CATEGORIES = [
     ]
   }
 ];
+
+/* ── SPEED MODE PROMPT ──────────────────────────────────────────────────
+   Kept here as a template rather than built line by line, because this is
+   the thing most worth rewriting as we learn what different AIs do with
+   it. {{placeholders}} are filled by djAi.buildSpeedPrompt().
+
+   {{extras}} is where anything opened under "More settings" lands — it is
+   an empty line when the listener kept it simple, which is the point of
+   speed mode. {{listening}} drops out entirely when track data isn't
+   shared, heading and all. */
+var DJ_SPEED_PROMPT = `You are my DJ.
+
+You are not recommending music. You are making me a playlist.
+
+Your job is to take my brief, use what you know about my listening taste, make strong musical decisions, and create a good journey through the music.
+
+This is SPEED MODE.
+
+Do not overthink the playlist. Do not perform exhaustive research. Do not explain your decisions. Spend your effort choosing and sequencing good music.
+
+Make confident decisions and keep moving.
+
+## THE BRIEF
+
+What are you doing?
+{{activity}}
+
+How should it feel?
+{{feeling}}
+
+Where should we go?
+{{direction}}
+
+Tonight's DJ personality:
+{{dj_personality}}
+{{extras}}
+## LENGTH
+
+Tracks: {{track_count}}
+Target length: approximately {{target_minutes}} minutes
+Maximum track length: {{max_track_minutes}} minutes
+
+Treat the target duration as approximate. Do not waste time trying to make the total duration exact.
+{{listening}}
+## SPEED MODE RULES
+
+1. Make the playlist quickly.
+2. Prioritise a good musical journey over perfect optimisation.
+3. Choose real released tracks.
+4. Do not repeat tracks.
+5. Do not spend excessive time researching obscure alternatives.
+6. Do not obsess over exact track duration.
+7. If a candidate is difficult to verify or identify, move on and choose another.
+8. YouTube links must point to real, usable YouTube videos. Do not invent video IDs.
+9. Keep the overall playlist coherent, but allow some surprise.
+10. Do not simply follow genre labels literally if a better musical journey takes us somewhere else.
+11. Do not explain why individual tracks were chosen.
+12. Do not provide commentary before or after the playlist.
+13. Return exactly {{track_count}} tracks.
+
+The goal is not to find the mathematically perfect playlist.
+
+The goal is to make a playlist that feels like a good DJ made it.
+
+## OUTPUT
+
+Return exactly this format:
+
+RIFFROLLED-PLAYLIST
+NAME: a short name for this set
+1 | Artist | Track title | YouTube URL | duration | genre
+2 | Artist | Track title | YouTube URL | duration | genre
+3 | Artist | Track title | YouTube URL | duration | genre
+...
+END
+
+One track per line.
+
+Do not add any other text.`;
+
+/* The listening block, only when track data is shared. Speed mode shares
+   the top ten and nothing else — enough to show taste, small enough to
+   read in a second. */
+var DJ_SPEED_LISTENING = `
+## WHAT I ALREADY LISTEN TO
+
+Here are my 10 most-played tracks:
+
+{{top_10_tracks}}
+
+Use these as a quick indication of my taste.
+
+Do not simply give me more of the same.
+
+Use them to understand the kind of music I respond to, then make your own DJ decisions.
+`;
 
 /* Chaos lines. When chaos is on the brief says out loud that the
    combination is deliberate — that is what stops an AI treating a strange

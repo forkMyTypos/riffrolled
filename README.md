@@ -73,6 +73,22 @@ which the player already handles by skipping.
    dj-data.js: categories, options, tags                      Dexie playlist + D1 copy
 ```
 
+Inside TEXT there are **two ways to brief**: ⚡ **Speed mode** asks four questions — what you're
+doing, how it should feel, where to go, who's on the decks — all defaulting to "don't mind", with
+length on one line and everything else behind **More settings**. 🎛 **The details mode** is the
+full desk. They send genuinely different prompts: speed says *decide and keep moving*, details
+says *take me somewhere*. The speed template lives in `dj-data.js` as `DJ_SPEED_PROMPT`, which is
+the thing most worth rewriting as we learn what different AIs do with it.
+
+In Speed mode the main **RIFF ROLL** rolls the four, builds the prompt, copies it and shows what
+it used, in one press. A section's own 🎲 never copies — those are for nudging a brief you're
+still building. The roll only touches what's on screen, so anything you set under More settings
+survives it.
+
+**DJ thinking time** is estimated from the track count and whatever else the brief asks for
+(~4s a track in speed, ~10s in details, plus extras, sharing and chaos) — constants in
+`DJ_TIME`. It's a guess and the wording says so.
+
 Three modes sit at the top of the menu. **TEXT** (copy + paste) is the whole of it today;
 **YOUR AI** and **RIFFROLL IT** are marked coming soon and implement nothing. They replace the
 middle step only — brief, parser and import are already independent of how the AI is reached.

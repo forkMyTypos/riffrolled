@@ -96,3 +96,27 @@ body.mobile .tt-title { font-size:16px; }
 /* on a phone the outline would sit under a full-screen panel view, and the
    pulse is a distraction on a small screen — the card does the teaching */
 body.mobile .tour-spot { outline:none; animation:none; }
+
+/* ── a step you can press ────────────────────────────────────────────────
+   One action per step, sitting between the words and the footer so it reads
+   as part of what was just said rather than as navigation. Styled like the
+   real RIFF ROLL button it stands in for, because it is the same press. */
+.tour-card .tt-action {
+  display:block; width:100%; margin:4px 0 12px; padding:11px 14px;
+  font-size:13px; font-weight:700; letter-spacing:.03em; cursor:pointer;
+  color:#fff; border:1px solid rgba(255,255,255,0.14); border-radius:9px;
+  background:linear-gradient(135deg, #ff9de2 0%, #8a7bff 100%);
+  box-shadow:0 4px 16px rgba(138,123,255,0.3);
+  transition:transform .1s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+.tour-card .tt-action:hover:not(:disabled) { filter:brightness(1.08); box-shadow:0 6px 20px rgba(138,123,255,0.42); }
+
+.tour-card .tt-action:active:not(:disabled) { transform:translateY(1px); }
+
+.tour-card .tt-action:disabled { opacity:.6; cursor:default; }
+
+.tour-card .tt-action.done {
+  background:linear-gradient(135deg, #5ab88a 0%, #46a0a8 100%);
+  box-shadow:0 4px 16px rgba(90,184,138,0.28);
+}

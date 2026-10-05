@@ -20,11 +20,29 @@ var tourBoss = {
 
   steps: [
     {
-      title: 'Welcome to riffrolled',
-      body: "You don't have to know what you want to listen to.<br><br>" +
-            "This is a record deck for discovering music — not a library you have to fill first, " +
-            "and not a playlist somebody else made for you.",
-      cta: 'Show me'
+      /* The tour opens on DJ AI rather than a welcome screen because it is the
+         one thing here nobody has seen before, and because it is the only step
+         that can be *done* instead of read. The button below is the real RIFF
+         ROLL — same code path as the one in the menu — so by the end of step 1
+         there is a finished brief on the clipboard. */
+      title: 'Start with DJ AI',
+      body: "You don't have to know what you want to listen to. Tell DJ AI roughly " +
+            "what you're after — or don't, and let it decide the lot.<br><br>" +
+            "<b>Your AI picks the tracks, YouTube plays them.</b> riffrolled writes the brief; " +
+            "you paste it into whichever AI you already use and paste the answer back. " +
+            "No key, no account, nothing to pay for.<br><br>" +
+            "<span class='tt-dim'>Press the button — it really rolls, and the brief lands on your clipboard.</span>",
+      panel: function(){ return window.djMenuBoss && djMenuBoss.el; },
+      action: {
+        label: '🎲 ROLL THE RIFF',
+        done: 'Rolled — brief copied ✓',
+        run: async function(){
+          if (!window.djMenuBoss) return false;
+          if (window.dock) dock.openPanel(djMenuBoss.el);
+          return await djMenuBoss.rollAndCopy();
+        }
+      },
+      cta: 'Next'
     },
     {
       title: 'Listen',
@@ -55,13 +73,13 @@ var tourBoss = {
       cta: 'Next'
     },
     {
-      title: 'Or let DJ AI',
-      body: "Build a brief in <b>🤖 DJ AI</b> — what you're doing, how you want it to feel, how far " +
-            "from home to go — or hit <b>🎲 RIFF ROLL</b> and let it choose the lot.<br><br>" +
-            "<b>Your AI picks the tracks, YouTube plays them.</b> Copy the brief, paste it into " +
-            "whichever AI you already use, paste the answer back. No key, no account, nothing to " +
-            "pay for.<br><br>" +
-            "<span class='tt-dim'>DJ AI doesn't recommend music. It takes you somewhere.</span>",
+      title: 'Back from the AI',
+      body: "Paste the reply into <b>🤖 DJ AI</b> and it becomes a set — artist, running time and " +
+            "genre land on each track, and the deck starts playing.<br><br>" +
+            "Every link is checked as it comes in. Anything dead is listed on its own, with a " +
+            "follow-up you can paste back to get replacements.<br><br>" +
+            "<span class='tt-dim'>⚡ Speed asks four questions. 🎛 Details is the full desk — " +
+            "same import either way.</span>",
       panel: function(){ return window.djMenuBoss && djMenuBoss.el; },
       cta: 'Next'
     },
@@ -101,12 +119,16 @@ var tourBoss = {
   start(from){
     this.i = from || 0;
     if (!this.el) this.build();
-    // remember which panels were open, so the tour can put the screen back
+    // Remember which panels were open, so the tour can put the screen back
     // the way it found it — a tour that leaves seven panels open has made
-    // a mess of the thing it was explaining
-    this._before = (window.dock ? dock.items : []).map(function(it){
-      return { el: it.el, hidden: it.el ? it.el.classList.contains('is-hidden') : true };
-    });
+    // a mess of the thing it was explaining. Only snapshot if we aren't
+    // already running: restarting mid-tour would record the tour's own open
+    // panels as the user's, and then dismiss would leave them behind.
+    if (!this._before){
+      this._before = (window.dock ? dock.items : []).map(function(it){
+        return { el: it.el, hidden: it.el ? it.el.classList.contains('is-hidden') : true };
+      });
+    }
     this.el.hidden = false;
     document.body.classList.add('tour-on');
     this.render();
@@ -122,6 +144,7 @@ var tourBoss = {
       "<div class='tt-step'></div>" +
       "<div class='tt-title'></div>" +
       "<div class='tt-body'></div>" +
+      "<button class='tt-action' hidden></button>" +
       "<div class='tt-foot'>" +
         "<button class='tt-back'>Back</button>" +
         "<span class='tt-dots'></span>" +
@@ -132,6 +155,26 @@ var tourBoss = {
 
     var self = this;
     el.querySelector('.tt-x').onclick = function(){ self.close(); };
+
+    /* A step can carry one thing you can actually do. The click is the user
+       gesture the clipboard needs, so the work runs straight off it rather
+       than being queued behind anything. */
+    el.querySelector('.tt-action').onclick = async function(){
+      var a = self.steps[self.i] && self.steps[self.i].action;
+      if (!a) return;
+      var btn = this, was = btn.textContent;
+      btn.disabled = true;
+      try {
+        var ok = await a.run();
+        btn.textContent = ok === false ? was : (a.done || 'Done ✓');
+        btn.classList.toggle('done', ok !== false);
+      } catch(e){
+        btn.textContent = was;
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
     el.querySelector('.tt-back').onclick = function(){ self.go(-1); };
     el.querySelector('.tt-next').onclick = function(){ self.go(1); };
     el.querySelector('.tt-dots').addEventListener('click', function(e){
@@ -162,6 +205,11 @@ var tourBoss = {
     el.querySelector('.tt-body').innerHTML = s.body;
     el.querySelector('.tt-next').textContent = s.cta || 'Next';
     el.querySelector('.tt-back').style.visibility = this.i ? 'visible' : 'hidden';
+
+    var act = el.querySelector('.tt-action');
+    act.hidden = !s.action;
+    act.classList.remove('done');
+    if (s.action) act.textContent = s.action.label;
     el.classList.toggle('tt-final', !!s.last);
 
     var self = this;

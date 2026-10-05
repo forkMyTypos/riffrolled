@@ -116,7 +116,7 @@ var djMenuBoss = {
     this.el.classList.add('dj-panel');          // this one menu gets a scrollbar
     menuB.place(this.el, { right:'800px', top:'80px', width:'360px', height:'640px' });
 
-    await djAi.load();
+    await djAi.ready();
     this.renderModes();
     this.renderSubModes();
     this.renderSections();
@@ -329,13 +329,8 @@ var djMenuBoss = {
     root.querySelector('.dj-rollall').onclick = async function(){
       var btn = this;
       btn.disabled = true;
-      try {
-        await djAi.rollAll({ chaos: djAi.state.chaos });
-        self.renderSections();
-        self.sync();
-        var copied = await self.copyBrief({ silent:true });
-        self.showUsed(copied);
-      } finally { btn.disabled = false; }
+      try { await self.rollAndCopy(); }
+      finally { btn.disabled = false; }
     };
 
     root.querySelector('.dj-chaos-cb').onchange = async function(){
@@ -658,6 +653,20 @@ var djMenuBoss = {
     var el = this.el.querySelector('.dj-bstatus');
     el.textContent = msg || '';
     el.className = 'status-bar dj-bstatus' + (kind ? ' ' + kind : '');
+  },
+
+  /** The whole of RIFF ROLL in one call: throw the dice, redraw, build the
+      prompt, copy it, show what it used. Public because the tutorial's
+      "ROLL THE RIFF" button is the same press from somewhere else — there
+      should only ever be one definition of what that button does. */
+  async rollAndCopy(){
+    await djAi.ready();            // may be pressed before the menu finished loading
+    await djAi.rollAll({ chaos: djAi.state.chaos });
+    this.renderSections();
+    this.sync();
+    var copied = await this.copyBrief({ silent:true });
+    this.showUsed(copied);
+    return copied;
   },
 
   /** build the prompt and put it on the clipboard. Returns whether the

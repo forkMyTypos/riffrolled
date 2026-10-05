@@ -57,6 +57,16 @@ var djAi = {
 
   cats: [],               // categories with their options, in order
 
+  _loading: null,
+
+  /** One load, however many callers. The menu panel is built synchronously
+      but filled from Dexie after, so anything that can be pressed before
+      that finishes — the tutorial's ROLL THE RIFF button, a keyboard
+      shortcut — has to wait for the same promise rather than start a second
+      load or roll against a half-seeded vocabulary. Rolling mid-seed used to
+      pick one category out of four and silently drop the rest. */
+  ready(){ return this._loading || (this._loading = this.load()); },
+
   /* ── load: seed the vocabulary once, then read it back ── */
   async load(){
     await this.seed();
@@ -79,26 +89,54 @@ var djAi = {
   },
 
   /* first run only: copy dj-data.js into the database, after which the
-     vocabulary belongs to the user */
+     vocabulary belongs to the user.
+
+     This used to bail out on `djCategories.count() > 0` and write the
+     categories one row at a time. Eight categories and ninety options is a
+     second or two of separate little writes, so a first visit cut short —
+     a reload, a closed tab, a tapped link — left the vocabulary half
+     written, and the count check then passed forever. The symptom was DJ AI
+     coming up with one category and three options and RIFF ROLL filling a
+     single line of the brief, with nothing to suggest why.
+
+     So: one transaction, and a fill keyed on category key and option label
+     rather than a "have I run before" flag. Asking the database what it is
+     missing makes this idempotent, self-repairing, and true of whichever
+     database it is pointed at — a stored flag would have lived in the real
+     settings table and told the self-tests' throwaway database that it was
+     already seeded.
+
+     Nothing it restores can have been deliberately removed: hiding a
+     built-in option sets hidden:true rather than deleting the row (and the
+     labels it compares against include hidden ones), and removeCategory
+     refuses built-ins outright. A category that exists is left exactly as
+     it is, so one switched off under More settings stays off. */
   async seed(){
-    if ((await db.djCategories.count()) > 0) return;
     if (typeof DJ_CATEGORIES === 'undefined') return;
-    for (var i = 0; i < DJ_CATEGORIES.length; i++){
-      var c = DJ_CATEGORIES[i];
-      var catId = await db.djCategories.add({
-        key: c.key, label: c.label, icon: c.icon || '🎚', order: c.order,
-        enabled: c.enabled !== false, builtin: true,
-        note: c.note || '', placeholder: c.placeholder || 'Pick one…'
-      });
-      for (var j = 0; j < c.options.length; j++){
-        var o = c.options[j];
-        await db.djOptions.add({
-          categoryId: catId, label: o.label, tags: o.tags || [],
-          line: o.line || '', builtin: true, hidden: false,
-          favourite: 0, useCount: 0, lastTs: 0
+
+    await db.transaction('rw', db.djCategories, db.djOptions, async function(){
+      for (var i = 0; i < DJ_CATEGORIES.length; i++){
+        var c = DJ_CATEGORIES[i];
+        var cat = await db.djCategories.where('key').equals(c.key).first();
+        var catId = cat ? cat.id : await db.djCategories.add({
+          key: c.key, label: c.label, icon: c.icon || '🎚', order: c.order,
+          enabled: c.enabled !== false, builtin: true,
+          note: c.note || '', placeholder: c.placeholder || 'Pick one…'
         });
+        var had = await db.djOptions.where('categoryId').equals(catId).toArray();
+        var have = {};
+        had.forEach(function(o){ have[o.label] = true; });
+        for (var j = 0; j < c.options.length; j++){
+          var o = c.options[j];
+          if (have[o.label]) continue;
+          await db.djOptions.add({
+            categoryId: catId, label: o.label, tags: o.tags || [],
+            line: o.line || '', builtin: true, hidden: false,
+            favourite: 0, useCount: 0, lastTs: 0
+          });
+        }
       }
-    }
+    });
   },
 
   /* "Don't mind" has to exist in every core category, including for

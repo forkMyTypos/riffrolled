@@ -289,7 +289,7 @@ var dock = {
       }
     };
     if (!window.dbBoss){ done(); return; }
-    const LAYOUT_VERSION = '2';   // bump to discard everyone's saved layout once
+    const LAYOUT_VERSION = '3';   // bump to discard everyone's saved layout once
     Promise.all([ dbBoss.getSetting('panelLayout'), dbBoss.getSetting('placedPanels'),
                   dbBoss.getSetting('layoutVersion') ]).then(arr => {
       let raw = arr[0], placedRaw = arr[1];
@@ -332,9 +332,12 @@ document.addEventListener('click', function(e){
 dock.build([
   // ── music: finding, adding and holding tracks. Each panel owns a hue so
   //    you can tell at a glance which one you're looking at. ──
-  { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, group:'music', accent:'#9d8cff' },
+  // every panel starts closed: the deck is the first thing you should see, and a
+  // panel that is visible before the saved layout has loaded flashes at the left
+  // edge and then jumps. Nothing open means nothing to jump.
+  { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, startHidden:true, group:'music', accent:'#9d8cff' },
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
-  { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, group:'music', accent:'#ff5d6c' },
+  { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
   { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },

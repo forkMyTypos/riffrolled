@@ -3,7 +3,12 @@
    bars, generic rows, icon buttons, hover thumbnail preview. */
 
 /* ── PANELS ── */
-.panel { position:absolute; background:#1a1a2e; border-radius:0.6rem; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.08); min-width:220px; min-height:120px; resize:both; }
+/* The top/right default matters: a panel is absolutely positioned but JS only
+   assigns left/top once the saved layout has come back from Dexie. Without a
+   position in CSS an unplaced panel falls to its static spot at the left edge,
+   paints there, and then jumps across the screen when the layout lands. This
+   makes "unplaced" mean "tucked near the dock", which is where it was going. */
+.panel { position:absolute; top:88px; right:92px; background:#1a1a2e; border-radius:0.6rem; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.08); min-width:220px; min-height:120px; resize:both; }
 
 .panel-header { padding:10px 12px; background:linear-gradient(90deg, color-mix(in srgb, var(--accent,#8a7bff) 16%, transparent), rgba(255,255,255,0.03)); cursor:move; font-size:13px; font-weight:600; user-select:none; display:flex; align-items:center; gap:6px; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,0.07); }
 

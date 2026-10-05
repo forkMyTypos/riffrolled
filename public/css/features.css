@@ -83,6 +83,11 @@
 
 .track-num { color:rgba(255,255,255,0.22); font-size:11px; min-width:16px; text-align:right; flex-shrink:0; }
 
+/* who it is, before what it is — dimmer, so the title still reads first */
+.track-artist { color:rgba(255,255,255,0.42); }
+
+.track-artist::after { content:' — '; color:rgba(255,255,255,0.25); }
+
 .row-item.dragging { opacity:.35; }
 
 .row-item.drop-into { box-shadow: inset 0 2px 0 0 #8a7bff; }

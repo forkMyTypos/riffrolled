@@ -297,7 +297,7 @@ var plBoss = {
 
     const tracks = await db.tracks.bulkGet(joins.map(j => j.trackId));
     this.queue = tracks
-      .map((t, i) => t ? { ytId: t.ytId, name: t.name, joinId: joins[i].id } : null)
+      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id } : null)
       .filter(Boolean);
 
     this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
@@ -307,7 +307,7 @@ var plBoss = {
         <span class="track-handle" title="Drag to reorder">⠿</span>
         <span class="track-num">${i+1}</span>
         ${ t.ytId === player.currentYtId ? `<span class="now-dot">♪</span>` : '' }
-        <span class="name">${escapeHtml(t.name)}</span>
+        <span class="name">${ t.artist ? `<span class="track-artist">${escapeHtml(t.artist)}</span>` : '' }${escapeHtml(t.name)}</span>
         <button class="del-btn" data-join="${t.joinId}" title="Remove from playlist">✕</button>
       </div>
     `).join('');

@@ -367,3 +367,34 @@ body.mobile .dj-sec-value { max-width:45%; }
 .app-toast.aside.show { transform:none; }
 
 body.mobile .app-toast { bottom:calc(76px + env(safe-area-inset-bottom)); font-size:12px; }
+
+/* ── link check ───────────────────────────────────────────────────────
+   Free, and the difference between a playlist that works and fifteen
+   dead rows you only discover on the deck. */
+.dj-check { display:flex; align-items:center; gap:7px; padding:8px 2px 0; cursor:pointer; user-select:none; }
+
+.dj-check input { display:none; }
+
+.dj-check .spin-label { font-size:11px; color:rgba(255,255,255,0.45); }
+
+.dj-check input:checked ~ .spin-label { color:rgba(255,255,255,0.72); }
+
+.dj-deadlist:empty { display:none; }
+
+.dj-deadlist { margin-top:8px; padding:9px 10px; border-radius:7px;
+  background:rgba(212,96,96,0.08); border:1px solid rgba(212,96,96,0.22); }
+
+.dj-dead-head { font-size:11px; font-weight:600; color:#e29494; margin-bottom:5px; }
+
+.dj-dead-row { font-size:11.5px; color:rgba(255,255,255,0.55); padding:1px 0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.dj-fix { margin-top:8px; width:100%; font-size:11.5px; padding:7px 10px;
+  background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.15); }
+
+.dj-fix:hover { background:rgba(255,255,255,0.14); }
+
+/* a live link to the wrong song: quieter than a dead one, and worth saying */
+.dj-odd-head { font-size:11px; font-weight:600; color:#e9bd7e; margin:7px 0 5px; }
+
+.dj-odd-actual { color:rgba(255,255,255,0.35); font-size:10.5px; }

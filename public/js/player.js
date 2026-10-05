@@ -111,6 +111,14 @@ var player = {
       const t  = await dbBoss.getTrack(ytId);
       const rc = await dbBoss.getReactions(ytId);
       if (this.currentYtId !== ytId) return;  // a newer track loaded while we awaited
+      // the deck says who it is, not just what it is — unless the title
+      // already carries the artist, which plenty of YouTube titles do
+      if (this.el.title && t && t.artist){
+        var shown = t.name || title;
+        if (shown.toLowerCase().indexOf(t.artist.toLowerCase()) < 0){
+          this.el.title.textContent = t.artist + ' — ' + shown;
+        }
+      }
       if (this.el.artist)       this.el.artist.value = (t && t.artist) || '';
       if (this.el.tags)         this.el.tags.value   = (t && t.tags)   || '';
       this.el.likeCount.forEach(function(n){ n.textContent = rc.like; });

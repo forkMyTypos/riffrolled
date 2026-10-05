@@ -568,32 +568,34 @@ var djAi = {
     L.push('');
     L.push('RIFFROLLED-PLAYLIST');
     L.push('NAME: a short name for this set');
-    L.push('1 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | 4:12 | genre | why it is here');
-    L.push('2 | Artist | Track title | https://www.youtube.com/watch?v=VIDEOID | 3:48 | genre | why it is here');
+    L.push('1 | Artist | Track title | YouTube URL or empty | 4:12 | genre | why it is here');
+    L.push('2 | Artist | Track title | YouTube URL or empty | 3:48 | genre | why it is here');
     L.push('END');
     L.push('');
     L.push('Rules:');
     L.push('  - One track per line, numbered, in the order I should hear them.');
-    L.push('  - Every cell matters: artist, title, link, running time (m:ss), genre, and a few');
-    L.push('    words on why it earns its place in this journey.');
+    L.push('  - Artist, title, running time (m:ss), genre, and a few words on why it earns its');
+    L.push('    place. The link cell may be empty — keep the empty cell between the pipes.');
     L.push('  - Real, released tracks by real artists. Do not invent songs. Do not repeat a track.');
     L.push('  - No commentary outside the block.');
     L.push('');
-    L.push('YOUTUBE LINK REQUIREMENT — IMPORTANT:');
-    L.push('Every track MUST have a real, verified YouTube watch URL.');
+    L.push('LINKS — READ THIS CAREFULLY:');
+    L.push('Every track plays from YouTube, so a real link is useful. Only a real one.');
     L.push('');
-    L.push('Before returning the playlist, search/browse YouTube for EVERY track and verify that the');
-    L.push('specific video exists.');
+    L.push('If you can search the web: search YouTube for each track and copy the exact watch URL');
+    L.push('from the result you actually saw.');
     L.push('');
-    L.push('Do NOT return a track with a blank URL.');
+    L.push('If you cannot search, or you are not certain a particular video exists: LEAVE THE LINK');
+    L.push('CELL EMPTY. An empty cell is a correct answer — riffrolled finds the track from the');
+    L.push('artist and title, which costs it nothing.');
     L.push('');
-    L.push('If you cannot verify a YouTube video for a chosen track, REMOVE THAT TRACK and choose');
-    L.push('another real released track that you can verify on YouTube.');
+    L.push('Never write a YouTube video ID from memory. IDs are random eleven-character strings;');
+    L.push('one that looks plausible is almost always wrong, and a wrong link is the only answer');
+    L.push('here that cannot be recovered from — it puts a dead track in my playlist.');
     L.push('');
-    L.push('The final playlist MUST contain exactly ' + s.count + ' tracks, and all ' + s.count +
-            ' must have verified YouTube watch URLs.');
+    L.push('Getting the artist and title exactly right matters more than supplying a link.');
     L.push('');
-    L.push('Never invent or guess a YouTube video ID.');
+    L.push('The playlist should contain ' + s.count + ' tracks.');
     L.push('');
     L.push('JSON is also accepted if you prefer:');
     L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID",' +
@@ -666,10 +668,23 @@ var djAi = {
   },
 
   _ytId(s){
+    return this._ytUrlId(s) || this._bareId(s);
+  },
+
+  /** a link, not a guess: only the URL forms */
+  _ytUrlId(s){
     var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(s)
          || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(s)
-         || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(s)
-         || /^([A-Za-z0-9_-]{11})$/.exec(String(s || '').trim());
+         || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(s);
+    return m ? m[1] : null;
+  },
+
+  /* A bare 11-character id is indistinguishable from an 11-character
+     word, and song titles are full of those — "Gamesofluck" by Parcels is
+     exactly eleven. So this is only ever used where a link is expected,
+     never on a cell that could be an artist or a title. */
+  _bareId(s){
+    var m = /^([A-Za-z0-9_-]{11})$/.exec(String(s || '').trim());
     return m ? m[1] : null;
   },
 
@@ -799,10 +814,25 @@ var djAi = {
         if (/^(artist|#|no\.?)$/i.test(cells[0])) return;                        // table header
 
         var it = self._blank(), rest = [];
-        cells.forEach(function(c){
-          if (!c) return;
-          var id = self._ytId(c);
-          if (id && !it.url){ it.url = id; return; }
+
+        // find the link first, and only in a cell that holds a URL. A bare
+        // id is accepted afterwards, and never from the first two cells —
+        // those are the artist and the title, and a title like
+        // "Gamesofluck" is eleven characters of pure coincidence.
+        var linkAt = -1;
+        for (var ci = 0; ci < cells.length; ci++){
+          var urlId = self._ytUrlId(cells[ci]);
+          if (urlId){ it.url = urlId; linkAt = ci; break; }
+        }
+        if (linkAt < 0){
+          for (var cj = 2; cj < cells.length; cj++){
+            var bare = self._bareId(cells[cj]);
+            if (bare){ it.url = bare; linkAt = cj; break; }
+          }
+        }
+
+        cells.forEach(function(c, i){
+          if (!c || i === linkAt) return;
           if (!it.secs && self._looksLikeDuration(c)){ it.secs = self._secs(c); return; }
           rest.push(c);
         });
@@ -836,6 +866,101 @@ var djAi = {
     return res;
   },
 
+  /* ── checking the links ──────────────────────────────────────────────
+     An AI will tell you it searched YouTube and then hand you fifteen
+     video ids it made up — measured, not assumed: a real Gemini reply
+     scored 0 out of 15. The artists and titles were all correct; only the
+     links were fiction.
+
+     So every link gets checked before anything is imported. YouTube's
+     oEmbed endpoint needs no key and spends no API quota, returns 404 for
+     a video that doesn't exist, and hands back the real title and channel
+     for one that does — which is also how a link that points at the wrong
+     song gets caught. The track then carries what YouTube says it is,
+     not what the AI claimed.
+
+     Runs in the browser, one request per track, and degrades to "assume
+     it's fine" if the network is down rather than blocking the import. */
+  async checkLinks(items, onProgress){
+    var report = { checked:0, live:0, dead:0, renamed:0, offline:false };
+    var progress = onProgress || function(){};
+    for (var i = 0; i < items.length; i++){
+      var it = items[i];
+      it.dead = false;
+      if (!it.url) continue;
+      progress(i + 1, items.length, it.title || it.artist);
+      var v = await this.oembed(it.url);
+      report.checked++;
+      if (v === 'offline'){ report.offline = true; continue; }
+      if (!v){ it.dead = true; report.dead++; continue; }
+      report.live++;
+      // Keep what YouTube says alongside what the AI said, rather than
+      // replacing it: a video title is "Cannons - Fire For You (Official
+      // Audio) [4K]" where the AI gave a clean artist and title. The clean
+      // pair is better to read, to search by and to store; YouTube's
+      // version is the check on whether the link plays the right thing.
+      it.ytTitle = v.name || '';
+      it.ytChannel = v.artist || '';
+      if (v.name && !this.linkMatches(it, v)){
+        it.mismatch = v.name;
+        report.mismatched++;
+      }
+    }
+    return report;
+  },
+
+  /* Does the video the link points at look like the track that was asked
+     for? Titles carry noise and channels are named all sorts of things, so
+     this is a "roughly the right song" test, not an exact match. */
+  linkMatches(it, v){
+    var hay = this._matchNorm((v.name || '') + ' ' + (v.artist || ''));
+    var want = this._matchNorm(it.title || '').split(' ').filter(function(w){ return w.length > 1; });
+    if (!want.length) return true;
+    var hit = want.filter(function(w){ return hay.indexOf(w) >= 0; }).length / want.length;
+    return hit >= 0.6;
+  },
+
+  _matchNorm(s){
+    return String(s || '').toLowerCase()
+      .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+      .replace(/\b(official|video|audio|lyrics?|visuali[sz]er|hd|hq|4k|remaster(?:ed)?|feat|ft|topic)\b/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  },
+
+  /** YouTube's oEmbed endpoint: no key, no API quota. null = no such
+      video, 'offline' = we couldn't tell, object = it's real. */
+  async oembed(ytId){
+    try {
+      var r = await fetch('https://www.youtube.com/oembed?url=' +
+        encodeURIComponent('https://www.youtube.com/watch?v=' + ytId) + '&format=json');
+      if (r.status === 404 || r.status === 400) return null;
+      if (!r.ok) return 'offline';          // 401/403: exists, can't be embedded here
+      var d = await r.json();
+      return (d && d.title) ? { name: d.title, artist: d.author_name || '' } : null;
+    } catch(e){ return 'offline'; }
+  },
+
+  /** a short follow-up to paste back, naming exactly what failed */
+  buildFixPrompt(dead){
+    var L = [];
+    L.push('Those YouTube links do not exist. I checked every one of them against YouTube.');
+    L.push('');
+    L.push('These tracks need fixing:');
+    dead.forEach(function(it, i){
+      L.push('  ' + (i + 1) + '. ' + (it.artist ? it.artist + ' — ' : '') + it.title);
+    });
+    L.push('');
+    L.push('Please send those tracks again, in the same pipe format, with ONE change:');
+    L.push('');
+    L.push('  - If you can search the web, search YouTube and copy the exact watch URL you see.');
+    L.push('  - If you cannot search, leave the link cell EMPTY. An empty cell is the correct');
+    L.push('    answer and riffrolled will find the track from the artist and title.');
+    L.push('');
+    L.push('Do not write a video id from memory. Ids are random strings — one that looks');
+    L.push('plausible is almost always wrong, and a wrong link is worse than no link.');
+    return L.join('\n');
+  },
+
   /** total runtime of what was parsed, in seconds (0 where unknown) */
   totalSecs(items){
     return (items || []).reduce(function(n, it){ return n + (it.secs || 0); }, 0);
@@ -858,7 +983,9 @@ var djAi = {
      Nothing is looked up. The AI was asked to verify its links; a dead id
      fails on the deck, which the player already handles. ── */
   async importPlaylist(parsed, rawReply){
-    var playable = parsed.items.filter(function(it){ return !!it.url; });
+    // a link that has been checked and found missing is not playable, and
+    // importing it would only put a row on the deck that fails later
+    var playable = parsed.items.filter(function(it){ return it.url && !it.dead; });
     if (!playable.length) return null;
 
     var base = parsed.name || this.briefSummaryName();
@@ -878,14 +1005,18 @@ var djAi = {
 
     for (var i = 0; i < playable.length; i++){
       var it = playable[i];
-      var title = it.title || it.url;
+      // the AI's clean artist and title are what get stored and shown;
+      // YouTube's video title is kept beside them, not instead of them
+      var title = it.title || it.ytTitle || it.url;
+      var artist = it.artist || it.ytChannel || '';
       var tid = await dbBoss.createTrack(it.url, title);
       var meta = {};
       try {
         var row = await dbBoss.getTrack(it.url);
         if (row){
-          if (!row.artist && it.artist) meta.artist = it.artist;
+          if (!row.artist && artist) meta.artist = artist;
           if (it.secs) meta.durSec = it.secs;
+          if (it.ytTitle && !row.ytTitle) meta.ytTitle = it.ytTitle;   // what the video calls itself
           if (it.genre){
             meta.genre = it.genre;
             // the AI's genre becomes a tag too, so Random Mix and search see it
@@ -915,7 +1046,10 @@ var djAi = {
         totalSecs: total,
         items: parsed.items.map(function(it){
           return { artist:it.artist, title:it.title, ytId:it.url || '', secs:it.secs || 0,
-                   genre:it.genre || '', why:it.why || '' };
+                   genre:it.genre || '', why:it.why || '',
+                   // what the links turned out to be, so the history shows
+                   // which AI actually looked things up and which invented them
+                   dead: !!it.dead, realName: it.realName || '' };
         }),
         reply: String(rawReply || '').slice(0, 20000)
       });

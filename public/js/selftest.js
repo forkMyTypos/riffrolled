@@ -188,7 +188,9 @@ async function runSelfTests(){
       assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
       assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
       assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
-      assert(p.indexOf('YOUTUBE LINK REQUIREMENT') > 0, 'link requirement present');
+      assert(p.indexOf('LINKS — READ THIS CAREFULLY') > 0, 'link instructions present');
+      assert(p.indexOf('LEAVE THE LINK') > 0, 'an empty link cell is allowed');
+      assert(p.indexOf('from memory') > 0, 'and inventing one is forbidden');
       assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
       assert(!/chatgpt|claude|gemini|openai/i.test(p), 'no AI provider is named');
       djAi.state.shareContext = false;
@@ -260,6 +262,20 @@ async function runSelfTests(){
       assert(shared.indexOf('Song 11') > 0 && shared.indexOf('Song 0') < 0, 'top ten only');
       djAi.state.shareContext = false;
       assert((await djAi.buildSpeedPrompt()).indexOf('Song 11') < 0, 'and gone when switched off');
+    }],
+    ['DJ AI never mistakes an 11-character title for a video id', async () => {
+      // Parcels' "Gamesofluck" is exactly eleven word characters. Before
+      // this, the title was read as the link and everything shifted right.
+      const r = djAi.parseReply("1 | Parcels | Gamesofluck | https://www.youtube.com/watch?v=vV3xPebC4E4 | 5:27 | Indie Funk");
+      assert(r.items[0].url === 'vV3xPebC4E4', 'the link is the link');
+      assert(r.items[0].title === 'Gamesofluck', 'the title stays the title');
+      assert(r.items[0].genre === 'Indie Funk', 'and the genre still lands');
+      // a bare id is still accepted where a link belongs
+      const bare = djAi.parseReply("1 | Burial | Archangel | dQw4w9WgXcQ | 3:56 | dubstep");
+      assert(bare.items[0].url === 'dQw4w9WgXcQ', 'bare id in the link cell still works');
+      // but an eleven-character title with no link stays unplayable, not wrong
+      const none = djAi.parseReply("1 | Someone | Elevenchars | | 4:00 | rock");
+      assert(none.items[0].url === '' && none.items[0].title === 'Elevenchars', 'no link invented');
     }],
     ['DJ AI reads a genre in the last cell, a reason in a sentence', async () => {
       const speed = djAi.parseReply("1 | Burial | Archangel | https://youtu.be/aaaaaaaaaaa | 3:56 | dubstep");

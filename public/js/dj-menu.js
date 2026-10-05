@@ -99,10 +99,16 @@ var djMenuBoss = {
       "<div class='sec dj-import-sec'>" +
         "<div class='sec-head'>Import DJ playlist</div>" +
         "<textarea class='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
+        "<label class='dj-check' title='Asks YouTube whether each link is a real video. Free — no key, no API quota.'>" +
+          "<input type='checkbox' class='dj-check-cb' checked>" +
+          "<span class='spin-track'><span class='spin-thumb'></span></span>" +
+          "<span class='spin-label'>Check the links first</span>" +
+        "</label>" +
         "<div class='row dj-gorow'>" +
           "<span class='dj-parsed'></span>" +
           "<button class='dj-go'>▶ IMPORT PLAYLIST</button>" +
         "</div>" +
+        "<div class='dj-deadlist'></div>" +
         "<div class='status-bar dj-bstatus'></div>" +
       "</div>";
 
@@ -409,6 +415,50 @@ var djMenuBoss = {
     });
   },
 
+  /* The tracks whose links turned out not to exist. Named, because the
+     music is usually right and it is only the link that was invented —
+     and offered back to the AI as a short follow-up rather than making
+     the listener write one. */
+  renderDead(dead, odd, total){
+    var box = this.el.querySelector('.dj-deadlist');
+    var html = '';
+
+    if (dead.length){
+      html += "<div class='dj-dead-head'>" + dead.length + " of " + total +
+        " links point at videos that don't exist</div>" +
+        dead.map(function(it){
+          return "<div class='dj-dead-row'>" +
+            escapeHtml((it.artist ? it.artist + ' — ' : '') + it.title) + "</div>";
+        }).join('');
+    }
+
+    // a live link to the wrong song is the quieter failure: it plays, so
+    // nothing looks broken until you listen
+    if (odd && odd.length){
+      html += "<div class='dj-odd-head'>" + odd.length +
+        " link" + (odd.length > 1 ? 's' : '') + " may play something else</div>" +
+        odd.map(function(it){
+          return "<div class='dj-dead-row'>" + escapeHtml(it.title) +
+            " <span class='dj-odd-actual'>→ " + escapeHtml(it.mismatch) + "</span></div>";
+        }).join('');
+    }
+
+    if (dead.length) html += "<button class='dj-fix'>⧉ Copy a note asking your AI to fix these</button>";
+    box.innerHTML = html;
+    if (!dead.length) return;
+
+    var self = this;
+    box.querySelector('.dj-fix').onclick = async function(){
+      var text = djAi.buildFixPrompt(dead);
+      try {
+        await navigator.clipboard.writeText(text);
+        if (window.appToast) appToast('Follow-up copied — paste it to your AI', 'ok');
+      } catch(e){
+        if (window.appToast) appToast('Clipboard blocked', 'warn');
+      }
+    };
+  },
+
   /** what the roll settled on, shown so you know what you just copied */
   showUsed(copied){
     var box = this.el.querySelector('.dj-used');
@@ -652,11 +702,29 @@ var djMenuBoss = {
     }
     var go = root.querySelector('.dj-go');
     go.disabled = true;
-    this.bstatus('Importing ' + parsed.items.length + ' tracks…');
+    root.querySelector('.dj-deadlist').innerHTML = '';
     try {
+      /* Check the links before anything is imported. An AI will claim it
+         searched YouTube and hand back invented ids — this is free to
+         verify, so there is no reason to find out on the deck. */
+      var report = null;
+      if (root.querySelector('.dj-check-cb').checked){
+        this.bstatus('Checking links…');
+        report = await djAi.checkLinks(parsed.items, function(done, total, label){
+          self.bstatus('Checking link ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
+        });
+      }
+      var dead = parsed.items.filter(function(it){ return it.dead; });
+      var odd = parsed.items.filter(function(it){ return it.mismatch; });
+      if (dead.length || odd.length) this.renderDead(dead, odd, parsed.items.length);
+
+      this.bstatus('Importing…');
       var saved = await djAi.importPlaylist(parsed, raw);
       if (!saved){
-        this.bstatus('No track in that reply had a YouTube link, so there is nothing to play.', 'err');
+        this.bstatus(dead.length
+          ? ('Every link in that reply was fake — ' + dead.length + ' of ' + parsed.items.length +
+             ' point at videos that do not exist. The tracks are probably fine; the links are not.')
+          : 'No track in that reply had a YouTube link, so there is nothing to play.', 'err');
         return;
       }
 
@@ -670,7 +738,9 @@ var djMenuBoss = {
 
       var bits = ['Imported ' + saved.count + ' tracks'];
       if (saved.totalSecs) bits.push(djAi.fmtSecs(saved.totalSecs));
-      if (saved.skipped) bits.push(saved.skipped + ' had no link and were skipped');
+      if (saved.skipped) bits.push(saved.skipped + ' skipped');
+      if (report && report.renamed) bits.push(report.renamed + ' retitled from YouTube');
+      if (report && report.offline) bits.push("couldn't reach YouTube to check");
       bits.push('→ Playlist');
       this.bstatus(bits.join(' · '), 'ok');
 

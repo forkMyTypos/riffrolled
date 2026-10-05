@@ -295,7 +295,7 @@ Treat the target duration as approximate. Do not waste time trying to make the t
 5. Do not spend excessive time researching obscure alternatives.
 6. Do not obsess over exact track duration.
 7. If a candidate is difficult to verify or identify, move on and choose another.
-8. YouTube links must point to real, usable YouTube videos. Do not invent video IDs.
+8. Only include a YouTube link you have actually looked up. Otherwise leave the cell empty — never write a video ID from memory.
 9. Keep the overall playlist coherent, but allow some surprise.
 10. Do not simply follow genre labels literally if a better musical journey takes us somewhere else.
 11. Do not explain why individual tracks were chosen.
@@ -306,19 +306,33 @@ The goal is not to find the mathematically perfect playlist.
 
 The goal is to make a playlist that feels like a good DJ made it.
 
+## LINKS — READ THIS CAREFULLY
+
+Every track plays from YouTube, so a real link is useful. Only a real one.
+
+If you can search the web: search YouTube for each track and copy the exact watch URL from the result you actually saw.
+
+If you cannot search, or you are not certain a particular video exists: LEAVE THE LINK CELL EMPTY.
+
+An empty link cell is a correct answer. riffrolled finds the track from the artist and title, which costs it nothing.
+
+Never write a YouTube video ID from memory. IDs are random eleven-character strings. One that looks plausible is almost always wrong, and a wrong link is the only answer here that cannot be recovered from — it puts a dead track in my playlist.
+
+Getting the artist and title exactly right matters more than supplying a link.
+
 ## OUTPUT
 
 Return exactly this format:
 
 RIFFROLLED-PLAYLIST
 NAME: a short name for this set
-1 | Artist | Track title | YouTube URL | duration | genre
-2 | Artist | Track title | YouTube URL | duration | genre
-3 | Artist | Track title | YouTube URL | duration | genre
+1 | Artist | Track title | YouTube URL or empty | duration | genre
+2 | Artist | Track title | YouTube URL or empty | duration | genre
+3 | Artist | Track title | YouTube URL or empty | duration | genre
 ...
 END
 
-One track per line.
+One track per line. Keep the empty cell between the pipes when you have no link.
 
 Do not add any other text.`;
 

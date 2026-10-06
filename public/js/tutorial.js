@@ -255,18 +255,43 @@ var tourBoss = {
     return !!(before && !before.hidden);
   },
 
-  /* bottom-left by default, out of the way of the dock and the deck.
-     ytGuard has the last word: the YouTube player is never covered. */
+  /* Centred along the bottom. The deck sits to the left and the panels open
+     on the right, so the middle is the one column that is reliably empty —
+     and bottom-left, where this used to go, is exactly where the YouTube
+     player ends up on a normal window.
+
+     ytGuard still has the last word, and the escape is sideways rather than
+     upwards: there is far more room on the x-axis than above the deck, so a
+     card that would touch the player slides into whichever margin is wider
+     and only goes over the top if neither clears it. */
   place(){
     var el = this.el;
     el.style.left = ''; el.style.right = ''; el.style.top = ''; el.style.bottom = '';
     if (document.body.classList.contains('mobile')) return;    // CSS handles phones
-    el.style.left = '20px';
+
+    var w = el.offsetWidth || 360;
+    var vw = window.innerWidth;
+    var bar = document.querySelector('.rightM');
+    var rightEdge = (bar ? bar.getBoundingClientRect().left : vw) - 12;
+    var centre = Math.max(12, Math.round((vw - w) / 2));
+
     el.style.bottom = '20px';
-    if (window.ytGuard && ytGuard.overlaps(el)){
+    el.style.left = centre + 'px';
+    if (!window.ytGuard) return;
+
+    var v = ytGuard.rect();
+    if (v && ytGuard.overlaps(el)){
+      // widest margin first: right of the player, or left of it
+      var tries = (vw - v.right) >= v.left ? [rightEdge - w, 12] : [12, rightEdge - w];
+      for (var i = 0; i < tries.length; i++){
+        el.style.left = Math.max(12, Math.min(tries[i], rightEdge - w)) + 'px';
+        if (!ytGuard.overlaps(el)) return;
+      }
+      // nothing clears it sideways — go above the player instead
+      el.style.left = centre + 'px';
       el.style.bottom = '';
       el.style.top = '20px';
-      if (ytGuard.overlaps(el)){ el.style.top = ''; el.style.bottom = '20px'; el.style.left = '8px'; }
+      if (ytGuard.overlaps(el)){ el.style.top = ''; el.style.bottom = '20px'; el.style.left = '12px'; }
     }
   },
 

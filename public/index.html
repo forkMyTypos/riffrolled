@@ -16,6 +16,14 @@
 <link rel="stylesheet" href="css/dj-ai.css">
 <link rel="stylesheet" href="css/tutorial.css">
 <link rel="stylesheet" href="css/mobile.css">
+
+<!-- Installable on a phone, which is what makes riffrolled a share target:
+     select an AI's reply, Share, riffrolled, and the set imports itself.
+     The service worker is registered from dj-menu.js and caches nothing. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0b0b17">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 <div id="appBanner" class="app-banner" hidden></div>

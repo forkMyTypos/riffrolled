@@ -398,3 +398,43 @@ body.mobile .app-toast { bottom:calc(76px + env(safe-area-inset-bottom)); font-s
 .dj-odd-head { font-size:11px; font-weight:600; color:#e9bd7e; margin:7px 0 5px; }
 
 .dj-odd-actual { color:rgba(255,255,255,0.35); font-size:10.5px; }
+
+/* ── copy and open ───────────────────────────────────────────────────────
+   A quiet row under COPY DJ BRIEF: the same copy, plus the trip to the AI.
+   Deliberately understated — the clipboard is still the mechanism, these
+   just save finding a tab. */
+.dj-open-row { display:flex; align-items:center; flex-wrap:wrap; gap:5px; padding:0 8px 8px; }
+
+.dj-open-lbl { flex:0 0 auto; font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-right:2px; }
+
+.dj-open {
+  flex:0 0 auto; padding:5px 8px; font-size:11px; font-weight:600; cursor:pointer;
+  color:rgba(255,255,255,0.78); background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.12); border-radius:6px;
+  transition:background .13s, color .13s, border-color .13s;
+}
+
+.dj-open:hover:not(:disabled) { background:rgba(255,157,226,0.16); border-color:rgba(255,157,226,0.4); color:#fff; }
+
+.dj-open:disabled { opacity:.5; cursor:default; }
+
+/* ── paste your reply ────────────────────────────────────────────────────
+   Appears only on returning to the tab with a brief outstanding, so when
+   it is on screen it is almost certainly the thing you want to press. */
+.dj-pasteback {
+  display:block; width:calc(100% - 16px); margin:0 8px 8px; padding:10px 12px;
+  font-size:12px; font-weight:700; letter-spacing:.03em; cursor:pointer; color:#fff;
+  border:1px solid rgba(255,157,226,0.45); border-radius:8px;
+  background:linear-gradient(135deg, rgba(255,157,226,0.3), rgba(138,123,255,0.3));
+  animation:djPasteIn .22s ease-out;
+}
+
+@keyframes djPasteIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+
+.dj-pasteback:hover:not(:disabled) { background:linear-gradient(135deg, rgba(255,157,226,0.45), rgba(138,123,255,0.45)); }
+
+.dj-pasteback:disabled { opacity:.6; cursor:default; }
+
+.dj-pasteback[hidden] { display:none; }
+
+body.mobile .dj-open { padding:7px 11px; font-size:12px; }

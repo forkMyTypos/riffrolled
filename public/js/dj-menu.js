@@ -17,6 +17,28 @@
    Tracks and playlists deliberately do not appear here. An imported set
    goes straight to the Playlist panel, where playlists live. */
 
+/* Where "copy and open" sends you. These are the chat interfaces, not the
+   APIs — which is the whole point: they already have web search, they're
+   already signed in, and they cost the listener nothing. riffrolled never
+   sees a key because there isn't one.
+
+   `q` names a query parameter that pre-fills the prompt, where a site has
+   one. Leave it undefined and the brief goes via the clipboard instead,
+   which always works. A pre-filled URL carrying the whole brief runs to
+   around 4,500 characters, so anything set here needs testing against a
+   real brief before it is trusted — truncation is silent, and a brief
+   cut off mid-sentence produces a confident, wrong playlist. */
+var DJ_SITES = [
+  // Tested 2026-10-06 with a real 3,263-character brief: chatgpt.com/?q=
+  // carried all of it (a sentinel on the last line arrived intact) and
+  // submitted it on arrival, signed in or not. So ChatGPT is genuinely one
+  // press. The brief still goes on the clipboard as well, because a browser
+  // may refuse the tab and because the reply has to come back somehow.
+  { key: 'chatgpt', label: 'ChatGPT', url: 'https://chatgpt.com/', q: 'q' },
+  { key: 'claude',  label: 'Claude',  url: 'https://claude.ai/new' },
+  { key: 'gemini',  label: 'Gemini',  url: 'https://gemini.google.com/app' }
+];
+
 var DJAI_SVG =
   "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
     "<defs><linearGradient id='adg' x1='0' y1='0' x2='1' y2='1'>" +
@@ -93,11 +115,24 @@ var djMenuBoss = {
           "<span class='dj-copy-note'></span>" +
           "<button class='dj-copy'>⧉ COPY DJ BRIEF</button>" +
         "</div>" +
+        // one press: copy the brief and open the AI. Saves nothing but the
+        // trip to a bookmark — which is most of the friction in practice.
+        "<div class='dj-open-row'>" +
+          "<span class='dj-open-lbl'>open in</span>" +
+          DJ_SITES.map(function(s){
+            return "<button class='dj-open' data-k='" + s.key + "' title='Copy the brief and open " +
+                   escapeHtml(s.label) + "'>" + escapeHtml(s.label) + " ↗</button>";
+          }).join('') +
+        "</div>" +
         "<div class='status-bar dj-status'></div>" +
       "</div>" +
 
       "<div class='sec dj-import-sec'>" +
         "<div class='sec-head'>Import DJ playlist</div>" +
+        // Shown when you come back having copied a brief. One click reads the
+        // clipboard directly (the click is the gesture that permits it), so a
+        // reply never has to be found, selected and pasted into a box.
+        "<button class='dj-pasteback' hidden>📋 Paste your reply</button>" +
         "<textarea class='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
         "<label class='dj-check' title='Asks YouTube whether each link is a real video. Free — no key, no API quota.'>" +
           "<input type='checkbox' class='dj-check-cb' checked>" +
@@ -399,6 +434,20 @@ var djMenuBoss = {
     root.querySelector('.dj-copy').onclick = function(){ self.copyBrief(); };
     root.querySelector('.dj-go').onclick = function(){ self.importReply(); };
 
+    root.querySelector('.dj-open-row').addEventListener('click', function(e){
+      var b = e.target.closest('.dj-open');
+      if (b) self.openIn(b.dataset.k, b);
+    });
+
+    root.querySelector('.dj-pasteback').onclick = function(){ self.pasteBack(this); };
+
+    /* Coming back to the tab is the signal that you have been to an AI.
+       Both events are needed: switching tabs fires visibilitychange, while
+       switching windows only fires focus. */
+    var back = function(){ if (!document.hidden) self.offerPaste(); };
+    window.addEventListener('focus', back);
+    document.addEventListener('visibilitychange', back);
+
     var reply = root.querySelector('.dj-reply');
     reply.addEventListener('input', function(){
       var parsed = djAi.parseReply(reply.value);
@@ -669,6 +718,120 @@ var djMenuBoss = {
     return copied;
   },
 
+  /* ── the copy → AI → paste loop, with the trips shortened ────────────
+     The brief goes out on the clipboard and the reply comes back on it.
+     Everything below is about removing the steps between those two facts:
+     opening the AI without hunting for a bookmark, and getting the reply
+     in without finding a textarea. */
+
+  /** Copy the brief, then open the chosen AI in a new tab.
+      Order matters: the copy is awaited first, because writing to the
+      clipboard needs this document focused and opening a tab takes that
+      focus away. A popup blocker can still refuse the window, so that
+      case is reported rather than silently doing half the job. */
+  async openIn(key, btn){
+    var site = DJ_SITES.find(function(s){ return s.key === key; });
+    if (!site) return;
+    if (btn) btn.disabled = true;
+    try {
+      var copied = await this.copyBrief({ silent: true });
+      var url = site.url;
+      if (site.q){
+        var text = await djAi.buildPrompt();
+        url = site.url + (site.url.indexOf('?') >= 0 ? '&' : '?') +
+              site.q + '=' + encodeURIComponent(text);
+      }
+      var w = window.open(url, '_blank', 'noopener');
+      if (!w){
+        this.status('Your browser blocked the new tab — open ' + site.label + ' yourself; the brief is copied.',
+                    copied ? 'ok' : 'err');
+        return;
+      }
+      this.arm();
+      this.status(copied
+        ? 'Brief copied — paste it into ' + site.label + ', then come back'
+        : 'Opened ' + site.label + ', but the clipboard refused the brief', copied ? 'ok' : 'err');
+    } finally { if (btn) btn.disabled = false; }
+  },
+
+  /** Remember that a brief went out, so returning to the tab can offer to
+      read the reply back. `text` is the prompt itself — not the summary
+      line on screen, which is what this first reached for and which never
+      matches anything on the clipboard. Keeping the real prompt is what
+      lets us recognise it coming back unchanged. */
+  arm(text){
+    this._armed = true;
+    this._armedAt = Date.now();
+    if (typeof text === 'string') this._sent = text;
+  },
+
+  /** Back on the tab with a brief outstanding: offer the one-click paste.
+      Only when there is somewhere for it to go — the panel open, the box
+      still empty — and only for a while, so it isn't still sitting there
+      tomorrow. */
+  offerPaste(){
+    if (!this._armed || !this.el) return;
+    if (Date.now() - (this._armedAt || 0) > 30 * 60 * 1000){ this._armed = false; return; }
+    if (this.el.classList.contains('is-hidden')) return;
+    if ((this.el.querySelector('.dj-reply').value || '').trim()) return;
+    var b = this.el.querySelector('.dj-pasteback');
+    b.hidden = false;
+    b.textContent = '📋 Paste your reply';
+    b.classList.remove('done');
+    this.el.querySelector('.dj-import-sec').classList.add('ready');
+  },
+
+  /** The click is what makes this legal: reading the clipboard needs a
+      user gesture, which a focus event is not. */
+  async pasteBack(btn){
+    btn.disabled = true;
+    try {
+      var text = '';
+      try { text = await navigator.clipboard.readText(); }
+      catch(e){
+        btn.hidden = true;
+        this.bstatus('Your browser wouldn’t let riffrolled read the clipboard — paste into the box below instead.', 'err');
+        this.el.querySelector('.dj-reply').focus();
+        return;
+      }
+
+      text = String(text || '').trim();
+      if (!text){
+        this.bstatus('The clipboard is empty — copy your AI’s reply first.', 'err');
+        return;
+      }
+      // The brief coming back unchanged means they haven't been to the AI
+      // yet. Worth catching precisely, because the brief *parses*: it ends
+      // with a worked example of the output format, and those placeholder
+      // rows look exactly like tracks to the parser.
+      if (this._sent && text.slice(0, 120) === String(this._sent).slice(0, 120)){
+        this.bstatus('That’s still the brief — copy what the AI sent back.', 'err');
+        return;
+      }
+      var items = djAi.parseReply(text).items;
+      if (!items.length){
+        this.bstatus('No playlist in that. Copy the whole reply, including the RIFFROLLED-PLAYLIST block.', 'err');
+        return;
+      }
+      // Belt and braces for the same trap, and for the commoner one: an AI
+      // with no web search writes the word "YouTube" where the link should
+      // go. The tracks are usually fine — it is only the links that are
+      // missing — so say what to ask for rather than just refusing.
+      if (!items.some(function(i){ return i.ytId || i.url; })){
+        this.bstatus('No YouTube links in that — the tracks are there but the links aren’t. ' +
+                     'Ask your AI to search YouTube for each one and give the real watch URLs.', 'err');
+        return;
+      }
+
+      var box = this.el.querySelector('.dj-reply');
+      box.value = text;
+      box.dispatchEvent(new Event('input'));     // keep the track count honest
+      this._armed = false;
+      btn.hidden = true;
+      await this.importReply();
+    } finally { btn.disabled = false; }
+  },
+
   /** build the prompt and put it on the clipboard. Returns whether the
       clipboard actually took it, so the caller can say so honestly. */
   async copyBrief(opts){
@@ -682,6 +845,7 @@ var djMenuBoss = {
         if (window.appToast) appToast('Prompt copied — paste it into your AI', 'ok');
         if (!opts.silent) this.status('Brief copied ✓', 'ok');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
+        this.arm(text);             // offer the one-click paste on the way back
         return true;
       } catch(e){
         var box = this.el.querySelector('.dj-promptbox') || (function(sec){
@@ -851,3 +1015,49 @@ var djHistoryBoss = {
     }).join('');
   }
 };
+
+/* ── shared in from the OS ───────────────────────────────────────────────
+   Android's share sheet can send riffrolled the text you have selected,
+   which for our purposes is an AI's reply. The service worker catches the
+   POST and stashes it; this picks it up on the way back in.
+
+   Registration is deliberately quiet and failure-tolerant: a browser that
+   has no service workers, or a context that forbids them, simply doesn't
+   get the feature. Nothing else depends on it. */
+var shareIn = {
+  init(){
+    if (!('serviceWorker' in navigator)) return;
+    var self = this;
+
+    navigator.serviceWorker.addEventListener('message', function(e){
+      if (e.data && e.data.type === 'riffrolled:share') self.take(e.data.text);
+    });
+
+    navigator.serviceWorker.register('/sw.js').then(function(){
+      // only ask when we were actually opened by a share
+      if (new URLSearchParams(location.search).get('shared') === null) return;
+      history.replaceState(null, '', location.pathname);   // don't re-import on reload
+      navigator.serviceWorker.ready.then(function(reg){
+        var sw = reg.active || navigator.serviceWorker.controller;
+        if (sw) sw.postMessage({ type: 'riffrolled:take-share' });
+      });
+    }).catch(function(){ /* no service worker, no share target — fine */ });
+  },
+
+  /* A share is only ever a reply: drop it into the importer and run it,
+     the same path the paste button takes. */
+  take(text){
+    text = String(text || '').trim();
+    if (!text || !window.djMenuBoss || !djMenuBoss.el) return;
+    if (!djAi.parseReply(text).items.length){
+      if (window.appToast) appToast('That share didn’t contain a playlist', 'warn');
+      return;
+    }
+    if (window.dock) dock.openPanel(djMenuBoss.el);
+    var box = djMenuBoss.el.querySelector('.dj-reply');
+    box.value = text;
+    box.dispatchEvent(new Event('input'));
+    djMenuBoss.importReply();
+  }
+};
+shareIn.init();

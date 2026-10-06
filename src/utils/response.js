@@ -11,12 +11,24 @@ export function corsHeaders(env) {
   };
 }
 
+/* Cloudflare applies public/_headers to static assets only, never to a
+   response the Worker builds — so the API has to carry its own. These are
+   the ones that matter for JSON: stop a browser sniffing a response into
+   something executable, and make sure a reflected value can never run even
+   if one is ever served as HTML by mistake. */
+const SAFE_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
 /** JSON success response. `extraHeaders` lets routes attach metadata (e.g. cache source). */
 export function json(env, data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
+      ...SAFE_HEADERS,
       ...corsHeaders(env),
       ...extraHeaders,
     },

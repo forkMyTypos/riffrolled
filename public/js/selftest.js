@@ -5,6 +5,59 @@ async function runSelfTests(){
   const assert = (c, m) => { if (!c) throw new Error(m || 'assertion failed'); };
 
   const tests = [
+    ['every untrusted field in an HTML sink is escaped', async () => {
+      /* The audit this came from found all 48 innerHTML sites correct. The
+         risk was never those — it was the 49th, written in a hurry months
+         later. So the rule is a test rather than a habit.
+
+         It does not try to judge every expression (that way lies 24 false
+         positives and a test nobody trusts). It asks one precise question:
+         does a field carrying text riffrolled did not author — the AI's
+         reply, the YouTube API, the shared catalogue anyone can POST to,
+         a label somebody typed — reach an HTML sink without escapeHtml
+         around it? A field merely being tested (`t.artist ? … : ''`) is
+         not being rendered, so it doesn't count. */
+      const FILES = ['db','ui','player','playlist','panels-music','panels-tokens',
+                     'dj-data','aidj','dj-menu','info','promo-popup','dock','tutorial','selftest'];
+      const RISKY = /\.(name|artist|genre|ytTitle|title|label|channel|playlistName|request|reason|msg)\b/g;
+      const SINK  = /(innerHTML|outerHTML)\s*\+?=\s*([\s\S]*?);\n|insertAdjacentHTML\s*\(([\s\S]*?)\);/g;
+
+      // the character ranges covered by an escapeHtml( … ) call
+      const escaped = (expr) => {
+        const spans = [], re = /escapeHtml\s*\(/g;
+        let m;
+        while ((m = re.exec(expr))){
+          let i = m.index + m[0].length, depth = 1;
+          while (i < expr.length && depth > 0){
+            if (expr[i] === '(') depth++; else if (expr[i] === ')') depth--;
+            i++;
+          }
+          spans.push([m.index, i]);
+        }
+        return spans;
+      };
+
+      const bad = [];
+      for (const f of FILES){
+        let src = '';
+        try { src = await (await fetch('js/' + f + '.js', { cache:'no-store' })).text(); }
+        catch (e) { continue; }                       // not served here — skip
+        let m; SINK.lastIndex = 0;
+        while ((m = SINK.exec(src))){
+          const expr = m[2] || m[3] || '';
+          const spans = escaped(expr);
+          let r; RISKY.lastIndex = 0;
+          while ((r = RISKY.exec(expr))){
+            const at = r.index;
+            const next = ((expr.slice(at + r[0].length).match(/^\s*(.)/) || [])[1]) || '';
+            if ('?|&),=;'.indexOf(next) >= 0) continue;      // tested, not rendered
+            if (spans.some(([a, b]) => at >= a && at < b)) continue;
+            bad.push(f + '.js ' + r[0] + ' — ' + expr.replace(/\s+/g, ' ').slice(0, 70));
+          }
+        }
+      }
+      assert(bad.length === 0, bad.length + ' unescaped: ' + bad.slice(0, 2).join(' | '));
+    }],
     ['createTrack dedupes by ytId', async () => {
       const a = await dbBoss.createTrack('aaaaaaaaaaa', 'A');
       const b = await dbBoss.createTrack('aaaaaaaaaaa', 'A again');
@@ -411,10 +464,14 @@ async function runSelfTests(){
   // visible overlay
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;inset:auto 16px 16px auto;z-index:3000;max-width:420px;background:#15151f;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:12px 14px;font:13px/1.5 monospace;color:#e0e0e0;box-shadow:0 8px 32px rgba(0,0,0,.6);';
-  box.innerHTML = '<b>Self-tests — ' + pass + ' passed, ' + fail + ' failed</b>' +
-    results.map(r => '<div style="color:' + (r.ok ? '#5ab88a' : '#d46060') + '">' +
-      (r.ok ? '✓' : '✗') + ' ' + r.name + (r.msg ? ' — ' + r.msg : '') + '</div>').join('') +
-    '<div style="margin-top:8px;color:rgba(255,255,255,.4)">reload without #test for normal use</div>';
+  // r.msg is an exception message: escaped like anything else, and the
+  // colours come from classes rather than a style="" attribute so this page
+  // obeys the same Content-Security-Policy as the rest of the site.
+  box.innerHTML = '<b>Self-tests \u2014 ' + Number(pass) + ' passed, ' + Number(fail) + ' failed</b>' +
+    results.map(r => '<div class="st-line ' + (r.ok ? 'st-ok' : 'st-bad') + '">' +
+      (r.ok ? '\u2713' : '\u2717') + ' ' + escapeHtml(r.name) +
+      (r.msg ? ' \u2014 ' + escapeHtml(r.msg) : '') + '</div>').join('') +
+    '<div class="st-note">reload without #test for normal use</div>';
   document.body.appendChild(box);
 }
 

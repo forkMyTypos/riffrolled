@@ -379,7 +379,7 @@ var dataBoss = {
               return "<div class='st-item st-remote promo-item' data-yt='" + escapeHtml(pvid) + "' data-name='" + escapeHtml(p.name || pvid) + "'>"
                 + "<button class='icon-btn st-play' title='Play now'>▶</button>"
                 + "<span class='name'>" + escapeHtml(p.name || pvid) + "</span>"
-                + "<span class='promo-badge' title='Shown · played · liked'>👁 " + (p.views || 0) + " · ▶ " + (p.plays || 0) + " · 👍 " + (p.likes || 0) + "</span>"
+                + "<span class='promo-badge' title='Shown · played · liked'>👁 " + Number(p.views || 0) + " · ▶ " + Number(p.plays || 0) + " · 👍 " + Number(p.likes || 0) + "</span>"
                 + "<button class='icon-btn st-add' title='Save + add to current playlist'>＋</button>"
                 + "</div>";
             }).join('');

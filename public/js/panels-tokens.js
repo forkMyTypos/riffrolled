@@ -170,7 +170,7 @@ var mineBoss = {
           return Math.round(s / 86400) + 'd ago';
         })();
         return "<div class='led-row'>"
-          + "<span class='led-delta " + (up ? 'up' : 'down') + "'>" + (up ? '+' : '') + x.delta + "</span>"
+          + "<span class='led-delta " + (up ? 'up' : 'down') + "'>" + (up ? '+' : '') + Number(x.delta || 0) + "</span>"
           + "<span class='led-what'>" + escapeHtml(LABEL[x.reason] || x.reason) + "</span>"
           + "<span class='led-when'>" + ago + "</span></div>";
       }).join('');
@@ -508,13 +508,13 @@ var promoBoss = {
         var ended = !p.paused && new Date(p.expires_at).getTime() <= Date.now();
         var state = p.paused ? 'paused' : (ended ? 'ended' : 'live');
         var left = p.paused ? self.msLeft(p.remaining_ms) : (ended ? 'ended' : self.timeLeft(p.expires_at));
-        return "<div class='promo-row " + state + "' data-yt='" + escapeHtml(pid) + "' data-id='" + p.id + "'>"
+        return "<div class='promo-row " + state + "' data-yt='" + escapeHtml(pid) + "' data-id='" + Number(p.id || 0) + "'>"
           + "<div class='promo-name'>" + escapeHtml(p.name || p.url) + "</div>"
           + "<div class='promo-stats'>"
-            + "<span title='Times shown to people'>👁 " + (p.views || 0) + "</span>"
-            + "<span title='Plays while promoted'>▶ " + (p.plays || 0) + "</span>"
-            + "<span title='Likes while promoted'>👍 " + (p.likes || 0) + "</span>"
-            + "<span title='Tokens spent'>⛏ " + (p.tokens || 0) + "</span>"
+            + "<span title='Times shown to people'>👁 " + Number(p.views || 0) + "</span>"
+            + "<span title='Plays while promoted'>▶ " + Number(p.plays || 0) + "</span>"
+            + "<span title='Likes while promoted'>👍 " + Number(p.likes || 0) + "</span>"
+            + "<span title='Tokens spent'>⛏ " + Number(p.tokens || 0) + "</span>"
             + "<span class='promo-time' title='Promotion time remaining'>" + left + "</span>"
           + "</div>"
           + "<div class='promo-actions'>"
@@ -524,7 +524,7 @@ var promoBoss = {
             + "<button class='promo-act promo-topup' data-a='topup'>＋ Add credits</button>"
           + "</div>"
           + "<div class='promo-topup-row'>"
-            + "<input type='number' class='promo-add' min='1' step='1' value='" + (self._cost || 5) + "'>"
+            + "<input type='number' class='promo-add' min='1' step='1' value='" + Number(self._cost || 5) + "'>"
             + "<span class='promo-add-dur'></span>"
             + "<button class='promo-act promo-confirm' data-a='extend'>Add</button>"
             + "<button class='promo-act promo-cancel' data-a='cancel'>✕</button>"

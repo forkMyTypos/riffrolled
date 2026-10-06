@@ -29,6 +29,17 @@ ALLOWED_ORIGIN = "https://riffrolled.com"
 # PROMOTE_COST = "5"            # tokens to promote a track
 # PROMOTE_HOURS = "24"          # how long a promotion stays live
 
+# ── link verification (defaults shown) ──
+# Anyone can POST to /api/track and /api/playlist/save, so before a link joins
+# the shared catalogue the Worker asks YouTube's keyless oEmbed endpoint
+# whether the video exists. No API key, no YouTube quota, cached at the edge.
+# A Worker on the free plan gets 50 external subrequests per invocation, so
+# the per-request cap sits well under that; tracks beyond it are stored
+# unverified and stay out of the public catalogue until something confirms
+# them. Set VERIFY_LINKS = "0" to switch the whole thing off.
+# VERIFY_LINKS = "1"
+# VERIFY_MAX_CHECKS = "24"      # live oEmbed checks per request
+
 # ── AI DJ resolution (defaults shown) ──
 # Resolving an AI playlist tries free paths first (a link the browser
 # validated via YouTube's keyless oEmbed endpoint, then our own catalogue).

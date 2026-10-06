@@ -81,6 +81,16 @@ const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS idx_pl_tracks ON playlist_tracks(playlist_id, position)`,
     `CREATE INDEX IF NOT EXISTS idx_pl_track_id ON playlist_tracks(track_id)`,
   ]},
+  { id: 11, name: 'verified tracks', sql: [
+    // 0 = nobody has confirmed this video exists. Everything already in the
+    // catalogue arrived either from the YouTube Data API (search, channel and
+    // playlist imports, where the id came from YouTube itself) or from a
+    // browser that had already oEmbed-checked it, so existing rows are
+    // grandfathered to 1 rather than hidden overnight.
+    `ALTER TABLE tracks ADD COLUMN verified INTEGER NOT NULL DEFAULT 0`,
+    `UPDATE tracks SET verified = 1`,
+    `CREATE INDEX IF NOT EXISTS idx_tracks_verified ON tracks(verified)`,
+  ]},
 ];
 
 // "already there" is success: the work this statement would do is done

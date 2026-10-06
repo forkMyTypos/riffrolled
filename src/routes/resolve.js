@@ -207,7 +207,7 @@ export async function handleResolve(request, env) {
   }
 
   // one write for everything new — deduped by url inside insertTracks
-  if (toInsert.length) await insertTracks(env.DB, toInsert, 'ai');
+  if (toInsert.length) await insertTracks(env.DB, toInsert, 'ai', 1);      // resolved against YouTube before this point
 
   return json(env, {
     results,

@@ -35,9 +35,10 @@ export async function searchTracks(db, q, limit) {
     .prepare(
       `SELECT id, name, artist, genre, url
          FROM tracks
-        WHERE name   LIKE ?1 ESCAPE '\\' COLLATE NOCASE
-           OR artist LIKE ?1 ESCAPE '\\' COLLATE NOCASE
-           OR genre  LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+        WHERE verified = 1
+          AND (name   LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+            OR artist LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+            OR genre  LIKE ?1 ESCAPE '\\' COLLATE NOCASE)
         ORDER BY id DESC
         LIMIT ?2`
     )
@@ -51,11 +52,12 @@ export async function listTracks(db, genre, limit) {
   const stmt = genre
     ? db.prepare(
         `SELECT id, name, artist, genre, url FROM tracks
-          WHERE genre LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+          WHERE verified = 1 AND genre LIKE ?1 ESCAPE '\\' COLLATE NOCASE
           ORDER BY id DESC LIMIT ?2`
       ).bind(likeParam(genre), limit)
     : db.prepare(
-        `SELECT id, name, artist, genre, url FROM tracks ORDER BY id DESC LIMIT ?1`
+        `SELECT id, name, artist, genre, url FROM tracks
+          WHERE verified = 1 ORDER BY id DESC LIMIT ?1`
       ).bind(limit);
   const { results } = await stmt.all();
   return results || [];
@@ -67,7 +69,15 @@ export async function listTracks(db, genre, limit) {
  */
 const SOURCES = new Set(['search', 'channel', 'playlist', 'paste', 'ai']);
 
-export async function insertTracks(db, tracks, source = '') {
+/**
+ * @param verified 1 when something has confirmed each video exists (the
+ *   YouTube Data API returned it, or oEmbed answered 200), 0 when it is
+ *   only a well-formed url somebody sent us. Unverified rows stay out of
+ *   the public catalogue until something confirms them — see listTracks.
+ *   The caller must pass this deliberately; defaulting it to 1 would make
+ *   forgetting it the insecure option.
+ */
+export async function insertTracks(db, tracks, source = '', verified = 0) {
   // sanitise at the single choke point: canonical YouTube urls only, clamped text
   const clean = tracks
     .map((t) => ({ ...clampTrack(t), url: canonicalYouTubeUrl(t.url) }))
@@ -75,14 +85,37 @@ export async function insertTracks(db, tracks, source = '') {
   if (!clean.length) return 0;
   const src = SOURCES.has(source) ? source : '';
   const now = new Date().toISOString();
+  const ok = verified ? 1 : 0;
   // NOT EXISTS keeps the first arrival's timestamp: re-adding never rewrites history
   const stmt = db.prepare(
-    `INSERT INTO tracks (name, artist, genre, url, added_at, source)
-     SELECT ?1, ?2, ?3, ?4, ?5, ?6
+    `INSERT INTO tracks (name, artist, genre, url, added_at, source, verified)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
       WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
   );
-  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src)));
+  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok)));
   return clean.length;
+}
+
+/** Promote rows to verified once something has confirmed them. Never demotes. */
+export async function markVerified(db, urls) {
+  const list = (urls || []).map(canonicalYouTubeUrl).filter(Boolean);
+  if (!list.length) return 0;
+  const stmt = db.prepare(`UPDATE tracks SET verified = 1 WHERE url = ?1 AND verified = 0`);
+  const res = await db.batch(list.map((u) => stmt.bind(u)));
+  return res.reduce((n, r) => n + ((r.meta && r.meta.changes) || 0), 0);
+}
+
+/** Which of these urls the catalogue already holds, and whether each is
+ *  confirmed. Lets a route skip paying for a check it doesn't need — a D1
+ *  read is not an external subrequest, an oEmbed call is. */
+export async function knownUrls(db, urls) {
+  const list = (urls || []).map(canonicalYouTubeUrl).filter(Boolean);
+  if (!list.length) return new Map();
+  const marks = list.map((_, i) => '?' + (i + 1)).join(', ');
+  const { results } = await db
+    .prepare(`SELECT url, verified FROM tracks WHERE url IN (${marks})`)
+    .bind(...list).all();
+  return new Map((results || []).map((r) => [r.url, !!r.verified]));
 }
 
 export async function getTrackByUrl(db, url) {

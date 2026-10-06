@@ -14,7 +14,11 @@
 // this is our own database.
 
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
-import { insertTracks, getTrackByUrl, canonicalYouTubeUrl, createPlaylist, addPlaylistTracks } from '../db/queries.js';
+import {
+  insertTracks, getTrackByUrl, canonicalYouTubeUrl, createPlaylist, addPlaylistTracks,
+  knownUrls, markVerified,
+} from '../db/queries.js';
+import { verifyMany, verifyConfig, idFromUrl } from '../services/oembed.js';
 
 const MAX_TRACKS = 50;
 
@@ -28,7 +32,7 @@ export async function handleSavePlaylist(request, env) {
   if (rows.length > MAX_TRACKS) return errorJson(env, `Too many tracks (max ${MAX_TRACKS})`, 400);
 
   // canonical YouTube urls only — same choke point as every other write
-  const clean = rows
+  let clean = rows
     .map((t) => ({
       name: String(t?.name || '').trim().slice(0, 300),
       artist: String(t?.artist || '').trim().slice(0, 200),
@@ -39,8 +43,57 @@ export async function handleSavePlaylist(request, env) {
 
   if (!clean.length) return errorJson(env, 'No valid YouTube links', 400);
 
-  // new tracks join the catalogue; existing rows are left exactly as they are
-  await insertTracks(env.DB, clean, 'ai');
+  /* ── verify before anything joins the shared catalogue ───────────────
+     The browser oEmbed-checks on import, but this endpoint is reachable
+     without the browser, so the check has to exist here too.
+
+     The budget is the thing to respect: a Worker on the free plan gets 50
+     external subrequests per invocation, and a fifty-track set would spend
+     all of them here and then fail on the next fetch. So:
+
+       · urls the catalogue already holds as verified cost nothing (a D1
+         read is not an external subrequest)
+       · the rest are checked up to a cap well under the ceiling
+       · anything YouTube denies is dropped from the set entirely
+       · anything left unchecked is stored unverified — present, playable
+         from this playlist, but invisible in the public catalogue until
+         something confirms it
+
+     The result is that no number of tracks can push the request over the
+     limit, and no unverified row can reach the catalogue listings. */
+  const cfg = verifyConfig(env);
+  let dropped = [];
+  let checked = 0;
+  let known = new Map();
+
+  if (cfg.enabled) {
+    known = await knownUrls(env.DB, clean.map((t) => t.url));
+    const unconfirmed = clean.filter((t) => !known.get(t.url));
+    const verdicts = await verifyMany(unconfirmed.map((t) => idFromUrl(t.url)), { max: cfg.maxChecks });
+    checked = verdicts.size;
+
+    const dead = new Set();
+    for (const t of unconfirmed) {
+      const v = verdicts.get(idFromUrl(t.url));
+      if (v && !v.ok) dead.add(t.url);
+    }
+    dropped = clean.filter((t) => dead.has(t.url)).map((t) => t.name || t.url);
+    clean = clean.filter((t) => !dead.has(t.url));
+    if (!clean.length) {
+      return errorJson(env, 'None of those links point at a real YouTube video', 422, 'all_dead');
+    }
+
+    // confirmed-good rows go in verified; everything else waits
+    const good = new Set(
+      unconfirmed.filter((t) => { const v = verdicts.get(idFromUrl(t.url)); return v && v.ok && !v.unknown; })
+                 .map((t) => t.url)
+    );
+    await insertTracks(env.DB, clean.filter((t) => good.has(t.url) || known.get(t.url)), 'ai', 1);
+    await insertTracks(env.DB, clean.filter((t) => !good.has(t.url) && !known.get(t.url)), 'ai', 0);
+    await markVerified(env.DB, [...good]);
+  } else {
+    await insertTracks(env.DB, clean, 'ai', 0);
+  }
 
   const ids = [];
   for (const t of clean) {
@@ -60,5 +113,11 @@ export async function handleSavePlaylist(request, env) {
   const playlistId = await createPlaylist(env.DB, name, source, nowIso());
   await addPlaylistTracks(env.DB, playlistId, ids);
 
-  return json(env, { id: playlistId, name, tracks: ids.length }, 201);
+  // say what was dropped and why — a set that silently came back shorter is
+  // the kind of thing people notice three tracks later and never report
+  return json(env, {
+    id: playlistId, name, tracks: ids.length,
+    ...(dropped.length ? { dropped } : {}),
+    ...(checked ? { checked } : {}),
+  }, 201);
 }

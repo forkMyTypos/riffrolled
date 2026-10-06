@@ -19,7 +19,7 @@ export async function handleChannelImport(request, env, url) {
     const tracks = await fetchChannelUploads(env, channel.uploadsPlaylistId, limit);
 
     const before = await countTracks(env.DB);
-    if (tracks.length) await insertTracks(env.DB, tracks, 'channel');
+    if (tracks.length) await insertTracks(env.DB, tracks, 'channel', 1);   // ids came from YouTube itself
     const added = (await countTracks(env.DB)) - before;
 
     return json(env, {
@@ -59,7 +59,7 @@ export async function handlePlaylistImport(request, env, url) {
     const tracks = await fetchChannelUploads(env, listId, limit);   // works for any playlist id
 
     const before = await countTracks(env.DB);
-    if (tracks.length) await insertTracks(env.DB, tracks, 'playlist');
+    if (tracks.length) await insertTracks(env.DB, tracks, 'playlist', 1);  // ids came from YouTube itself
     const added = (await countTracks(env.DB)) - before;
 
     return json(env, { channel: title, fetched: tracks.length, added, tracks });

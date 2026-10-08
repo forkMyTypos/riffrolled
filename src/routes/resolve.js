@@ -18,6 +18,7 @@
 // source='ai', so an AI DJ session makes the next one cheaper for everyone.
 
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
+import { getConfig } from '../config.js';
 import {
   searchTracks, insertTracks, getTrackByUrl, canonicalYouTubeUrl,
   countAiLookups, addAiLookups,
@@ -28,11 +29,9 @@ const MAX_ITEMS = 30;        // one request can't ask for an unbounded playlist
 const CANDIDATES = 6;        // rows considered per item before scoring
 
 /** Tunables (override in wrangler.toml [vars]). */
-export function resolveConfig(env) {
-  return {
-    dailyLookups: Math.max(Number(env.AI_YT_DAILY) || 40, 0),
-    perRequest: Math.max(Number(env.AI_YT_PER_REQUEST) || 8, 0),
-  };
+export async function resolveConfig(env) {
+  const c = await getConfig(env);
+  return { dailyLookups: c.AI_YT_DAILY, perRequest: c.AI_YT_PER_REQUEST };
 }
 
 /* ── matching ───────────────────────────────────────────────────────────
@@ -121,7 +120,7 @@ export async function handleResolve(request, env) {
   if (!raw || !raw.length) return errorJson(env, 'Missing items', 400);
   if (raw.length > MAX_ITEMS) return errorJson(env, `Too many items (max ${MAX_ITEMS})`, 400);
 
-  const cfg = resolveConfig(env);
+  const cfg = await resolveConfig(env);
   const now = nowIso();
   const day = now.slice(0, 10);
   const allowYouTube = body?.allowYouTube !== false;

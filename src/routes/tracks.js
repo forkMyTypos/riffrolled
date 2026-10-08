@@ -2,9 +2,13 @@
 //   GET  /api/tracks?genre=&limit=   list (optionally by genre)
 //   POST /api/track                  { name, artist?, genre?, url } manual add
 
-import { json, errorJson, readJson } from '../utils/response.js';
-import { listTracks, insertTracks, getTrackByUrl, canonicalYouTubeUrl, knownUrls } from '../db/queries.js';
+import { json, errorJson, readJson, nowIso } from '../utils/response.js';
+import {
+  listTracks, insertTracks, getTrackByUrl, canonicalYouTubeUrl, knownUrls,
+  WALLET_RE, ensureWallet,
+} from '../db/queries.js';
 import { verifyOne, verifyConfig, idFromUrl } from '../services/oembed.js';
+import { credit as contribCredit } from '../contrib.js';
 
 export async function handleListTracks(request, env, url) {
   const genre = (url.searchParams.get('genre') || '').trim().slice(0, 100);
@@ -34,7 +38,7 @@ export async function handleAddTrack(request, env) {
      A video we can't reach a verdict on is stored unverified rather than
      refused: the catalogue hides it until something confirms it, which is the
      safe half of both outcomes. */
-  const cfg = verifyConfig(env);
+  const cfg = await verifyConfig(env);
   let verified = 0;
   if (cfg.enabled) {
     const seen = await knownUrls(env.DB, [canonical]);
@@ -49,6 +53,12 @@ export async function handleAddTrack(request, env) {
     }
   }
 
+  /* Was this video already here? Asked BEFORE the insert, because the
+     insert is NOT EXISTS and afterwards there is no way to tell the
+     first person to add a track from the hundredth. Only the first is
+     contributing anything. */
+  const already = (await knownUrls(env.DB, [canonical])).get(canonical);
+
   await insertTracks(env.DB, [{
     name,
     artist: (body?.artist || '').trim(),
@@ -56,5 +66,21 @@ export async function handleAddTrack(request, env) {
     url: canonical,
   }], 'paste', verified);
   const track = await getTrackByUrl(env.DB, canonical);
-  return json(env, track, 201);
+
+  /* A contribution point, if a wallet was offered and this was genuinely
+     new and genuinely real. Unverified tracks score nothing: the whole
+     basis of this reward is that the Worker asked YouTube itself and got
+     an answer, so a video it could not reach a verdict on is not
+     evidence of anything yet.
+
+     The wallet is optional and the reward is best-effort — adding a
+     track must never fail because the points table was unhappy. */
+  let rewarded = 0;
+  const wallet = String(body?.wallet || '');
+  if (!already && verified && WALLET_RE.test(wallet)) {
+    await ensureWallet(env.DB, wallet, nowIso());
+    rewarded = await contribCredit(env, wallet, 'add', nowIso());
+  }
+
+  return json(env, { ...track, contributed: !already && !!verified, points: rewarded }, 201);
 }

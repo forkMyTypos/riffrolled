@@ -61,7 +61,7 @@ export async function handleSavePlaylist(request, env) {
 
      The result is that no number of tracks can push the request over the
      limit, and no unverified row can reach the catalogue listings. */
-  const cfg = verifyConfig(env);
+  const cfg = await verifyConfig(env);
   let dropped = [];
   let checked = 0;
   let known = new Map();

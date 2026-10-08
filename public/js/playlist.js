@@ -27,14 +27,54 @@ var plBoss = {
     await this.renderPlaylists();   // picks the first playlist if none active
   },
 
-  /* ── TRANSPORT + KEYS ── */
+  /* ── TRANSPORT + KEYS ──
+     One definition of what play means, used by the deck buttons, the mini
+     transport in this panel and the spacebar. The mini row had markup and a
+     synced ⏸/▶ glyph but no handler at all, so it looked live and did
+     nothing; three copies of the same two lines is how that happens. */
+  togglePlay(){
+    if (!player.currentYtId && this.queue.length) this.playIndex(0);
+    else player.toggle();
+  },
+
   bindTransport(){
-    player.el.play.onclick = () => {
-      if (!player.currentYtId && this.queue.length) this.playIndex(0);
-      else player.toggle();
-    };
+    player.el.play.onclick = () => this.togglePlay();
     player.el.prev.onclick = () => this.prev();
     player.el.next.onclick = () => this.next();
+    this.bindControlMenu();
+  },
+
+  bindControlMenu(){
+    var btn = document.getElementById('btnCtl');
+    var menu = document.getElementById('ctlMenu');
+    if (!btn || !menu) return;
+    var self = this;
+
+    var close = function(){
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    };
+    btn.onclick = function(e){
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      btn.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+    };
+    menu.addEventListener('click', function(e){
+      var mi = e.target.closest('.t-mi');
+      if (!mi) return;
+      if (mi.dataset.a === 'again'){ self.playAgain(); close(); return; }
+      if (mi.dataset.r){ self.setRepeat(mi.dataset.r); close(); }
+    });
+    // a menu that only closes via its own button is a menu you fight
+    document.addEventListener('click', function(e){
+      if (menu.hidden) return;
+      if (!menu.contains(e.target) && e.target !== btn) close();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && !menu.hidden) close();
+    });
+
+    this.loadRepeat();
   },
 
   bindKeys(){
@@ -55,8 +95,117 @@ var plBoss = {
     this.syncHighlight();
   },
 
+  /* ── what happens when a track ends ─────────────────────────────────
+     next() is two different questions wearing one name, and conflating
+     them is why there was no way to stop at the end of a playlist:
+
+       next()      the listener pressed ⏭. Always go to the next track,
+                   wrapping, whatever the repeat mode says — pressing
+                   next and having nothing happen is a broken button.
+       advance()   the track ended by itself. NOW the repeat mode decides.
+
+     Before this, ENDED called next() directly, so riffrolled had exactly
+     one behaviour: loop the playlist forever, with no way to replay one
+     track and no way to let a playlist finish. */
+
+  repeat: 'all',            // 'all' | 'one' | 'off'
+
+  async loadRepeat(){
+    try {
+      var v = await dbBoss.getSetting('repeatMode');
+      if (v === 'all' || v === 'one' || v === 'off') this.repeat = v;
+    } catch(e){ /* the default is fine */ }
+    this.syncRepeatUi();
+  },
+
+  setRepeat(mode){
+    if (['all', 'one', 'off'].indexOf(mode) < 0) return;
+    this.repeat = mode;
+    if (window.dbBoss) dbBoss.setSetting('repeatMode', mode);
+    this.syncRepeatUi();
+  },
+
+  syncRepeatUi(){
+    var menu = document.getElementById('ctlMenu');
+    var btn = document.getElementById('btnCtl');
+    if (menu){
+      menu.querySelectorAll('[data-r]').forEach((b) => {
+        var on = b.dataset.r === this.repeat;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+    }
+    /* The transport button carries the current mode, so the setting is
+       visible without opening the menu — otherwise "why did it stop?"
+       has no answer on screen. */
+    if (btn){
+      var face = { all:'🔁', one:'🔂', off:'⋯' }[this.repeat] || '⋯';
+      var why = { all:'Repeat: whole playlist', one:'Repeat: this one track',
+                  off:'Repeat off — stops at the end' }[this.repeat];
+      btn.textContent = face;
+      btn.title = why + ' · click for replay options';
+      btn.classList.toggle('on', this.repeat !== 'all');
+    }
+  },
+
+  /** Start the current track over from the beginning. */
+  playAgain(){
+    var t = this.queue[this.currentIndex];
+    if (!t){ if (this.queue.length) this.playIndex(0); return; }
+    player.load(t.ytId, t.name);
+  },
+
+  /** The track finished on its own. */
+  advance(){
+    if (!this.queue.length) return;
+    if (this.repeat === 'one'){ this.playAgain(); return; }
+    var last = this.currentIndex >= this.queue.length - 1;
+    if (last && this.repeat === 'off'){
+      // let it stop, but leave the deck on the track that just played so
+      // pressing play starts it again rather than doing nothing
+      player.setPlaying(false);
+      if (window.appNotify) appNotify('End of the playlist — repeat is off', 'ok');
+      return;
+    }
+    this.playIndex((this.currentIndex + 1) % this.queue.length);
+  },
+
   next(){ if (this.queue.length) this.playIndex((this.currentIndex + 1) % this.queue.length); },
   prev(){ if (this.queue.length) this.playIndex((this.currentIndex - 1 + this.queue.length) % this.queue.length); },
+
+  /* ── a track YouTube has permanently refused ──────────────────────────
+     Say what happened, take it out of this playlist, and offer it back.
+     Only this listener's playlist: nothing is removed from anyone else's,
+     and the track row, its play history, its tags and its links all stay —
+     PLAY_ORDER links live in their own table, so they survive the join row
+     going. The one thing that changes is SAME_PLAYLIST, which is derived
+     live from playlistTracks, and that is correct: it isn't in the
+     playlist any more. */
+  async dropUnplayable(ytId, reason){
+    const row = this.queue.find(t => t.ytId === ytId);
+    const joinId = row && row.joinId;
+    const name = (row && row.name) || ytId;
+    const plId = this.activeId;
+
+    if (joinId != null) await db.playlistTracks.delete(joinId);
+    await this.renderTracks();
+
+    const msg = (reason || 'That video can’t be played') + ' — removed “' + name + '” from this playlist.';
+    if (window.appNotify){
+      appNotify(msg, 'warn', joinId == null ? null : {
+        label: 'Undo',
+        run: async () => {
+          // put it back where it was, and let it be tried again
+          const t = await dbBoss.getTrack(ytId);
+          if (t && plId){
+            await dbBoss.addToPlaylist(plId, t.id);
+            await dbBoss.clearPlayable(ytId);
+            await this.renderTracks();
+          }
+        },
+      });
+    }
+  },
 
   syncHighlight(){
     const c = this.currentEl.querySelector('.active-pl-tracks');
@@ -158,6 +307,15 @@ var plBoss = {
 
   bindCurrentEvents(){
     const root   = this.currentEl;
+
+    // ── mini transport ── delegated, so re-rendering the panel can't lose it
+    root.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('.mini-prev, .mini-play, .mini-next');
+      if (!b) return;
+      if (b.classList.contains('mini-prev')) this.prev();
+      else if (b.classList.contains('mini-next')) this.next();
+      else this.togglePlay();
+    });
 
     // ── playlist search popup ──
     const srh = root.querySelector('.pl-srh');
@@ -296,18 +454,40 @@ var plBoss = {
     }
 
     const tracks = await db.tracks.bulkGet(joins.map(j => j.trackId));
+    // `.filter(Boolean)` drops joins whose track row has gone; `playable !== 0`
+    // drops the ones YouTube has permanently refused. A dead track is removed
+    // from the playlist when it fails, so this is the belt to that braces —
+    // it also covers tracks marked dead on another device, or restored from
+    // a backup that already knew.
     this.queue = tracks
-      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id } : null)
-      .filter(Boolean);
+      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id, playable: t.playable } : null)
+      .filter(t => t && t.playable !== 0);
 
     this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
 
+    /* Promoted tracks are marked wherever they appear, including here.
+       This is not decoration. A track can reach a playlist as a paid
+       placement — offered in a DJ brief, or added from the Promoted strip
+       — and once it is in the queue it looks exactly like a track the
+       listener chose. Saying so is the disclosure, and it has to live at
+       the point of play rather than only at the point of offer, because
+       that is where somebody actually listens to it.
+
+       promoTrack.ids is the live promoted set, refreshed from
+       /api/promotions. If that fetch failed the set is empty and nothing
+       is labelled, which is the one failure mode worth noting: the badge
+       is best-effort, so it must never be the only disclosure. The DJ
+       brief says it in words too. */
+    const promoted = (window.promoTrack && promoTrack.ids) || new Set();
+
     container.innerHTML = this.queue.map((t, i)=>`
-      <div class="row-item track-item" data-i="${i}" data-yt="${escapeHtml(t.ytId)}" draggable="true">
+      <div class="row-item track-item${ promoted.has(t.ytId) ? ' is-promoted' : '' }" data-i="${i}" data-yt="${escapeHtml(t.ytId)}" draggable="true">
         <span class="track-handle" title="Drag to reorder">⠿</span>
         <span class="track-num">${i+1}</span>
         ${ t.ytId === player.currentYtId ? `<span class="now-dot">♪</span>` : '' }
         <span class="name">${ t.artist ? `<span class="track-artist">${escapeHtml(t.artist)}</span>` : '' }${escapeHtml(t.name)}</span>
+        ${ promoted.has(t.ytId) ? `<span class="promo-tag" title="Promoted: somebody spent riff tokens to put this track in front of people. It is in your playlist because you or your AI chose to add it.">promoted</span>` : '' }
+        <button class="info-btn" data-yt="${escapeHtml(t.ytId)}" title="Track info — title, artist, tags">ℹ</button>
         <button class="del-btn" data-join="${t.joinId}" title="Remove from playlist">✕</button>
       </div>
     `).join('');
@@ -315,6 +495,15 @@ var plBoss = {
     // play on click
     container.querySelectorAll('.track-item').forEach(el=>{
       el.onclick = (e) => {
+        // the info button opens the panel for THIS track rather than
+        // playing it — the whole point is reading about a track you are
+        // not listening to
+        const info = e.target.closest('.info-btn');
+        if (info){
+          e.stopPropagation();
+          if (window.trackInfo) trackInfo.show(info.dataset.yt);
+          return;
+        }
         if (e.target.classList.contains('del-btn') || e.target.classList.contains('track-handle')) return;
         this.playIndex(Number(el.dataset.i));
       };

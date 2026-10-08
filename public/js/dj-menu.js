@@ -104,6 +104,19 @@ var djMenuBoss = {
             "<input type='checkbox' class='dj-share-cb'><span class='spin-track'><span class='spin-thumb'></span></span>" +
             "<span class='spin-label'>Share my listening with the DJ</span>" +
           "</label>" +
+          /* Opt-in, and worded so the trade is plain before it is taken:
+             what goes in the brief, who paid for it, and that the DJ is
+             under no obligation to use it. Off by default — a brief is
+             something you are about to hand to someone else. */
+          "<label class='dj-promo-opt'>" +
+            "<input type='checkbox' class='dj-promo-cb'><span class='spin-track'><span class='spin-thumb'></span></span>" +
+            "<span class='spin-label'>Allow promotional tracks</span>" +
+          "</label>" +
+          "<div class='dj-promo-note'>" +
+            "Adds up to three paid placements to the brief when they match the " +
+            "moods you picked. Your AI decides whether to use them, and " +
+            "riffrolled labels them as promoted wherever they turn up." +
+          "</div>" +
           "<div class='dj-knows-what'></div>" +
         "</div>" +
       "</div>" +
@@ -431,6 +444,18 @@ var djMenuBoss = {
       self.renderKnows(); self.sync();
     };
 
+    root.querySelector('.dj-promo-cb').onchange = async function(){
+      djAi.state.allowPromoted = this.checked;
+      /* Turning it on or off changes what the brief contains, so the
+         next copy is a new brief. Turning it OFF matters most: without
+         this, placements offered while it was on would still be sitting
+         against the old brief id and would be charged by a later copy
+         that no longer contains them. */
+      djAi.newBrief();
+      await djAi.save();
+      self.renderKnows(); self.sync();
+    };
+
     root.querySelector('.dj-copy').onclick = function(){ self.copyBrief(); };
     root.querySelector('.dj-go').onclick = function(){ self.importReply(); };
 
@@ -531,6 +556,16 @@ var djMenuBoss = {
       await djAi.save(); this.sync(); return;
     }
     if (e.target.closest('.dj-expand')){            // speed mode: open the numbers
+      this.open._time = !this.open._time;
+      this.renderSections(); return;
+    }
+    /* The whole Length row opens it too, not just the ＋. Every other
+       section head in this panel toggles when you click it, so a row
+       that looks identical and only responds to a 16px button is a trap
+       — the browser test tripped over it before a person had to. The ＋
+       stays as the affordance; this just widens the target to the row.
+       Details mode renders Length permanently open, hence the guard. */
+    if (e.target.closest('.dj-time-head') && this.speed()){
       this.open._time = !this.open._time;
       this.renderSections(); return;
     }
@@ -643,6 +678,7 @@ var djMenuBoss = {
     if (avg) avg.textContent = '≈ ' + djAi.avgMinutes() + ' min each';
 
     root.querySelector('.dj-share-cb').checked = s.shareContext;
+    root.querySelector('.dj-promo-cb').checked = !!s.allowPromoted;
     root.querySelector('.dj-knows-state').textContent = s.shareContext ? 'sharing' : 'private';
     root.querySelector('.dj-knows-state').className = 'dj-knows-state' + (s.shareContext ? ' on' : '');
     // speed mode shares the top ten and says so; details shares the lot
@@ -840,6 +876,13 @@ var djMenuBoss = {
     btn.disabled = true;
     try {
       var text = await djAi.buildPrompt();
+      /* The billable moment, in both branches below. The brief has been
+         built and the person is looking at it either way — on the
+         clipboard, or in the fallback box when the clipboard is blocked.
+         Not awaited: a placement must never be what stops a brief being
+         copied, and the server charges once per brief whenever it
+         arrives. */
+      djAi.claimPromoted();
       try {
         await navigator.clipboard.writeText(text);
         if (window.appToast) appToast('Prompt copied — paste it into your AI', 'ok');

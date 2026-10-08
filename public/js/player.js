@@ -18,15 +18,18 @@ var player = {
     arm:     document.getElementById('arm'),
     screenPh: document.getElementById('screenPh'),
     title:   document.querySelector('#npTitle .np-text'),
-    panelTitle: document.querySelector('.ct-title'),
     play:    document.getElementById('btnPlay'),
     prev:    document.getElementById('btnPrev'),
     next:    document.getElementById('btnNext'),
-    artist:       document.querySelector('.np-artist'),
-    tags:         document.querySelector('.np-tags'),
-    // reactions appear in two places now (deck + Current Track panel)
-    likeCount:    document.querySelectorAll('.like-count'),
-    dislikeCount: document.querySelectorAll('.dislike-count')
+    /* Only the deck's counts. The Track info panel has its own pair and
+       fills them for whichever track it is showing; if the player wrote
+       to every .like-count, a panel pinned to another track would have
+       the playing track's numbers stamped over it on the next change.
+       Same reason the title, artist and tags editors moved out. */
+    likeCount:    [].filter.call(document.querySelectorAll('.like-count'),
+                                 function(n){ return !n.closest('#ctPanel'); }),
+    dislikeCount: [].filter.call(document.querySelectorAll('.dislike-count'),
+                                 function(n){ return !n.closest('#ctPanel'); })
   },
 
   // called once the IFrame API has loaded
@@ -46,14 +49,36 @@ var player = {
     });
   },
 
-  // unplayable video: tell the user and skip ahead (but stop if the whole queue keeps failing)
+  /* A video that won't play: say so, remember it, take it out of the way.
+     Which of those three happens depends on WHY it failed — see
+     dbBoss.PERMANENT_ERRORS. A permanent refusal is worth recording and
+     acting on; a transient one is worth neither, because marking a track
+     dead on a flaky connection is far worse than retrying it. */
   onError: function (e) {
-    var code = e && e.data, msg;
-    if (code === 100)               msg = 'That video was removed or is private — skipping.';
-    else if (code === 101 || code === 150) msg = 'The owner doesn’t allow this one to play in embeds — skipping.';
-    else if (code === 2)            msg = 'That video link looks invalid — skipping.';
-    else                            msg = 'This video couldn’t be played — skipping.';
-    if (window.appNotify) appNotify(msg, 'warn');
+    var code = Number(e && e.data);
+    var permanent = window.dbBoss && dbBoss.PERMANENT_ERRORS.indexOf(code) >= 0;
+    var msg;
+    if (code === 100)                      msg = 'That video was removed or is private';
+    else if (code === 101 || code === 150) msg = 'The owner doesn’t allow this one to play in embeds';
+    else if (code === 2)                   msg = 'That video link looks invalid';
+    else                                   msg = 'This video couldn’t be played';
+
+    var ytId = this.currentYtId;
+    this.setPlaying(false);           // load() said "playing" optimistically; it isn't
+
+    if (permanent && ytId && window.dbBoss) {
+      var self = this;
+      dbBoss.markUnplayable(ytId, code).then(function (marked) {
+        if (!marked) return;
+        // Dan's call: it comes out of the playlist, after the message, with
+        // an undo — YouTube occasionally un-breaks things, and a removal
+        // nobody asked for should be reversible while the banner is up.
+        if (window.plBoss && plBoss.dropUnplayable) plBoss.dropUnplayable(ytId, msg);
+        else if (window.appNotify) appNotify(msg + ' — skipping.', 'warn');
+      });
+    } else if (window.appNotify) {
+      appNotify(msg + ' — skipping.', 'warn');
+    }
 
     var qlen = (window.plBoss && plBoss.queue) ? plBoss.queue.length : 0;
     this._errStreak = (this._errStreak || 0) + 1;
@@ -68,9 +93,50 @@ var player = {
 
   onState: function (e) {
     if (typeof YT === 'undefined') return;
-    if (e.data === YT.PlayerState.ENDED)  { if (window.plBoss && plBoss.next) plBoss.next(); }
-    else if (e.data === YT.PlayerState.PLAYING) { this._errStreak = 0; this.setPlaying(true); }
+    /* A track ending by itself goes through advance(), which is where
+       the repeat mode is consulted. The error path above deliberately
+       still calls next(): skipping a dead video is not a track ending,
+       and "keep replaying this one" must not mean "retry the broken one
+       forever". */
+    if (e.data === YT.PlayerState.ENDED)  { if (window.plBoss && plBoss.advance) plBoss.advance(); }
+    else if (e.data === YT.PlayerState.PLAYING) {
+      this._errStreak = 0;
+      this.setPlaying(true);
+      /* The listening record belongs HERE, not in load(). It used to run
+         the moment a track was handed to YouTube — before YouTube had said
+         whether it works — so every dead video wrote a play-history row and
+         could contribute a PLAY_ORDER link. That made the listening data
+         quietly wrong, which matters more now links are going to earn
+         people credits. */
+      this.logPlaying();
+    }
     else if (e.data === YT.PlayerState.PAUSED)  { this.setPlaying(false); }
+  },
+
+  /** Called once per track, when it genuinely starts playing. */
+  logPlaying: function () {
+    var ytId = this.currentYtId;
+    if (!ytId || !window.dbBoss) return;
+    if (this._loggedYtId === ytId && this._loggedAt === this._lastLoadTs) return;  // resume, not a new play
+    this._loggedYtId = ytId;
+    this._loggedAt = this._lastLoadTs;
+
+    dbBoss.markPlayable(ytId);
+    dbBoss.logPlay(ytId);
+    /* Quiet local link tracking: this track followed the previous one, and
+       in that order. How long the previous one actually played goes with
+       it — dbBoss decides what counts, so a two-second skip or a track
+       resumed hours later doesn't become evidence that they go together. */
+    if (this._prevPlayed && this._prevPlayed !== ytId) {
+      dbBoss.recordPair(this._prevPlayed, ytId, {
+        dwellMs: this._prevPlayedAt ? (Date.now() - this._prevPlayedAt) : undefined
+      });
+    }
+    this._prevPlayed = ytId;
+    this._prevPlayedAt = Date.now();
+    if (window.promoTrack) promoTrack.event(ytId, 'play');
+    // the shared catalogue's own count — anonymous, batched, see stats.js
+    if (window.statsBoss) statsBoss.play(ytId);
   },
 
   load: function (ytId, title) {
@@ -81,7 +147,9 @@ var player = {
     var scr = document.querySelector('#deck .screen');
     if (scr) scr.classList.add('has-video');
     this.el.title.textContent = title || ytId;
-    if (this.el.panelTitle) this.el.panelTitle.value = title || ytId;
+    // the panel's title field is filled by trackInfo.render, from the
+    // database row rather than from the YouTube title — refreshMeta below
+    // creates that row and then tells the panel to follow
     // pop the Current Track panel on a track change (toggle in that panel; on by default)
     if (window._ctAutoOpen && window.dock && !dock.mobile) {
       var ct = document.getElementById('ctPanel');
@@ -93,23 +161,11 @@ var player = {
       this.pending = { id: ytId, title: title };  // play as soon as the player is ready
     }
     this.setPlaying(true);
-    if (window.dbBoss) {
-      dbBoss.logPlay(ytId);
-      /* Quiet local link tracking: this track followed the previous one,
-         and in that order. How long the previous one actually played goes
-         with it — dbBoss decides what counts, so a two-second skip or a
-         track resumed hours later doesn't become evidence that they go
-         together. */
-      if (this._lastYtId && this._lastYtId !== ytId){
-        dbBoss.recordPair(this._lastYtId, ytId, {
-          dwellMs: this._lastLoadTs ? (Date.now() - this._lastLoadTs) : undefined
-        });
-      }
-      this._lastYtId = ytId;
-      this._lastLoadTs = Date.now();
-      if (window.promoTrack) promoTrack.event(ytId, 'play');
-      this.refreshMeta(ytId, title || ytId);
-    }
+    this._lastLoadTs = Date.now();
+    // logPlay / recordPair / promoTrack deliberately do NOT run here — they
+    // run from onState when YouTube reports PLAYING, so a video that turns
+    // out to be dead never enters the listening record. See logPlaying().
+    if (window.dbBoss) this.refreshMeta(ytId, title || ytId);
   },
 
   // ensure a track row exists, then populate artist/tags inputs + reaction counts
@@ -128,10 +184,12 @@ var player = {
           this.el.title.textContent = t.artist + ' — ' + shown;
         }
       }
-      if (this.el.artist)       this.el.artist.value = (t && t.artist) || '';
-      if (this.el.tags)         this.el.tags.value   = (t && t.tags)   || '';
       this.el.likeCount.forEach(function(n){ n.textContent = rc.like; });
       this.el.dislikeCount.forEach(function(n){ n.textContent = rc.dislike; });
+      /* The Track info panel fills its own fields. It used to be filled
+         from here, which is why it could only ever show the track playing
+         now — see track-info.js. */
+      if (window.trackInfo) trackInfo.follow(ytId);
     } catch (e) { /* meta is best-effort */ }
   },
 
@@ -379,52 +437,69 @@ function onYouTubeIframeAPIReady() { player.initApi(); }
   document.head.appendChild(tag);
 })();
 
-// spin on/off switch
+// spin on/off switch — persisted, like every other preference, because a
+// setting that resets on reload is a setting you have to keep turning off
 (function(){
   var t = document.getElementById('spinToggle');
   if (!t) return;
-  t.addEventListener('change', function(){
+
+  var apply = function(){
     player.spinEnabled = t.checked;
     player.el.platter.classList.toggle('playing', player.isPlaying && player.spinEnabled);
+    // the icon turns when the switch is on, so the control shows its state
+    var wrap = document.getElementById('spinWrap');
+    if (wrap) wrap.classList.toggle('on', t.checked);
+    // the Track info sleeve follows the same preference
+    if (window.trackInfo && trackInfo.renderPinnedState) trackInfo.renderPinnedState();
+  };
+
+  t.addEventListener('change', function(){
+    apply();
+    if (window.dbBoss) dbBoss.setSetting('spinEnabled', t.checked);
   });
+
+  if (window.dbBoss) dbBoss.getSetting('spinEnabled').then(function(v){
+    if (v === null || v === undefined) return;   // default stays on
+    t.checked = !!v;
+    apply();
+  }).catch(function(){ /* the default is fine */ });
+  apply();
 })();
 
-// now-playing meta: save artist/tags edits; like/dislike tally (can react repeatedly)
+/* like/dislike tally (you can react repeatedly — it is a count, not a vote)
+
+   The artist and tags editors used to live here and wrote to
+   player.currentYtId whenever they fired, which is exactly what stopped
+   the panel ever showing another track. They now belong to trackInfo,
+   which knows which track it is displaying. */
 (function(){
-  var artist  = document.querySelector('.np-artist');
-  var tags    = document.querySelector('.np-tags');
   var likes    = document.querySelectorAll('.react-like');
   var dislikes = document.querySelectorAll('.react-dislike');
 
-  if (artist) artist.addEventListener('change', function(){
-    if (player.currentYtId && window.dbBoss) dbBoss.updateTrackMeta(player.currentYtId, { artist: artist.value.trim() });
-  });
-  if (tags) tags.addEventListener('change', function(){
-    if (player.currentYtId && window.dbBoss) dbBoss.updateTrackMeta(player.currentYtId, { tags: tags.value.trim() });
-  });
-
+  /* Which track a reaction is about depends on which copy of the button
+     you pressed. The deck's buttons always mean the track playing. The
+     Track info panel's mean the track that panel is showing, which is
+     not always the same one now that it can be pinned — liking a track
+     you are reading about and having the one you are hearing get the
+     like would be a quiet little lie. */
   function react(kind){
     return async function(){
-      if (!player.currentYtId || !window.dbBoss) return;
-      await dbBoss.addReaction(player.currentYtId, kind);
-      if (kind === 'like' && window.promoTrack) promoTrack.event(player.currentYtId, 'like');
-      player.refreshMeta(player.currentYtId, player.el.title ? player.el.title.textContent : player.currentYtId);
+      var inPanel = !!this.closest('#ctPanel');
+      var ytId = (inPanel && window.trackInfo && trackInfo.target)
+        ? trackInfo.target : player.currentYtId;
+      if (!ytId || !window.dbBoss) return;
+      await dbBoss.addReaction(ytId, kind);
+      if (kind === 'like' && window.promoTrack) promoTrack.event(ytId, 'like');
+      if (window.trackInfo && trackInfo.target === ytId) await trackInfo.render();
+      if (ytId === player.currentYtId){
+        player.refreshMeta(ytId, player.el.title ? player.el.title.textContent : ytId);
+      }
     };
   }
   likes.forEach(function(b){ b.onclick = react('like'); });
   dislikes.forEach(function(b){ b.onclick = react('dislike'); });
 
-  // edit the current track's title from the Current Track panel
-  var titleEdit = document.querySelector('.ct-title');
-  if (titleEdit) titleEdit.addEventListener('change', async function(){
-    if (!player.currentYtId || !window.dbBoss) return;
-    var name = titleEdit.value.trim();
-    if (!name) return;
-    await dbBoss.updateTrackMeta(player.currentYtId, { name: name });
-    if (player.el.title) player.el.title.textContent = name;          // deck title
-    if (window.plBoss) { await plBoss.renderTracks(); plBoss.renderPlaylists(); }
-    if (window.searchBoss) searchBoss.render();
-  });
+  // the title editor moved to trackInfo along with artist and tags
 
   // "pop up on track change" toggle (persisted; on by default)
   window._ctAutoOpen = true;

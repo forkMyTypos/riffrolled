@@ -93,6 +93,103 @@
 
 .ct-autopop input { accent-color:#8a7bff; }
 
+/* ── Track info panel ─────────────────────────────────────────────────
+   Wider and taller than the old Current Track strip, because the panel
+   now has a job beyond confirming what is playing: it is where a track's
+   title, artist and tags get fixed, and editing in a 300px column is
+   miserable. */
+
+.ti-top { display:flex; gap:11px; align-items:flex-start; }
+
+/* The sleeve. A record rather than a rectangle, and it turns while this
+   track is the one playing — so the panel answers "am I looking at what
+   I'm hearing?" without a word of copy. */
+.ti-art {
+  position:relative; width:84px; height:84px; flex-shrink:0;
+  border-radius:50%; overflow:hidden;
+  background:#0c0c12; box-shadow:0 2px 10px rgba(0,0,0,0.5);
+}
+.ti-thumb { width:100%; height:100%; object-fit:cover; display:block; opacity:0.92; }
+/* the spindle hole, which is what makes it read as a record */
+.ti-hole {
+  position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px;
+  border-radius:50%; background:#13131c; box-shadow:0 0 0 2px rgba(0,0,0,0.6) inset;
+}
+.ti-art.spinning .ti-thumb { animation:ti-spin 3.4s linear infinite; }
+@keyframes ti-spin { to { transform:rotate(360deg); } }
+/* the one animation anybody is likely to have opted out of */
+@media (prefers-reduced-motion: reduce){
+  .ti-art.spinning .ti-thumb { animation:none; }
+  .ti-art.spinning { box-shadow:0 0 0 2px rgba(217,140,255,0.5); }
+}
+
+.ti-head { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.ti-head .np-artist {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.85); border-radius:7px; padding:5px 8px; font-size:12px; width:100%;
+}
+.ti-head .np-artist:focus, .ct-title-edit:focus { outline:none; border-color:rgba(217,140,255,0.55); }
+
+.ti-facts {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  font-size:10.5px; color:rgba(255,255,255,0.4);
+}
+.ti-facts .ti-yt { color:#ff5d6c; text-decoration:none; }
+.ti-facts .ti-yt:hover { text-decoration:underline; }
+
+/* only on screen while the panel is pinned to something else */
+.ti-elsewhere {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:10.5px; color:#ffd98e;
+  background:rgba(255,217,142,0.08); border:1px solid rgba(255,217,142,0.25);
+  border-radius:7px; padding:6px 8px;
+}
+.ti-elsewhere[hidden] { display:none; }
+.ti-back {
+  font:inherit; font-size:10.5px; cursor:pointer; white-space:nowrap;
+  background:none; border:1px solid rgba(255,217,142,0.4); color:#ffd98e;
+  border-radius:5px; padding:2px 7px;
+}
+.ti-back:hover { background:rgba(255,217,142,0.18); }
+
+/* ── tags as chips ──
+   A comma-separated text box asked you to get punctuation right and
+   showed you nothing until a reload. Chips show what is stored and come
+   off one at a time. */
+.ti-tagsec { display:flex; flex-direction:column; gap:6px; }
+.ti-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.ti-tag {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:10.5px; line-height:1; padding:4px 4px 4px 7px; border-radius:11px;
+  background:rgba(217,140,255,0.14); border:1px solid rgba(217,140,255,0.4); color:#e9c6ff;
+}
+.ti-tag-x {
+  font:inherit; font-size:9px; line-height:1; cursor:pointer;
+  background:none; border:none; color:rgba(233,198,255,0.6); padding:0 2px;
+}
+.ti-tag-x:hover { color:#fff; }
+.ti-notags { font-size:10.5px; color:rgba(255,255,255,0.3); }
+
+.ti-taginput {
+  display:flex; align-items:center; gap:0;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  border-radius:7px; padding:0 8px;
+}
+.ti-taginput:focus-within { border-color:rgba(217,140,255,0.55); }
+.ti-hash { font-size:12px; color:rgba(217,140,255,0.7); font-weight:700; padding-right:2px; }
+.ti-tagnew {
+  flex:1; min-width:0; background:none; border:none; color:rgba(255,255,255,0.85);
+  font-size:12px; padding:6px 2px;
+}
+.ti-tagnew:focus { outline:none; }
+
+/* the info button that opens this panel for a track you are not playing */
+.info-btn {
+  font:inherit; font-size:11px; line-height:1; flex-shrink:0; cursor:pointer;
+  background:none; border:none; color:rgba(255,255,255,0.25); padding:2px 4px;
+}
+.info-btn:hover { color:#d98cff; }
+
 /* ── RIFFROLLED: roll feature + brand accents ── */
 /* the logo dice tumble like they're mid-roll; each die pivots about its own centre */
 /* a real roll: dice spin fully */
@@ -104,8 +201,64 @@
 
 .t-btn.play { width:46px; height:46px; font-size:18px; }
 
+/* ── the control menu ─────────────────────────────────────────────────
+   Repeat mode and "play again" live in a menu rather than as two more
+   buttons on the transport, because they are set once and then left
+   alone — unlike prev/play/next, which are pressed constantly. The
+   button itself carries the current mode so the setting is readable
+   without opening anything. */
+.t-ctl { position:relative; }
+.t-btn.t-ctl-btn { width:30px; height:30px; font-size:12px; }
+.t-btn.t-ctl-btn.on { color:#d98cff; border-color:rgba(217,140,255,0.45); }
+
+.t-menu {
+  position:absolute; bottom:calc(100% + 8px); right:0; z-index:40;
+  min-width:250px; padding:5px;
+  background:#15151f; border:1px solid rgba(255,255,255,0.14);
+  border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6);
+}
+.t-menu[hidden] { display:none; }
+
+.t-mi {
+  display:flex; align-items:center; gap:8px; width:100%;
+  font:inherit; font-size:11.5px; text-align:left; cursor:pointer;
+  background:none; border:none; color:rgba(255,255,255,0.72);
+  padding:7px 8px; border-radius:7px;
+}
+.t-mi:hover { background:rgba(255,255,255,0.08); color:#fff; }
+.t-mi.on { color:#d98cff; }
+.t-mi.on .t-mi-ico { color:#d98cff; }
+.t-mi-ico { width:16px; flex-shrink:0; text-align:center; font-size:12px; color:rgba(255,255,255,0.4); }
+.t-mi-txt { flex:1; min-width:0; }
+/* The chosen mode is marked with a tick, not only a colour. Colour alone
+   is not a state anyone can read if they cannot see that colour — and
+   two of the three rows are emoji, which cannot be recoloured at all. */
+.t-mi-tick { flex-shrink:0; font-size:11px; opacity:0; color:#d98cff; }
+.t-mi.on .t-mi-tick { opacity:1; }
+.t-mi-sep { height:1px; margin:4px 2px; background:rgba(255,255,255,0.08); }
+.t-mi-lbl {
+  font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  color:rgba(255,255,255,0.3); padding:5px 8px 3px;
+}
+
+/* at phone width the menu would overflow the deck pinned to the right */
+@media (max-width: 560px){
+  .t-menu { right:auto; left:50%; transform:translateX(-50%); min-width:210px; }
+  .t-mi { font-size:11px; }
+}
+
 /* ── spin on/off switch under the deck ── */
-.spin-toggle { display:flex; align-items:center; gap:8px; font-size:11px; color:rgba(255,255,255,0.55); user-select:none; cursor:pointer; margin-top:8px; }
+.spin-toggle { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(255,255,255,0.55); user-select:none; cursor:pointer; margin-top:8px; }
+
+/* the record icon beside the switch: it turns while spin is on, so the
+   control demonstrates what it controls instead of only naming it */
+.spin-ico { display:flex; align-items:center; color:rgba(255,255,255,0.4); }
+.spin-toggle.on .spin-ico { color:#d98cff; }
+.spin-toggle.on .spin-ico svg { animation:spin-ico-turn 3.2s linear infinite; }
+@keyframes spin-ico-turn { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){
+  .spin-toggle.on .spin-ico svg { animation:none; }
+}
 
 .spin-toggle input { position:absolute; opacity:0; width:0; height:0; }
 

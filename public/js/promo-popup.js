@@ -64,44 +64,56 @@ var promoPopup = {
     await this.showOne();
   },
 
-  /* Weighted pick: a promotion's chance is proportional to the tokens
-     behind it, so a 40-token promotion is shown ~8x as often as a 5. */
-  pick(list){
-    var pool = list.filter(function(p){ return !this.seen[p.id]; }, this);
-    if (!pool.length){ this.seen = {}; pool = list; }      // everything seen: start over
-    var total = pool.reduce(function(s, p){ return s + Math.max(1, p.tokens || 1); }, 0);
-    var r = Math.random() * total;
-    for (var i = 0; i < pool.length; i++){
-      r -= Math.max(1, pool[i].tokens || 1);
-      if (r <= 0) return pool[i];
-    }
-    return pool[pool.length - 1];
-  },
+  /* The lottery used to run here: fetch the top twenty and pick one
+     locally, weighted by spend. It has moved to the server, because once an
+     impression costs a credit, a client that chooses which campaign to show
+     is a client that can drain a rival's campaign on request.
 
+     The server now picks AND debits in one step, so a credit spent means
+     riffrolled showed the card. All this does is draw what it is handed.
+
+     `exclude` asks not to be shown the same campaign twice in a row. It is
+     a preference, not a command — the server is free to ignore it, which is
+     the point: nothing the browser says can decide where money goes. */
   async showOne(){
     try {
-      var r = await fetch('/api/promotions');
+      var ex = Object.keys(this.seen).slice(-6).join(',');
+      var r = await fetch('/api/promotions/next?mode=popup' + (ex ? '&exclude=' + encodeURIComponent(ex) : ''),
+                          { cache: 'no-store' });
       if (!r.ok) return;
-      var list = await r.json();
-      if (!list.length) return;
+      var body = await r.json();
+      var p = body && body.promotion;
+      if (!p) return;                       // nothing live, or its last credit went elsewhere
 
-      var p = this.pick(list);
       var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(p.url || '');
       if (!m) return;
 
-      this.cur = { id: p.id, ytId: m[1], name: p.name || m[1], url: p.url };
+      this.cur = { id: p.id, ytId: m[1], name: p.label || p.name || m[1], url: p.url };
       this.seen[p.id] = 1;
       this.shown++;
 
-      // a small gig poster: art edge to edge, the band's name across the foot,
-      // play and add sitting over the artwork
+      /* A record on a shelf, not a gig poster.
+         The artwork is the centre label of a 7-inch single: a dark disc
+         with grooves, a spindle hole, and the thumbnail in the middle,
+         turning slowly. It belongs in riffrolled in a way a rectangle of
+         album art does not \u2014 the whole app is a turntable \u2014 and it reads
+         as "here is a record you might like" rather than as a banner.
+
+         The Promoted chip is not styling. It is the disclosure, so it
+         stays outside the disc where nothing can rotate it out of view. */
       this.el.innerHTML =
-        "<img class='pp-art' src='https://i.ytimg.com/vi/" + m[1] + "/mqdefault.jpg' alt=''>"
-        + "<span class='pp-tag'>Promoted</span>"
+        "<span class='pp-tag'>Promoted</span>"
         + "<button class='pp-close' title='Dismiss'>\u2715</button>"
-        + "<div class='pp-acts'>"
-          + "<button class='pp-play' title='Play now'>\u25B6</button>"
-          + "<button class='pp-add' title='Add to your playlist'>\uFF0B</button>"
+        + "<div class='pp-disc'>"
+          + "<div class='pp-vinyl'>"
+            + "<img class='pp-art' src='https://i.ytimg.com/vi/" + m[1] + "/mqdefault.jpg'"
+              + " alt='' width='72' height='72'>"
+            + "<span class='pp-hole' aria-hidden='true'></span>"
+          + "</div>"
+          + "<div class='pp-acts'>"
+            + "<button class='pp-play' title='Play now'>\u25B6</button>"
+            + "<button class='pp-add' title='Add to your playlist'>\uFF0B</button>"
+          + "</div>"
         + "</div>"
         + "<div class='pp-foot'>"
           + "<div class='pp-name'>" + escapeHtml(this.cur.name) + "</div>"
@@ -114,14 +126,21 @@ var promoPopup = {
         this.el.style.left = 'auto'; this.el.style.right = '76px';
         if (ytGuard.overlaps(this.el)){
           this.el.hidden = true; this.el.style.left = ''; this.el.style.right = '';
-          this.shown--; delete this.seen[p.id];            // not shown, so not counted
-          this._next = Date.now() + 60000;                 // try again in a minute
+          this.shown--; delete this.seen[p.id];
+          this._next = Date.now() + 60000;
+          /* The credit is already spent and is NOT refunded. riffrolled sold
+             the attempt to show a card; that it then had to step aside for
+             the YouTube player is riffrolled's problem, not the promoter's —
+             but silently keeping the money would be. This is rare enough to
+             be worth logging rather than engineering around. */
+          if (window.console) console.warn('riffrolled: a promoted card was suppressed by ytGuard after its credit was spent');
           return;
         }
       }
       requestAnimationFrame(function(){ promoPopup.el.classList.add('show'); });
 
-      this.count('view');                                  // an impression, anonymously
+      // the impression was counted server-side when the card was served;
+      // nothing to report here
       this._next = Date.now() + this.GAP;
 
       var self = this;
@@ -145,12 +164,18 @@ var promoPopup = {
     } catch(e){ appNotify('Couldn’t save that track', 'warn'); }
   },
 
-  /* anonymous counter on the promotion row — no wallet, no id, no history */
+  /* Engagement on the campaign row — no wallet, no id, no history. Sends
+     the campaign id now that the server hands one over, so a track with
+     more than one owner's campaign credits the right one.
+
+     This can no longer move money however often it is called: the credit
+     was spent when the card was served. That is the only reason it is safe
+     to leave unauthenticated. */
   count(kind){
     if (!this.cur) return;
     try {
       fetch('/api/promo/event', { method:'POST', headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ url: this.cur.url, kind: kind }) });
+        body: JSON.stringify({ id: this.cur.id, url: this.cur.url, kind: kind }) });
     } catch(e){}
   },
 

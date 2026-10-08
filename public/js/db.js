@@ -2,13 +2,28 @@
    Dexie schema + dbBoss: every read and write of local data. */
 
 // app-wide banner for storage failures, quota, import/export feedback
-function appNotify(msg, kind){
+/**
+ * @param action optional `{ label, run }` — one button in the banner, for
+ *   the cases where riffrolled has done something on the listener's behalf
+ *   and ought to offer it back. An undo nobody can click is not an undo.
+ */
+function appNotify(msg, kind, action){
   var b = document.getElementById('appBanner');
   if(!b) return;
   clearTimeout(b._t);
   b.className = 'app-banner' + (kind ? ' ' + kind : '');
   b.innerHTML = '';
   var s = document.createElement('span'); s.textContent = msg; b.appendChild(s);
+  if (action && action.label && typeof action.run === 'function'){
+    var a = document.createElement('button');
+    a.className = 'banner-act'; a.textContent = action.label;
+    a.onclick = function(){
+      a.disabled = true;
+      Promise.resolve(action.run()).then(function(){ b.hidden = true; })
+        .catch(function(){ a.disabled = false; });
+    };
+    b.appendChild(a);
+  }
   var x = document.createElement('span'); x.className = 'x'; x.textContent = '✕';
   x.onclick = function(){ b.hidden = true; }; b.appendChild(x);
   b.hidden = false;
@@ -186,7 +201,70 @@ db.version(11).stores({
   // before b" was thrown away at write time and cannot be recovered.
 });
 
+/* v12: promoArchive — what a finished campaign did, kept locally.
+
+   The server deletes a campaign a day after it spends its last credit,
+   because a finished campaign is dead weight in a shared database on a
+   free plan. But the numbers are the only thing the owner has to show
+   for what they paid, so they are copied here first and the deletion
+   only takes the server's copy.
+
+   Keyed by the server's campaign id, so re-seeing the same finished
+   campaign before the sweep overwrites rather than duplicates. */
+db.version(12).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  aiSessions: '++id, ts, playlistId',
+  djCategories: '++id, &key, order',
+  djOptions: '++id, categoryId, favourite, useCount',
+  links: '++id, &key, type, [type+a], [type+b], origin, createdBy, lastTs',
+  promoArchive: 'id, ytId, endedAt, archivedAt'
+});
+
 var dbBoss = {
+  /* ── finished campaigns, kept locally ──────────────────────────────
+     Called whenever the Promote panel sees a campaign with no credits
+     left. The server will delete that row within a day; this is the
+     owner's copy of what it did. Idempotent by campaign id, so it can
+     run on every refresh without piling up. */
+  archivePromotion: async function(p){
+    var id = Number(p && p.id);
+    if (!id) return false;
+    try {
+      var existing = await db.promoArchive.get(id);
+      await db.promoArchive.put({
+        id: id,
+        ytId: (String(p.url || '').match(/[?&]v=([A-Za-z0-9_-]{11})/) || [])[1] || '',
+        url: p.url || '',
+        name: p.name || '',
+        label: p.label || '',
+        modes: p.modes || '',
+        tags: p.tags || '',
+        credits: Number(p.tokens || 0),
+        views: Number(p.views || 0),
+        plays: Number(p.plays || 0),
+        likes: Number(p.likes || 0),
+        dislikes: Number(p.dislikes || 0),
+        replays: Number(p.replays || 0),
+        createdAt: p.created_at || '',
+        endedAt: p.ended_at || '',
+        // when we first saw it finished, not when it finished — useful
+        // only for telling a fresh archive from an old one
+        archivedAt: (existing && existing.archivedAt) || Date.now()
+      });
+      return true;
+    } catch(e){ return false; }
+  },
+
+  archivedPromotions: async function(){
+    try { return await db.promoArchive.orderBy('endedAt').reverse().toArray(); }
+    catch(e){ return []; }
+  },
+
   createPl: async function(n){
     if(!n) n = 'Playlist';
     return await db.playlists.add({ name: n, createdAt: Date.now() });
@@ -234,7 +312,14 @@ var dbBoss = {
     const tracks = await db.tracks.toArray();
     const playlists = await db.playlists.orderBy('createdAt').toArray();
     const out = { app:'vinyl-player', version:1, exportedAt: Date.now(), library:[], playlists:[] };
-    out.library = tracks.map(t => ({ ytId:t.ytId, name:t.name }));
+    out.library = tracks.map(t => {
+      const row = { ytId:t.ytId, name:t.name };
+      // carry the playability verdict so a restore doesn't rediscover every
+      // dead video by playing it again
+      if (t.playable !== undefined) row.playable = t.playable;
+      if (t.playableCode) row.playableCode = t.playableCode;
+      return row;
+    });
     for (const pl of playlists){
       const joins = await db.playlistTracks.where('playlistId').equals(pl.id).sortBy('order');
       const items = [];
@@ -267,6 +352,12 @@ var dbBoss = {
         if(!t || !t.ytId) continue;
         const before = await db.tracks.where('ytId').equals(t.ytId).first();
         await this.createTrack(t.ytId, t.name);
+        if (t.playable !== undefined){
+          await this.updateTrackMeta(t.ytId, {
+            playable: t.playable ? 1 : 0,
+            playableCode: Number(t.playableCode) || 0,
+          });
+        }
         if(!before) addedTracks++;
       }
     }
@@ -458,10 +549,60 @@ var dbBoss = {
     const t = await db.tracks.where('ytId').equals(ytId).first();
     if (t) await db.tracks.update(t.id, fields);
   },
+  /* ── playability ──────────────────────────────────────────────────────
+     A track row saying a video exists is not the same as the video still
+     playing. YouTube removes things, owners turn off embedding, and until
+     now riffrolled threw that discovery away: a dead id was skipped with a
+     banner and then retried every single time the queue came round.
+
+     `playable` is undefined until something has tried, 1 once a video has
+     actually played, and 0 when YouTube has given a permanent refusal.
+     Non-indexed, so no Dexie version bump — it is read with the row, never
+     queried on.
+
+     PERMANENT is the important list. 100 (gone or private), 101 and 150
+     (embedding refused) and 2 (not a video id at all) will not come right
+     on a retry. Code 5 is an HTML5 player failure and a stall is a stall —
+     marking those would condemn perfectly good tracks on a flaky
+     connection, so they are skipped and forgotten. */
+  PERMANENT_ERRORS: [2, 100, 101, 150],
+
+  markUnplayable: async function(ytId, code){
+    if (!ytId || this.PERMANENT_ERRORS.indexOf(Number(code)) < 0) return false;
+    const t = await db.tracks.where('ytId').equals(ytId).first();
+    if (!t) return false;
+    await db.tracks.update(t.id, { playable: 0, playableCode: Number(code), playableAt: Date.now() });
+    return true;
+  },
+
+  /** A video that actually played is playable, whatever we thought before.
+   *  Region locks lift and owners change their minds, so this clears a
+   *  previous verdict rather than only confirming a new one. */
+  markPlayable: async function(ytId){
+    if (!ytId) return;
+    const t = await db.tracks.where('ytId').equals(ytId).first();
+    if (!t || t.playable === 1) return;
+    await db.tracks.update(t.id, { playable: 1, playableCode: 0, playableAt: Date.now() });
+  },
+
+  /** Forget a verdict — the undo path, and the place a periodic re-check
+   *  would go. YouTube un-breaks things: region locks lift, owners change
+   *  their minds, and a video condemned forever is a bug with a long fuse. */
+  clearPlayable: async function(ytId){
+    const t = await db.tracks.where('ytId').equals(ytId).first();
+    if (!t) return;
+    await db.tracks.update(t.id, { playable: undefined, playableCode: 0, playableAt: 0 });
+  },
+
   addReaction: async function(ytId, kind){
     if(!ytId) return;
     const t = await db.tracks.where('ytId').equals(ytId).first();
     await db.reactions.add({ ytId:ytId, trackId: t ? t.id : null, kind:kind, ts: Date.now() });
+    // the catalogue's aggregate count, with nothing attached to say who
+    if (window.statsBoss){
+      if (kind === 'like') statsBoss.like(ytId);
+      else if (kind === 'dislike') statsBoss.dislike(ytId);
+    }
   },
   /* ── PLAY ORDER, recorded automatically ──────────────────────────────
      One track following another is evidence that they go together — but

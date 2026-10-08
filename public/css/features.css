@@ -94,6 +94,21 @@
 
 .now-dot { color:#8a7bff; flex-shrink:0; font-size:11px; }
 
+/* The promoted label. Readable rather than loud: it has to be legible
+   enough to count as disclosure and quiet enough that it does not look
+   like the track is being pushed a second time. */
+.promo-tag {
+  flex-shrink:0; font-size:9px; letter-spacing:0.06em; text-transform:uppercase;
+  color:#ffd98e; border:1px solid rgba(255,217,142,0.35); border-radius:3px;
+  padding:1px 4px; cursor:help; white-space:nowrap;
+}
+.track-item.is-promoted .track-num { color:rgba(255,217,142,0.45); }
+/* at phone width the title matters more than the badge's wording */
+@media (max-width: 560px){
+  .promo-tag { font-size:0; padding:1px 3px; }
+  .promo-tag::before { content:'📣'; font-size:9px; }
+}
+
 /* ── PLAYLISTS PANEL ── */
 .pl-item-count { font-size:11px; color:rgba(255,255,255,0.28); flex-shrink:0; }
 
@@ -152,6 +167,26 @@
 .promo-topup-row { display:none; gap:5px; align-items:center; margin-top:5px; }
 
 .promo-row.topping .promo-topup-row { display:flex; }
+
+/* ── finished campaigns ───────────────────────────────────────────────
+   Quieter than the live list — it is a record, not something to act on
+   — but not dimmed like .promo-row.ended, because this is the only
+   place these numbers exist once the server has swept them. */
+.promo-archive:empty { display:none; }
+.promo-arch-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.promo-export {
+  font:inherit; font-size:10.5px; padding:3px 8px; border-radius:6px; cursor:pointer;
+  border:1px solid rgba(255,204,77,0.4); background:rgba(255,204,77,0.1); color:#ffcc4d;
+}
+.promo-export:hover { background:rgba(255,204,77,0.2); }
+.promo-arch-note { font-size:10px; line-height:1.45; color:rgba(255,255,255,0.33); padding:2px 2px 6px; }
+.promo-arch-tot { font-size:11px; color:rgba(255,255,255,0.6); padding:0 2px 7px; }
+.promo-arch-row {
+  display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  padding:4px 2px; border-top:1px solid rgba(255,255,255,0.06); font-size:11px;
+}
+.promo-arch-name { color:rgba(255,255,255,0.75); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.promo-arch-stats { color:rgba(255,255,255,0.45); white-space:nowrap; flex-shrink:0; }
 
 .promo-row.topping .promo-topup { display:none; }
 
@@ -246,6 +281,25 @@
 .mine-bal-lbl { font-size:11px; color:rgba(255,255,255,0.45); }
 
 .mine-meta { font-size:11px; color:rgba(255,255,255,0.45); padding:2px 2px; }
+/* difficulty line: dimmer than the balance, with the cost cue readable.
+   Empty until /api/wallet answers, so it collapses rather than reserving
+   a blank row. */
+.mine-diff:empty { display:none; }
+.mine-diff { cursor:help; }
+/* the tier badge is the visible half of the early-user reward */
+.mine-tier { color:#ffd98e; }
+
+/* ── contribution standing ──
+   A share of a pool, so the denominator is part of the number. Quiet
+   until there is something to say. */
+.mine-contrib:empty { display:none; }
+.mine-contrib { padding:6px 2px 2px; }
+.mc-head { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  color:rgba(255,255,255,0.3); padding-bottom:3px; }
+.mc-row { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.mc-pts { font-size:12px; color:rgba(255,255,255,0.75); }
+.mc-est { font-size:12px; font-weight:600; color:#5ad1a0; cursor:help; white-space:nowrap; }
+.mc-note, .mc-none { font-size:10px; line-height:1.45; color:rgba(255,255,255,0.35); padding-top:3px; }
 
 .mine-ctl { padding-top:6px; }
 
@@ -334,65 +388,112 @@
 
 .add-track-btn { margin-left:6px; }
 
-/* ── the promotion popup: a small gig poster, 200×200. Art edge to edge,
-   the band's name across the foot, play/add over the artwork. Bottom-left
-   so it never covers the record or the dock rail. ── */
+/* ── the promotion popup: a record on a shelf ─────────────────────────
+   It used to be a 200x200 gig poster with the artwork edge to edge. It is
+   a 7-inch single now: a grooved black disc with the thumbnail as its
+   centre label, turning slowly. riffrolled is a turntable, so a record is
+   what a recommendation looks like here — and it reads as "here is
+   something you might like" rather than as a banner ad, which is also
+   simply more honest about what it is.
+
+   Bottom-left, so it never covers the deck or the dock rail. ── */
 .promo-pop {
   position:fixed; left:18px; bottom:18px; z-index:2600;
-  width:200px; height:200px; border-radius:10px; overflow:hidden;
-  background:#0d0d18; border:1px solid rgba(224,163,77,0.5);
+  width:190px; border-radius:12px; overflow:hidden;
+  background:linear-gradient(180deg, #14141f 0%, #0b0b12 100%);
+  border:1px solid rgba(224,163,77,0.45);
   box-shadow:0 14px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.5);
   opacity:0; transform:translateY(10px) scale(.97);
   transition:opacity .22s ease, transform .22s ease;
+  padding:26px 12px 10px;
 }
 .promo-pop.show { opacity:1; transform:none; }
 .promo-pop[hidden] { display:none; }
 
-/* the artwork fills the poster; everything else sits on top of it */
-.pp-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.promo-pop::after {            /* darken top and bottom so text stays readable */
-  content:''; position:absolute; inset:0; pointer-events:none;
-  background:linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 34%,
-                                     rgba(0,0,0,0) 46%, rgba(0,0,0,0.88) 100%);
+.pp-disc { position:relative; width:150px; height:150px; margin:0 auto; }
+
+/* The record. The grooves are repeating-conic rings rather than an
+   image, so there is nothing to load and it stays crisp at any size. */
+.pp-vinyl {
+  position:absolute; inset:0; border-radius:50%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%,
+      rgba(255,255,255,0.045) 0 1px, rgba(0,0,0,0) 1px 4px),
+    radial-gradient(circle at 50% 50%, #26262f 0 38%, #121218 38% 100%);
+  box-shadow:0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  animation:pp-spin 7s linear infinite;
 }
+@keyframes pp-spin { to { transform:rotate(360deg); } }
+
+/* the centre label: the artwork, cropped to a circle */
+.pp-art {
+  position:absolute; left:50%; top:50%; width:72px; height:72px; margin:-36px 0 0 -36px;
+  border-radius:50%; object-fit:cover; display:block;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.6);
+}
+.pp-hole {
+  position:absolute; left:50%; top:50%; width:13px; height:13px; margin:-6.5px 0 0 -6.5px;
+  border-radius:50%; background:#0b0b12; z-index:3;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.1);
+}
+
+/* A record that keeps turning is the point, but it is also the one thing
+   on screen that moves constantly — so anybody who has asked for less
+   motion gets a still record rather than no card. */
+@media (prefers-reduced-motion: reduce){
+  .pp-vinyl { animation:none; }
+}
+
 .pp-tag {
-  position:absolute; top:7px; left:8px; z-index:2;
+  position:absolute; top:7px; left:10px; z-index:5;
   font-size:8px; font-weight:800; letter-spacing:1.3px; text-transform:uppercase;
   color:#ffcc4d; text-shadow:0 1px 3px rgba(0,0,0,0.8);
 }
-/* the way out has to be obvious over any artwork, and easy to hit on a phone */
+/* the way out has to be obvious, and easy to hit on a phone */
 .pp-close {
-  position:absolute; top:6px; right:6px; z-index:4;
+  position:absolute; top:5px; right:5px; z-index:6;
   display:flex; align-items:center; justify-content:center;
   width:26px; height:26px; padding:0; border-radius:50%;
   background:rgba(8,8,16,0.72); border:1px solid rgba(255,255,255,0.35);
   color:#fff; font-size:13px; line-height:1; cursor:pointer;
-  backdrop-filter:blur(3px);
   box-shadow:0 2px 8px rgba(0,0,0,0.5);
 }
 .pp-close:hover { background:#c0392b; border-color:#e8705f; transform:scale(1.08); }
 .pp-close:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 @media (hover: none) { .pp-close { width:30px; height:30px; font-size:15px; } }
 
-/* actions sit over the art, centred — big enough to hit on a phone */
+/* actions sit over the disc, centred. They do NOT spin with it: a button
+   that rotates away from your cursor is a joke at the user's expense. */
 .pp-acts {
-  position:absolute; inset:0; z-index:2; display:flex; gap:10px;
+  position:absolute; inset:0; z-index:4; display:flex; gap:14px;
   align-items:center; justify-content:center;
   opacity:0; transition:opacity .18s ease;
+  border-radius:50%;
+}
+/* A scrim across the disc behind the buttons. Without it the two circles
+   sat translucent over the centre label and merged into one unreadable
+   blob — the artwork is deliberately colourful, which is exactly what a
+   semi-transparent control cannot survive. */
+.pp-acts::before {
+  content:''; position:absolute; inset:0; border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(6,6,12,0.86) 0 54%, rgba(6,6,12,0.45) 100%);
 }
 .promo-pop:hover .pp-acts, .promo-pop:focus-within .pp-acts { opacity:1; }
 .pp-acts button {
-  width:46px; height:46px; border-radius:50%; padding:0; font-size:17px;
-  background:rgba(12,12,24,0.78); border:1px solid rgba(255,255,255,0.3); color:#fff;
-  backdrop-filter:blur(3px);
+  position:relative; z-index:1;
+  width:44px; height:44px; border-radius:50%; padding:0; font-size:16px;
+  background:#1b1b28; border:1px solid rgba(255,255,255,0.45); color:#fff;
+  cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.6);
+  transition:background .14s, border-color .14s, transform .14s;
 }
-.pp-play:hover { background:rgba(157,140,255,0.85); border-color:#c3b6ff; }
-.pp-add:hover  { background:rgba(90,184,138,0.85); border-color:#8fdcb2; }
+.pp-acts button:hover { transform:scale(1.07); }
+.pp-play:hover { background:#6c5ce7; border-color:#c3b6ff; }
+.pp-add:hover  { background:#2f8f63; border-color:#8fdcb2; }
+.pp-acts button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
-.pp-foot { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:8px 9px 8px; }
+.pp-foot { padding:9px 2px 0; text-align:center; }
 .pp-name {
   font-size:12px; font-weight:700; line-height:1.3; color:#fff;
-  text-shadow:0 1px 4px rgba(0,0,0,0.9);
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
 .pp-why {
@@ -491,3 +592,56 @@ body.mobile .promo-pop { left:12px; bottom:calc(74px + env(safe-area-inset-botto
 .dj-sess-req { font-size:12px; color:rgba(255,255,255,0.78); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 .dj-sess-meta { font-size:10px; color:rgba(255,255,255,0.3); }
+
+/* ── campaign modes ── two genuinely different ways to be seen, so they get
+   room to explain themselves rather than being two unlabelled toggles */
+.promo-modes { display:flex; flex-direction:column; gap:6px; padding:4px 8px 8px; }
+
+.promo-mode {
+  display:grid; grid-template-columns:auto 1fr; gap:2px 8px; align-items:start;
+  padding:7px 9px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; cursor:pointer;
+  background:rgba(255,255,255,0.03);
+}
+
+.promo-mode:hover { border-color:rgba(255,204,77,0.35); }
+
+.promo-mode input { grid-row:1 / span 2; margin:2px 0 0; accent-color:#ffcc4d; }
+
+.promo-mode .pm-t { font-size:12px; font-weight:600; color:rgba(255,255,255,0.9); }
+
+.promo-mode .pm-d { font-size:11px; line-height:1.45; color:rgba(255,255,255,0.45); }
+
+/* ── the mood picker ──────────────────────────────────────────────────
+   29 short words, so a wrapping grid of chips rather than a dropdown:
+   choosing a mood is a glance-and-tap, and a select would hide 28 of
+   them behind the one you can see. */
+.promo-tags { padding:2px 8px 8px; }
+.promo-tags[hidden] { display:none; }
+.promo-tags-head { font-size:12px; font-weight:600; color:rgba(255,255,255,0.85); padding:2px 0 3px; }
+.promo-tags-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.38); padding-bottom:7px; }
+
+.promo-tag-grid { display:flex; flex-wrap:wrap; gap:4px; }
+
+.promo-tag-btn {
+  font:inherit; font-size:10.5px; line-height:1;
+  padding:5px 8px; border-radius:11px; cursor:pointer;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.6);
+  transition:background 0.12s, border-color 0.12s, color 0.12s;
+}
+.promo-tag-btn:hover { border-color:rgba(255,204,77,0.45); color:rgba(255,255,255,0.9); }
+.promo-tag-btn.on {
+  background:rgba(255,204,77,0.16); border-color:#ffcc4d; color:#ffcc4d; font-weight:600;
+}
+/* the picker is full: dim the rest rather than let a tap do nothing
+   with no explanation */
+.promo-tag-btn.maxed { opacity:0.3; }
+.promo-tag-btn.maxed:hover { opacity:0.55; border-color:rgba(255,255,255,0.14); }
+
+.promo-tags-count { font-size:10.5px; padding-top:7px; color:#ffcc4d; }
+.promo-tags-count.empty { color:rgba(255,255,255,0.38); }
+.promo-tag-fail { font-size:11px; color:rgba(255,160,160,0.75); }
+
+.promo-name-row .promo-label { flex:1; }
+
+.promo-dur { font-size:11px; color:rgba(255,255,255,0.45); white-space:nowrap; }

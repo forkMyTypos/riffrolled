@@ -8,6 +8,31 @@ function escapeHtml(s){
   });
 }
 
+/**
+ * One cell of a CSV file, escaped.
+ *
+ * Two separate jobs, and the second is the one that is easy to miss.
+ *
+ * The first is CSV quoting: a value containing a comma, a quote or a
+ * newline has to be wrapped in quotes with its own quotes doubled, or the
+ * row silently gains a column.
+ *
+ * The second is formula injection. Excel, LibreOffice and Google Sheets
+ * all treat a cell beginning =, +, - or @ as a formula, so a track called
+ * `=HYPERLINK("http://evil","click")` is not a weird title, it is code
+ * that runs when somebody opens the export. riffrolled's track names come
+ * from the shared catalogue, which anyone can POST to, and from AI
+ * replies — so they are exactly the untrusted strings this applies to.
+ * Prefixing a tab neutralises it: spreadsheets stop parsing it as a
+ * formula and still show the original text.
+ */
+function csvCell(v){
+  var s = (v == null ? '' : String(v));
+  if (/^[=+\-@\t\r]/.test(s)) s = '\t' + s;
+  if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
 var menuB = {
     createMenu:function(title,main){
         let txt=this.createMenuD(title,main);

@@ -14,19 +14,36 @@ Same origin for frontend + API means no CORS headaches at all.
 ## Project layout
 
 ```
-wrangler.toml          Worker config: assets + D1 binding
+wrangler.toml          Worker config: assets, D1 binding, cron trigger, [vars]
 public/index.html      the riffrolled frontend (static asset)
 db/schema.sql          D1 schema — matches your tracks table; idempotent
 src/
-  index.js             router + error boundary (handles /api/*)
+  index.js             router + error boundary (/api/*) and the cron entry
+  config.js            EVERY tunable number, and the three layers that resolve it
+  contrib.js           contribution rewards — a shared pool, not a per-act payment
+  sweep.js             hourly housekeeping: finished campaigns, old rows, payouts
+  tags.js              the 29-word mood vocabulary, server side
   routes/
     search.js          GET  /api/search?q=&limit=
     tracks.js          GET  /api/tracks?genre=&limit= · POST /api/track
     resolve.js         POST /api/resolve — AI DJ playlists → real tracks
+    mine.js            proof-of-work minting, difficulty retarget, wallet view
+    promote.js         campaigns: pop-up cards and AI brief placements
+    stats.js           anonymous counters + link authorship (pays nobody — see below)
+    config.js          GET /api/config — the few settings the browser needs
+    playlists.js       POST /api/playlist/save
+    channel.js         channel / playlist import
   db/queries.js        all SQL (prepared statements only)
-  services/youtube.js  the only module that touches YouTube
+  db/migrations.js     self-applying, append-only — never edit an old one
+  services/youtube.js  the only module that touches the YouTube Data API
+  services/oembed.js   keyless "does this video exist" checks
   utils/response.js    JSON/CORS helpers
 ```
+
+Frontend files worth knowing: `public/js/track-info.js` owns the Track info panel
+(it holds a target track, which is why it can show one you are not playing),
+`public/js/dock.js` places panels, `public/js/promo-popup.js` draws the promoted
+record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
 
 ## Deploy
 
@@ -48,6 +65,9 @@ database caught up.
 One-time setup that still lives in the Cloudflare dashboard: the `YT_API_KEY` secret, the
 custom domain, and the WAF rate-limiting rules on `/api/*`.
 
+The hourly Cron Trigger comes from `wrangler.toml`, so it arrives with a deploy — no
+dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Triggers.
+
 ## Endpoints
 
 | Method | Path                    | Body                              | Returns |
@@ -57,8 +77,103 @@ custom domain, and the WAF rate-limiting rules on `/api/*`.
 | POST   | /api/track              | `{name,url,artist?,genre?}`       | the created/existing track |
 | POST   | /api/resolve            | `{items:[{artist,title,videoId?,verified?}], allowYouTube?}` | `{results:[{i,ok,via,url,name,artist}], lookups_used, lookups_left}` |
 | POST   | /api/playlist/save      | `{name, tracks:[{name,artist,genre,url}]}` | `{id, name, tracks}` — riffrolled's own copy of a set |
+| GET    | /api/config             | —                                 | the handful of settings the UI needs, plus the mood vocabulary |
+| POST   | /api/mine/challenge     | `{wallet}`                        | `{challenge, difficulty_bits, reward, tier, …}` |
+| POST   | /api/mine/submit        | `{wallet, challenge, nonce}`      | `{ok, reward, balance}` |
+| GET    | /api/wallet?wallet=     | —                                 | balance, difficulty and why it is what it is, contribution standing |
+| GET    | /api/ledger?wallet=     | —                                 | recent mints and spends |
+| POST   | /api/promote            | `{wallet, url, credits, modes, tags?, label?}` | the new campaign |
+| GET    | /api/promotions         | —                                 | live campaigns, for display only — **never** billed |
+| GET    | /api/promotions/next    | `?mode=popup\|ai&exclude=`        | one campaign, **and one credit spent** |
+| GET    | /api/promotions/mine?wallet= | —                            | the owner's campaigns and their numbers |
+| POST   | /api/promotion/action   | `{wallet, id, action, credits?}`  | pause / resume / add credits |
+| POST   | /api/promo/event        | `{id\|url, kind}`                 | engagement only — cannot move money |
+| POST   | /api/promotions/brief   | `{brief_id, tags:[]}`             | up to 3 matching placements, **free** |
+| POST   | /api/promotions/brief/claim | `{brief_id}`                  | charges one credit per placement, once |
+| POST   | /api/stats              | `{plays?, likes?, dislikes?, linkFollows?}` | anonymous counters |
+| POST   | /api/link               | `{wallet, a, b}`                  | publish a link between two tracks |
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
+
+## The economy
+
+Three things create or move credits. Everything else is display.
+
+**Minting — proof of work.** The browser grinds SHA-256 until it has enough
+leading zero bits; the Worker verifies in one hash. Challenges are single-use
+and expire.
+
+    effective bits = clamp(BASE + retarget − tier discount, FLOOR, CEIL)
+
+There is **no per-wallet daily cap**, and there deliberately never will be again.
+A wallet is 64 random hex characters, so a per-identity cap bound only the honest
+user with one wallet. The brake is difficulty, which binds everybody equally: the
+retarget raises it when the whole site mints faster than `MINE_TARGET_PER_HOUR`
+and **never lowers it below your base**, because if a quiet hour made mining
+cheap then waiting for a quiet hour would be the cheapest way to mine. Wallets
+that joined early get a permanent discount in bits — safe against the trick that
+killed the cap, since your CPU is the constraint and every wallet you hold gets
+the same discount.
+
+**Spending — one credit is one person's attention.** A credit buys the chance to
+be seen, not a play. It is spent in exactly two places, both server-side:
+
+* `GET /api/promotions/next` — the server picks the campaign *and* debits it in
+  one step. The browser used to run that lottery, which meant a stranger could
+  drain a rival's campaign with a loop.
+* `POST /api/promotions/brief/claim` — one credit per placement when a DJ brief
+  is **copied**, not when the resulting playlist is imported. Copying is the
+  moment the track was definitely in front of a person. The claim carries only a
+  brief id; naming campaigns would reopen the drain.
+
+`POST /api/promo/event` can be called a million times and cannot move a balance.
+
+**Contribution rewards — a shared pool.** `src/contrib.js`. Points are awarded
+only for things the Worker observed itself: being the *first* to add a video that
+YouTube confirmed exists, and publishing a link nobody had published. Each period
+a fixed pool (`CONTRIB_POOL_PER_EPOCH`) is divided among contributors by points.
+
+This is the shape it is for one reason. The play and like counters in
+`/api/stats` arrive with no wallet and no session, so the server cannot tell a
+listener from a loop — they are fine for ranking a catalogue and **cannot** back
+a payout. Nothing in the reward path reads them. And because the pool is fixed,
+flooding the catalogue moves your *share*; it cannot create credits. Ships at
+`CONTRIB_POOL_PER_EPOCH = 0` (off) — turn it on when you have watched it.
+
+### Tuning
+
+Every number lives in `src/config.js` `SCHEMA`, resolved most-specific-first:
+
+1. the `config` table in D1 (what the admin tool edits)
+2. the matching `[vars]` entry in `wrangler.toml`
+3. the shipped default
+
+Values are re-validated against their range on read, so a bad row — however it
+was written — cannot take effect. A key that is not in `SCHEMA` is **refused**,
+not stored and ignored: a silently-ignored setting is worse than a rejected one.
+`MINE_DAILY_CAP` is gone for exactly that reason, so a stale row will now error
+in the admin tool rather than look like a dial that does something.
+
+### Housekeeping
+
+`[triggers] crons = ["17 * * * *"]` runs `scheduled()` → `src/sweep.js` hourly:
+deletes campaigns that spent their last credit over `PROMO_SWEEP_HOURS` ago,
+prunes uncopied brief offers and old mint-rate buckets, and pays out any closed
+reward period. Each step is wrapped separately — one broken step must not stop
+all housekeeping forever — and the payout claims the period *before* crediting
+anybody, so a retried sweep cannot pay twice.
+
+The grace period before deleting a campaign is not arbitrary: the owner's browser
+copies a finished campaign's numbers into local storage (`promoArchive`) and the
+sweeper waits long enough for that to have happened. Nothing breaks without the
+cron; tables just keep rows they no longer need.
+
+### Disclosure
+
+Promoted tracks are labelled wherever they appear — the promoted strip, the
+pop-up record, and the playlist row itself, because that last one is where
+somebody actually listens. The DJ brief says it in words too, since the badge
+depends on a fetch that can fail.
 
 ## DJ AI
 

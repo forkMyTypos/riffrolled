@@ -126,19 +126,75 @@ var dock = {
     const w = el.offsetWidth || 300, h = el.offsetHeight || 260, gap = 14, step = 30;
     const baseLeft = Math.max(8, dockLeft - w - gap);
     const baseTop = window.scrollY + 16;
-    const minLeft = Math.max(8, dockLeft - 2 * w - 2 * gap);   // stay within ~2 columns of the dock
     const others = this.items.map(i => i.el).filter(e => e && e !== el && !e.classList.contains('is-hidden'));
-    const occupied = (x, y) => others.some(e => {
+
+    /* Does a panel of this size at (x, y) overlap one that is already
+       open? This used to compare top-left CORNERS and call them clear if
+       they were more than `step` apart, which is not the same question.
+       The Playlist panel is 340 wide and Current Track is 300; both get
+       tucked against the dock, so their corners land 40px apart — past
+       the threshold — while the smaller panel sits almost entirely on top
+       of the larger one. Current Track auto-opens on every track change,
+       so it covered the Playlist panel's mini transport every time a
+       track started, which is precisely when you want those buttons.
+
+       An honest rectangle test costs the same and answers the question
+       actually being asked. The 8px slack keeps panels from being
+       considered clear when they are merely touching. */
+    const PAD = 8;
+    const boxes = others.map(e => {
       const r = e.getBoundingClientRect();
-      return Math.abs((r.left + window.scrollX) - x) < step && Math.abs((r.top + window.scrollY) - y) < step;
+      return { l: r.left + window.scrollX, t: r.top + window.scrollY, w: r.width, h: r.height };
     });
-    let left = baseLeft, top = baseTop, n = 0;
-    while (occupied(left, top) && n < 12){
-      left -= step; top += step; n++;
-      if (left < minLeft || top + h > window.scrollY + window.innerHeight - 8){ left = baseLeft; top = baseTop; break; }
+    /** How many square pixels a panel at (x, y) would cover of others. */
+    const clash = (x, y) => boxes.reduce((sum, o) => {
+      const ox = Math.min(x + w, o.l + o.w) - Math.max(x, o.l) - PAD;
+      const oy = Math.min(y + h, o.t + o.h) - Math.max(y, o.t) - PAD;
+      return sum + (ox > 0 && oy > 0 ? ox * oy : 0);
+    }, 0);
+
+    /* Columns right-to-left from the dock, rows top-to-bottom in each —
+       so a second panel goes beside the first, and only moves down the
+       screen once the column is full. First clear spot wins.
+
+       The old version walked one diagonal and, when it ran out of room,
+       `left = baseLeft; top = baseTop; break` — it went back to the
+       position it had already rejected. So a crowded screen placed the
+       panel exactly where it collided, which is how Current Track ended
+       up on the Playlist panel every time regardless of the overlap
+       check. Running out of space is not a reason to choose the worst
+       available answer: the fallback below takes the least-covered spot
+       it tried instead. */
+    /* Candidate rows are the tops of the gaps that actually exist: the
+       top of the screen, and just below the bottom edge of every panel
+       already open. Stepping down by a fixed `step` was useless here —
+       30px at a time cannot clear a 520px-tall Playlist panel inside any
+       sane number of tries, so every candidate collided and the
+       least-overlap fallback was doing all the work. Four open panels
+       still ended up stacked. */
+    const maxBottom = window.scrollY + window.innerHeight - 8;
+    const rows = [baseTop].concat(boxes.map(o => o.t + o.h + gap))
+      .filter(y => y >= baseTop && y + Math.min(h, window.innerHeight - 40) <= maxBottom)
+      .sort((a, b) => a - b);
+    // de-duplicate near-identical rows so three panels of equal height
+    // do not produce three candidates one pixel apart
+    const tries = rows.filter((y, i) => i === 0 || y - rows[i - 1] > step / 2);
+
+    let best = null, clear = null;
+    for (let col = 0; col < 3 && !clear; col++){
+      const x = baseLeft - col * (w + gap);
+      if (x < 8) break;
+      for (const y of tries){
+        const c = clash(x, y);
+        if (c === 0){ clear = { x, y }; break; }
+        if (!best || c < best.c) best = { x, y, c };
+      }
     }
-    left = Math.min(Math.max(8, left), dockLeft - w - gap);
-    top  = Math.max(window.scrollY + 8, Math.min(top, window.scrollY + window.innerHeight - Math.min(h, window.innerHeight - 40)));
+    best = clear || best || { x: baseLeft, y: baseTop };
+
+    const left = Math.min(Math.max(8, best.x), dockLeft - w - gap);
+    const top  = Math.max(window.scrollY + 8,
+      Math.min(best.y, window.scrollY + window.innerHeight - Math.min(h, window.innerHeight - 40)));
     el.style.left = left + 'px';
     el.style.right = 'auto';
     el.style.top = top + 'px';
@@ -167,7 +223,7 @@ var dock = {
   },
 
   shortLabel(label){
-    return { 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo', 'DJ AI':'DJ AI' }[label] || label.split(' ')[0];
+    return { 'Track info':'Track', 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo', 'DJ AI':'DJ AI' }[label] || label.split(' ')[0];
   },
 
   // mobile: show exactly one view — 'player' (the deck) or a panel by label
@@ -320,12 +376,15 @@ document.addEventListener('click', function(e){
   if (panel) dock.setHidden(panel, true);
 });
 
-// the Current Track panel is static markup; give it the same drag + default placement as the rest
+// the Track info panel is static markup; give it the same drag + default placement as the rest
 (function(){
   const ct = document.getElementById('ctPanel');
   if (ct){
     makeDraggableEle(ct, ct.querySelector('.panel-header'));
-    menuB.place(ct, { right:'470px', top:'452px', width:'300px' });
+    // wider than it was: the panel is where titles, artists and tags get
+    // fixed now, and editing in a 300px column is miserable
+    menuB.place(ct, { right:'470px', top:'452px', width:'360px' });
+    if (window.trackInfo) trackInfo.boot();
   }
 })();
 
@@ -342,7 +401,7 @@ dock.build([
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
   { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
   { icon:'🕘', label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
-  { icon:'💿', label:'Current Track',    el: document.getElementById('ctPanel'), startHidden:true, group:'music', accent:'#d98cff' },
+  { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d' },
   { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },

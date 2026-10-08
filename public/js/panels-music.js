@@ -258,10 +258,16 @@ var importBoss = {
           if (r.ok){ var d = await r.json(); if (d.title) title = d.title; }
         } catch(e){ /* offline or CORS hiccup — id-as-title still works */ }
         var tid = await dbBoss.createTrack(id, title);
-        // contribute to the shared catalogue too (plain DB write — no YouTube API involved)
+        /* Contribute to the shared catalogue too. The wallet rides along
+           so that being the first to add a track that YouTube confirms
+           earns a contribution point — see src/contrib.js. It identifies
+           the contribution, not the listening: nothing about what you
+           then play goes anywhere near it. */
         try {
+          var cw = window.riffWallet ? await riffWallet.get() : '';
           fetch('/api/track', { method:'POST', headers:{ 'content-type':'application/json' },
-            body: JSON.stringify({ name: title, url: 'https://www.youtube.com/watch?v=' + id }) });
+            body: JSON.stringify({ name: title, url: 'https://www.youtube.com/watch?v=' + id,
+                                   wallet: cw }) });
         } catch(e){ /* offline is fine — local library is the source of truth for you */ }
         if (window.plBoss && plBoss.activeId){
           if ((await dbBoss.addToPlaylist(plBoss.activeId, tid)) === 'added') added++;
@@ -311,18 +317,18 @@ var dataBoss = {
       item.classList.remove('row-flash'); void item.offsetWidth; item.classList.add('row-flash');
       if (e.target.closest('.st-play')){ self.status('▶ Playing ' + name); ytPlay(vid, name); return; }
       if (e.target.closest('.st-promote')){
-        self.status('Promoting…');
-        try {
-          var w = await riffWallet.get();
-          var pres = await fetch('/api/promote', { method:'POST',
-            headers:{ 'content-type':'application/json' },
-            body: JSON.stringify({ wallet: w, url: 'https://www.youtube.com/watch?v=' + vid }) });
-          var pd = await pres.json();
-          if (!pres.ok) throw new Error(pd.error || ('HTTP ' + pres.status));
-          self.status('Promoted ✓ (' + pd.balance + ' tokens left)', 'ok');
-          self.run();
-          if (window.promoBoss) promoBoss.refresh();
-        } catch(perr){ self.status(perr.message, 'err'); }
+        /* This used to POST /api/promote straight off, silently buying the
+           minimum spend. A campaign now has a name, a budget and a choice
+           of where it runs, and a button that invents all three on your
+           behalf is a button that spends your credits for you. So it opens
+           the Promote panel with the track already picked. */
+        if (window.promoBoss && window.dock){
+          dock.openPanel(promoBoss.el);
+          promoBoss.select(vid, name, true);
+          self.status('Set up the campaign in the Promote panel →', 'ok');
+        } else {
+          self.status('The Promote panel isn’t available', 'err');
+        }
         return;
       }
       if (e.target.closest('.st-add')){

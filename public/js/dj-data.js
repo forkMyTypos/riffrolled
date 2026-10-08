@@ -315,7 +315,7 @@ Where should we go?
 
 Tonight's DJ personality:
 {{dj_personality}}
-{{extras}}{{discovery}}{{listening}}
+{{extras}}{{discovery}}{{listening}}{{promoted}}
 LENGTH
 
 Tracks: {{track_count}}
@@ -392,6 +392,41 @@ Use these as a quick indication of my taste.
 Do not simply give me more of the same.
 
 Look for the underlying musical characteristics I respond to, then make your own DJ decisions.
+`;
+
+/* The promoted block. Only present when the listener has turned
+   promotional tracks on, and only when something actually matched the
+   brief — riffrolled never pads this list to look busy.
+
+   The wording does three jobs. It tells the AI these are paid, so it is
+   not misled into treating them as riffrolled's own recommendations. It
+   tells the listener the same thing, because the listener reads this text
+   too — it is sitting in their clipboard. And it explicitly releases the
+   AI from any obligation to use them, because a placement that bends the
+   brief is worth nothing to anybody: the listener gets a worse playlist,
+   and the promoter pays for attention that turns into a skip.
+
+   It does not ask the AI to annotate its reply. That would be unreliable
+   (it may simply not) and it would put stray words in the cells the
+   parser reads. riffrolled knows which video ids are promoted and labels
+   them itself, in the playlist, every time they appear. */
+var DJ_PROMOTED_BLOCK = `
+PROMOTED TRACKS
+
+These are paid placements. Somebody spent riff tokens to have them offered
+to briefs like this one, and riffrolled picked these because the moods
+they are tagged with match what I asked for above. Nobody paid for them to
+end up in the playlist.
+
+{{promoted_list}}
+
+Judge them exactly as you would any other candidate. Include one only if
+it genuinely makes the set better, and leave every one of them out if none
+does — that is a perfectly good outcome and it is not a failure to follow
+the brief. Do not reshape the brief around them.
+
+You do not need to mark them in your reply. riffrolled knows which tracks
+these are and labels them as promoted wherever they appear.
 `;
 
 /* Chaos lines. When chaos is on the brief says out loud that the

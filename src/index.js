@@ -13,9 +13,15 @@ import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleResolve } from './routes/resolve.js';
 import { handleSavePlaylist } from './routes/playlists.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
-import { handlePromote, handlePromotions, handlePromoEvent, handleMyPromotions, handlePromotionAction } from './routes/promote.js';
+import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, handleMyPromotions, handlePromotionAction, handleBriefOffers, handleBriefClaim } from './routes/promote.js';
+import { handlePublicConfig } from './routes/config.js';
+import { handleStats, handleLink } from './routes/stats.js';
+import { sweep } from './sweep.js';
 
 const ROUTES = [
+  ['GET',  /^\/api\/config$/,       (req, env) => handlePublicConfig(req, env)],
+  ['POST', /^\/api\/stats$/,        (req, env) => handleStats(req, env)],
+  ['POST', /^\/api\/link$/,         (req, env) => handleLink(req, env)],
   ['GET',  /^\/api\/search$/, (req, env, url) => handleSearch(req, env, url)],
   ['GET',  /^\/api\/tracks$/, (req, env, url) => handleListTracks(req, env, url)],
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
@@ -29,9 +35,13 @@ const ROUTES = [
   ['GET',  /^\/api\/ledger$/,           (req, env, url) => handleLedger(req, env, url)],
   ['POST', /^\/api\/promote$/,          (req, env) => handlePromote(req, env)],
   ['GET',  /^\/api\/promotions\/mine$/,  (req, env, url) => handleMyPromotions(req, env, url)],
+  ['GET',  /^\/api\/promotions\/next$/,  (req, env, url) => handlePromoNext(req, env, url)],
   ['GET',  /^\/api\/promotions$/,       (req, env) => handlePromotions(req, env)],
   ['POST', /^\/api\/promo\/event$/,     (req, env) => handlePromoEvent(req, env)],
   ['POST', /^\/api\/promotion\/action$/, (req, env) => handlePromotionAction(req, env)],
+  // AI brief placements: offered free, charged on copy
+  ['POST', /^\/api\/promotions\/brief\/claim$/, (req, env) => handleBriefClaim(req, env)],
+  ['POST', /^\/api\/promotions\/brief$/,        (req, env) => handleBriefOffers(req, env)],
 ];
 
 export default {
@@ -66,5 +76,23 @@ export default {
       console.error('Unhandled error:', err && err.stack ? err.stack : err);
       return errorJson(env, 'Internal server error', 500);
     }
+  },
+
+  /**
+   * Cron Trigger. Housekeeping only — see src/sweep.js.
+   *
+   * Deliberately separate from fetch(): a scheduled run has no request to
+   * answer and no caller to return an error to, so the only useful thing
+   * it can do with a failure is log it. sweep() therefore never throws;
+   * it reports.
+   */
+  async scheduled(event, env, ctx) {
+    const done = await sweep(env);
+    if (done.errors.length) {
+      console.error('sweep finished with problems:', done.errors.join(' | '));
+    }
+    console.log('sweep: deleted ' + done.campaigns + ' finished campaigns'
+      + (done.offers ? ', pruned offers' : '')
+      + (done.rate ? ', pruned mint rate' : ''));
   },
 };

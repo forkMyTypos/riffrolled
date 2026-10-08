@@ -45,7 +45,11 @@ var mineBoss = {
       "<div class='sec'>" +
         "<div class='sec-head'>Riff tokens</div>" +
         "<div class='mine-balrow'><span class='mine-bal'>–</span><span class='mine-bal-lbl'>tokens</span></div>" +
-        "<div class='mine-meta'>mined today: <span class='mine-today'>–</span></div>" +
+        "<div class='mine-meta'>mined today: <span class='mine-today'>–</span>" +
+          "<span class='mine-tier'></span></div>" +
+        /* Difficulty moves now, so it has to be visible. A number that
+           changes without explanation reads as the site cheating you. */
+        "<div class='mine-meta mine-diff'></div>" +
         "<div class='mine-totals'>" +
           "<span class='mt-earned' title='Tokens mined, all time'>⛏ <b>–</b> earned</span>" +
           "<span class='mt-spent' title='Tokens spent on promotions'>📣 <b>–</b> spent</span>" +
@@ -53,6 +57,9 @@ var mineBoss = {
         "<div class='row mine-ctl'>" +
           "<button class='icon-btn mine-toggle' title='Start mining'>⛏ Start mining</button>" +
         "</div>" +
+        // what you have earned by contributing, this period — empty and
+        // collapsed when contribution rewards are switched off
+        "<div class='mine-contrib'></div>" +
         "<div class='mine-meta mine-rate'></div>" +
         "<div class='status-bar mine-status'></div>" +
         "<div class='sec-head mine-hist-head'>Recent activity</div>" +
@@ -132,9 +139,13 @@ var mineBoss = {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var d = await r.json();
       this.el.querySelector('.mine-bal').textContent = d.balance;
-      this.el.querySelector('.mine-today').textContent = d.mined_today + ' / ' + d.daily_cap;
+      // no "/ cap" any more: there is no daily cap, and printing one that
+      // does not exist is worse than printing nothing
+      this.el.querySelector('.mine-today').textContent = d.mined_today;
       this.el.querySelector('.mt-earned b').textContent = d.earned != null ? d.earned : '–';
       this.el.querySelector('.mt-spent b').textContent = d.spent != null ? d.spent : '–';
+      this.renderDifficulty(d);
+      this.renderContrib(d.contrib);
       this._promoteCost = d.promote_cost;
       this.renderLedger();
       return d;
@@ -142,6 +153,84 @@ var mineBoss = {
       this.status('Wallet unavailable: ' + e.message, 'err');
       return null;
     }
+  },
+
+  /* Why your next token costs what it costs.
+     Difficulty is no longer a constant: it rises when the whole site is
+     minting faster than the target, and it is permanently lower if you
+     were here early. Both of those are only fair if you can see them, so
+     the arithmetic is shown rather than just the result. */
+  renderDifficulty(d){
+    var diff = this.el.querySelector('.mine-diff');
+    var tierEl = this.el.querySelector('.mine-tier');
+    if (!diff) return;
+    if (d.difficulty_bits == null){ diff.textContent = ''; return; }
+
+    var secs = Math.pow(2, d.difficulty_bits) / 15800;   // measured hash rate
+    var cost = secs < 90 ? Math.round(secs) + 's'
+             : Math.round(secs / 60) + ' min';
+    var bits = [];
+    if (d.retarget_bits > 0) bits.push('+' + d.retarget_bits + ' demand');
+    if (d.tier_discount > 0) bits.push('−' + d.tier_discount + ' early');
+    diff.textContent = 'difficulty ' + d.difficulty_bits + ' bits ≈ ' + cost +
+      ' per token' + (bits.length ? ' (' + bits.join(', ') + ')' : '');
+
+    var why = 'Base ' + d.base_bits + ' bits.';
+    if (d.retarget_bits > 0){
+      why += ' +' + d.retarget_bits + ' because the site is minting ' +
+        d.mint_rate_per_hour + '/hour against a target of ' + d.mint_target_per_hour + '.';
+    } else if (d.mint_target_per_hour){
+      why += ' The site is minting ' + d.mint_rate_per_hour + '/hour, target ' +
+        d.mint_target_per_hour + ', so nothing is added.';
+    }
+    if (d.tier_discount > 0){
+      why += ' −' + d.tier_discount + ' for good: you were wallet #' + d.joined + '.';
+    }
+    diff.title = why;
+
+    if (tierEl){
+      tierEl.textContent = d.tier ? ' · early user, tier ' + d.tier : '';
+      tierEl.title = d.tier
+        ? 'You joined early (wallet #' + d.joined + '), so your mining is ' +
+          Math.pow(2, d.tier_discount) + '× cheaper than a new wallet’s, permanently.'
+        : '';
+    }
+  },
+
+  /* ── what you have earned by contributing ────────────────────────────
+     Contribution rewards are a share of a fixed pool, not a payment per
+     contribution, so a points total on its own would be a promise
+     riffrolled cannot keep: what it is worth depends on what everybody
+     else contributed in the same period. The denominator is shown for
+     that reason, and the figure is called an estimate because it is one
+     until the period closes. */
+  renderContrib(c){
+    var box = this.el.querySelector('.mine-contrib');
+    if (!box) return;
+    if (!c){ box.innerHTML = ''; return; }          // rewards switched off
+
+    if (!c.points){
+      box.innerHTML = "<div class='mc-none'>Add a track nobody has added yet, or link two tracks, "
+        + "and you share this period's pool of " + Number(c.pool) + " credits.</div>";
+      return;
+    }
+
+    var atCap = c.points >= c.cap;
+    box.innerHTML =
+      "<div class='mc-head'>Contributed this period</div>"
+      + "<div class='mc-row'>"
+        + "<span class='mc-pts'>" + c.points + " / " + c.total_points + " points</span>"
+        + "<span class='mc-est' title='A share of " + Number(c.pool)
+          + " credits, split by points. It moves as other people contribute.'>"
+          + "≈ " + Number(c.projected) + " credits</span>"
+      + "</div>"
+      + "<div class='mc-note'>"
+        + (atCap
+            ? "You have hit this period's ceiling of " + c.cap + " points. "
+            : "")
+        + "Shared with " + c.contributors + " contributor"
+        + (c.contributors === 1 ? '' : 's') + " — paid when the period ends."
+      + "</div>";
   },
 
   /* what actually happened to the tokens — mining credits and promotion
@@ -221,10 +310,18 @@ var mineBoss = {
       var w = await this.wallet();
       var cr = await fetch('/api/mine/challenge', { method:'POST',
         headers:{ 'content-type':'application/json' }, body: JSON.stringify({ wallet: w }) });
-      if (cr.status === 429){ this.stop(); this.status('Daily cap reached — back tomorrow ⛏', 'ok'); return; }
+      /* The 429 "daily cap reached" branch is gone with the cap. A 429
+         from here now means rate limiting at the edge, which is worth
+         retrying rather than stopping for the day. */
+      if (cr.status === 429){
+        this.status('Slow down a moment — retrying…', 'ok');
+        if (this.running) setTimeout(function(){ self.round(); }, 5000);
+        return;
+      }
       if (!cr.ok) throw new Error('HTTP ' + cr.status);
       var ch = await cr.json();
-      this.status('Mining at difficulty ' + ch.difficulty_bits + '…');
+      this.status('Mining at difficulty ' + ch.difficulty_bits +
+        (ch.tier_discount > 0 ? ' (−' + ch.tier_discount + ', early user)' : '') + '…');
 
       if (this._worker) this._worker.terminate();
       this._worker = new Worker(this.workerUrl());
@@ -259,31 +356,130 @@ var mineBoss = {
    Separate from mining on purpose: earning and spending are different jobs.
    Engagement counters are anonymous aggregates on the promotion itself. ── */
 var promoBoss = {
+  /* ── the mood picker ─────────────────────────────────────────────────
+     The vocabulary comes from /api/config rather than a list in this
+     file. It has to be exactly the words the server will accept and
+     exactly the words the DJ's own options are tagged with; a third
+     hand-kept copy is a third chance for one to drift and for matching
+     to quietly stop working with no error anywhere. ── */
+
+  tags: [],                 // what the promoter picked, in pick order
+  UI_MAX_TAGS: 4,           // guidance; the server's hard cap is higher
+
+  async renderTags(){
+    var grid = this.el.querySelector('.promo-tag-grid');
+    if (!grid) return;
+    var vocab = [];
+    try {
+      var r = await fetch('/api/config');
+      if (r.ok) vocab = (await r.json()).TAGS || [];
+    } catch(e){ /* offline */ }
+
+    if (!vocab.length){
+      /* No vocabulary means no honest picker. Hiding AI placement is
+         better than offering a campaign that would be billed for and
+         matched to nothing. */
+      grid.innerHTML = "<span class='promo-tag-fail'>Moods unavailable — try again in a moment.</span>";
+      this._vocab = [];
+      this.syncTags();
+      return;
+    }
+    this._vocab = vocab;
+    grid.innerHTML = vocab.map(function(t){
+      return "<button type='button' class='promo-tag-btn' data-t='" + escapeHtml(t) + "'>" +
+        escapeHtml(t) + "</button>";
+    }).join('');
+    this.syncTags();
+  },
+
+  toggleTag(t){
+    var i = this.tags.indexOf(t);
+    if (i >= 0) this.tags.splice(i, 1);
+    else {
+      if (this.tags.length >= this.UI_MAX_TAGS){
+        this.status('Four moods is plenty — a track tagged with everything is matched less often, not more', 'warn');
+        return;
+      }
+      this.tags.push(t);
+    }
+    this.syncTags();
+  },
+
+  syncTags(){
+    var box = this.el.querySelector('.promo-tags');
+    var ai = this.el.querySelector('.promo-mode-ai');
+    if (!box || !ai) return;
+    box.hidden = !ai.checked;
+
+    var self = this;
+    this.el.querySelectorAll('.promo-tag-btn').forEach(function(b){
+      var on = self.tags.indexOf(b.dataset.t) >= 0;
+      b.classList.toggle('on', on);
+      // a full picker should look full rather than silently refuse
+      b.classList.toggle('maxed', !on && self.tags.length >= self.UI_MAX_TAGS);
+    });
+
+    var count = this.el.querySelector('.promo-tags-count');
+    if (count){
+      count.textContent = this.tags.length
+        ? this.tags.join(' · ')
+        : 'Pick at least one — the DJ cannot offer an untagged track to anything.';
+      count.classList.toggle('empty', !this.tags.length);
+    }
+  },
+
   sel: null,          // { ytId, name, inCatalogue }
 
   setup(){
     var main =
       "<div class='sec'>" +
         "<div class='sec-head'>Promote a track</div>" +
-        "<div class='promo-wallet'><span class='promo-bal'>–</span> tokens · <span class='promo-cost'>–</span> minimum spend</div>" +
+        "<div class='promo-wallet'><span class='promo-bal'>–</span> credits · 1 credit = one person's attention</div>" +
         "<div class='row'>" +
           "<input type='text' class='promo-srh' placeholder='Search the catalogue, or paste a YouTube link…'>" +
           "<button class='icon-btn promo-usecur' title='Use the track playing now'>💿</button>" +
         "</div>" +
         "<div class='promo-results'></div>" +
         "<div class='promo-pick'>Nothing selected yet.</div>" +
+        "<div class='row promo-name-row'>" +
+          "<span class='promo-spend-lbl'>Name</span>" +
+          "<input type='text' class='promo-label' maxlength='120' placeholder='Call this campaign something'>" +
+        "</div>" +
+        // two ways to be seen, and the user should understand they differ
+        "<div class='promo-modes'>" +
+          "<label class='promo-mode'><input type='checkbox' class='promo-mode-popup' checked>" +
+            "<span class='pm-t'>Pop-up</span>" +
+            "<span class='pm-d'>Your track appears on riffrolled's promoted card, labelled as promoted.</span></label>" +
+          "<label class='promo-mode'><input type='checkbox' class='promo-mode-ai'>" +
+            "<span class='pm-t'>AI playlists</span>" +
+            "<span class='pm-d'>Offered to DJ AI as a candidate. It still has to fit the brief, and it's marked when it appears.</span></label>" +
+        "</div>" +
+        /* The moods, shown only when AI placement is ticked — they are
+           the whole of how a brief finds this track, and meaningless to
+           a pop-up-only campaign. Same closed vocabulary the DJ's own
+           options are tagged with, which is the only reason a promoter
+           and a listener's brief can ever match. */
+        "<div class='promo-tags' hidden>" +
+          "<div class='promo-tags-head'>Which moods does this track suit?</div>" +
+          "<div class='promo-tags-note'>Pick up to 4. A brief has to ask for these moods before your track is offered to it — a track tagged with everything is matched less often, not more.</div>" +
+          "<div class='promo-tag-grid'></div>" +
+          "<div class='promo-tags-count'></div>" +
+        "</div>" +
         "<div class='row promo-spend-row'>" +
-          "<span class='promo-spend-lbl'>Spend</span>" +
-          "<input type='number' class='promo-tokens' value='5' min='1' step='1'>" +
+          "<span class='promo-spend-lbl'>Credits</span>" +
+          "<input type='number' class='promo-tokens' value='10' min='1' step='1'>" +
           "<span class='promo-dur'></span>" +
         "</div>" +
-        "<button class='promo-go'>📣 Promote</button>" +
+        "<button class='promo-go'>📣 Start campaign</button>" +
         "<div class='status-bar promo-status'></div>" +
       "</div>" +
       "<div class='sec promo-sec'>" +
         "<div class='sec-head'>Your promotions</div>" +
         "<div class='promo-list'></div>" +
-      "</div>";
+      "</div>" +
+      // finished campaigns live here, read from the local archive rather
+      // than the API — see renderArchive()
+      "<div class='sec promo-sec promo-archive'></div>";
     this.el = menuB.createMenu('📣 Promote', main);
     menuB.place(this.el, { right:'1120px', top:'120px', width:'320px' });
 
@@ -292,6 +488,18 @@ var promoBoss = {
     srh.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.search(); }, 200); });
     this.el.querySelector('.promo-usecur').onclick = function(){ self.useCurrent(); };
     this.el.querySelector('.promo-go').onclick = function(){ self.promote(); };
+
+    /* The moods only exist for AI placement, so the block only appears
+       when AI placement is ticked. Shown unconditionally it would be a
+       required-looking field that does nothing for a pop-up campaign. */
+    this.el.querySelector('.promo-mode-ai').addEventListener('change', function(){
+      self.syncTags();
+    });
+    this.el.querySelector('.promo-tag-grid').addEventListener('click', function(e){
+      var b = e.target.closest('.promo-tag-btn'); if (!b) return;
+      self.toggleTag(b.dataset.t);
+    });
+    this.renderTags();
     this.el.querySelector('.promo-tokens').addEventListener('input', function(){ self._touched = true; self.showDuration(); });
     this.el.querySelector('.promo-list').addEventListener('click', function(e){
       var btn = e.target.closest('.promo-act'); if (!btn) return;
@@ -379,7 +587,16 @@ var promoBoss = {
     }
   },
 
+  /* Credits are impressions now, not hours, so there is no duration to
+     preview — just say plainly what the number buys. */
   showDuration(){
+    var n = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
+    var el = this.el.querySelector('.promo-dur');
+    el.textContent = n > 0 ? (n === 1 ? '= 1 person' : '= ' + n + ' people') : '';
+    return;
+  },
+
+  _showDurationOld(){
     var n = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
     var cost = this._cost || 5, hrs = this._hours || 24;
     var el = this.el.querySelector('.promo-dur');
@@ -404,11 +621,34 @@ var promoBoss = {
         await fetch('/api/track', { method:'POST', headers:{ 'content-type':'application/json' },
           body: JSON.stringify({ name: this.sel.name, url: url }) });
       }
+      var modes = [];
+      if (this.el.querySelector('.promo-mode-popup').checked) modes.push('popup');
+      if (this.el.querySelector('.promo-mode-ai').checked) modes.push('ai');
+      if (!modes.length){ this.status('Choose at least one way to promote', 'err'); return; }
+
+      /* Caught here as well as on the server. The server refuses an
+         untagged AI campaign because taking the money for one that can
+         match nothing would be worse than a 400 — but being told before
+         pressing the button is better than being told after. */
+      if (modes.indexOf('ai') >= 0 && !this.tags.length){
+        this.status('Pick at least one mood so the DJ knows which briefs this track suits', 'err');
+        this.syncTags();
+        return;
+      }
+
       var r = await fetch('/api/promote', { method:'POST', headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ wallet: w, url: url, tokens: tokens }) });
+        body: JSON.stringify({
+          wallet: w, url: url, credits: tokens,
+          modes: modes.join(','),
+          tags: this.tags,
+          label: (this.el.querySelector('.promo-label').value || '').trim() || this.sel.name,
+        }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-      this.status('Promoted for ' + Math.round(d.hours) + 'h ✓ — ' + d.balance + ' tokens left', 'ok');
+      this.status(d.credits + ' credits ✓ — that many people will see it. ' + d.balance + ' left.', 'ok');
+      this.el.querySelector('.promo-label').value = '';
+      this.tags = [];              // the next campaign is a different track
+      this.syncTags();
       this.sel = null;
       this.el.querySelector('.promo-pick').textContent = 'Nothing selected yet.';
       await this.refresh();
@@ -423,6 +663,15 @@ var promoBoss = {
   },
 
   showAddDur(row){
+    var inp = row && row.querySelector('.promo-add');
+    var out = row && row.querySelector('.promo-add-dur');
+    if (!inp || !out) return;
+    var n = parseInt(inp.value, 10) || 0;
+    out.textContent = n > 0 ? '+' + n + (n === 1 ? ' person' : ' people') : '';
+    return;
+  },
+
+  _showAddDurOld(row){
     var n = parseInt(row.querySelector('.promo-add').value, 10) || 0;
     var cost = this._cost || 5, hrs = this._hours || 24;
     var el = row.querySelector('.promo-add-dur');
@@ -434,19 +683,19 @@ var promoBoss = {
     var tokens = 0;
     if (act === 'extend'){
       tokens = parseInt(row.querySelector('.promo-add').value, 10) || 0;
-      if (tokens <= 0){ this.status('Enter a positive number of tokens', 'err'); return; }
+      if (tokens <= 0){ this.status('Enter a positive number of credits', 'err'); return; }
     }
     btn.disabled = true;
     this.status(act === 'extend' ? 'Adding credits…' : (act === 'pause' ? 'Pausing…' : 'Resuming…'));
     try {
       var w = await riffWallet.get();
       var r = await fetch('/api/promotion/action', { method:'POST', headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ wallet: w, id: id, action: act, tokens: tokens }) });
+        body: JSON.stringify({ wallet: w, id: id, action: act, credits: tokens }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
       this.status(
-        act === 'extend' ? ('Added ' + d.added + ' tokens (+' + Math.round(d.added_hours) + 'h) — ' + d.balance + ' left')
-        : act === 'pause' ? 'Paused — remaining time is banked'
+        act === 'extend' ? ('Added ' + d.added + ' credits — ' + d.credits_remaining + ' on the campaign, ' + d.balance + ' in your wallet')
+        : act === 'pause' ? 'Paused — credits only go when the card is shown, so nothing is lost'
         : 'Resumed ✓', 'ok');
       await this.refresh();
       if (window.mineBoss) mineBoss.refresh();
@@ -485,12 +734,11 @@ var promoBoss = {
         var wr = await fetch('/api/wallet?wallet=' + w);
         if (wr.ok){
           var wd = await wr.json();
-          this._cost = wd.promote_cost; this._hours = wd.promote_hours || 24;
+          this._balance = wd.balance;
           this.el.querySelector('.promo-bal').textContent = wd.balance;
-          this.el.querySelector('.promo-cost').textContent = wd.promote_cost;
+          // no minimum any more: one credit is a coherent, if small, campaign
           var ti = this.el.querySelector('.promo-tokens');
-          ti.min = wd.promote_cost; ti.step = wd.promote_cost;
-          if (!this._touched){ ti.value = wd.promote_cost; }
+          ti.min = 1; ti.step = 1;
           this.showDuration();
         }
       } catch(e0){ /* the balance line is cosmetic */ }
@@ -505,17 +753,20 @@ var promoBoss = {
       var self = this;
       list.innerHTML = rows.map(function(p){
         var pid = self.idFromUrl(p.url || '') || '';
-        var ended = !p.paused && new Date(p.expires_at).getTime() <= Date.now();
+        // credits, not the clock, end a campaign now
+        var credits = Number(p.credits_remaining || 0);
+        var ended = credits <= 0;
         var state = p.paused ? 'paused' : (ended ? 'ended' : 'live');
-        var left = p.paused ? self.msLeft(p.remaining_ms) : (ended ? 'ended' : self.timeLeft(p.expires_at));
+        var left = ended ? 'spent' : (credits + (credits === 1 ? ' credit left' : ' credits left'));
         return "<div class='promo-row " + state + "' data-yt='" + escapeHtml(pid) + "' data-id='" + Number(p.id || 0) + "'>"
-          + "<div class='promo-name'>" + escapeHtml(p.name || p.url) + "</div>"
+          + "<div class='promo-name'>" + escapeHtml(p.label || p.name || p.url) + "</div>"
           + "<div class='promo-stats'>"
             + "<span title='Times shown to people'>👁 " + Number(p.views || 0) + "</span>"
             + "<span title='Plays while promoted'>▶ " + Number(p.plays || 0) + "</span>"
             + "<span title='Likes while promoted'>👍 " + Number(p.likes || 0) + "</span>"
-            + "<span title='Tokens spent'>⛏ " + Number(p.tokens || 0) + "</span>"
-            + "<span class='promo-time' title='Promotion time remaining'>" + left + "</span>"
+            + "<span title='Dislikes while promoted'>👎 " + Number(p.dislikes || 0) + "</span>"
+            + "<span title='Credits spent in total'>⛏ " + Number(p.tokens || 0) + "</span>"
+            + "<span class='promo-time' title='Credits left to spend'>" + left + "</span>"
           + "</div>"
           + "<div class='promo-actions'>"
             + (ended ? "" :
@@ -524,15 +775,141 @@ var promoBoss = {
             + "<button class='promo-act promo-topup' data-a='topup'>＋ Add credits</button>"
           + "</div>"
           + "<div class='promo-topup-row'>"
-            + "<input type='number' class='promo-add' min='1' step='1' value='" + Number(self._cost || 5) + "'>"
+            + "<input type='number' class='promo-add' min='1' step='1' value='10'>"
             + "<span class='promo-add-dur'></span>"
             + "<button class='promo-act promo-confirm' data-a='extend'>Add</button>"
             + "<button class='promo-act promo-cancel' data-a='cancel'>✕</button>"
           + "</div></div>";
       }).join('');
+
+      /* Keep a local copy of anything that has finished. The server
+         deletes a spent campaign within a day; these numbers are the
+         only record the owner has of what their credits bought, so they
+         are copied before that happens rather than after. */
+      for (var i = 0; i < rows.length; i++){
+        if (Number(rows[i].credits_remaining || 0) <= 0) await dbBoss.archivePromotion(rows[i]);
+      }
+      await this.renderArchive();
     } catch(e){
       list.innerHTML = '';
       this.status('Couldn’t load your promotions: ' + e.message, 'err');
+    }
+  },
+
+  /* ── finished campaigns ─────────────────────────────────────────────
+     Shown separately from the live list, and from the local archive
+     rather than the API, because the whole point is that these outlive
+     the server row. A campaign appears here the moment it is spent and
+     stays after the sweeper has removed it upstream. */
+  async renderArchive(){
+    var box = this.el.querySelector('.promo-archive');
+    if (!box) return;
+    var rows = await dbBoss.archivedPromotions();
+    if (!rows.length){ box.innerHTML = ''; return; }
+
+    var totals = rows.reduce(function(a, r){
+      a.credits += r.credits || 0; a.views += r.views || 0;
+      a.plays += r.plays || 0; a.likes += r.likes || 0;
+      return a;
+    }, { credits:0, views:0, plays:0, likes:0 });
+
+    box.innerHTML =
+      "<div class='sec-head promo-arch-head'>Finished campaigns"
+        + "<button class='promo-export' title='Download every campaign, live and finished, as CSV'>⤓ CSV</button>"
+      + "</div>"
+      + "<div class='promo-arch-note'>Kept on this device. riffrolled deletes a campaign from the server a day after its last credit goes.</div>"
+      + "<div class='promo-arch-tot'>"
+        + rows.length + " campaign" + (rows.length === 1 ? '' : 's') + " · "
+        + "⛏ " + totals.credits + " credits · 👁 " + totals.views
+        + " · ▶ " + totals.plays + " · 👍 " + totals.likes
+      + "</div>"
+      + rows.slice(0, 40).map(function(r){
+          /* Plays per impression, which is the only rate that answers
+             "was this worth it". Shown as a percentage of the credits
+             actually spent (views), not of the credits bought, because a
+             paused campaign has not had its chance yet. */
+          var rate = r.views ? Math.round((r.plays / r.views) * 100) : 0;
+          return "<div class='promo-arch-row'>"
+            + "<span class='promo-arch-name'>" + escapeHtml(r.label || r.name || r.url) + "</span>"
+            + "<span class='promo-arch-stats'>👁 " + Number(r.views || 0)
+              + " · ▶ " + Number(r.plays || 0)
+              + " · 👍 " + Number(r.likes || 0)
+              + (r.views ? " · " + rate + "% played" : '')
+            + "</span>"
+          + "</div>";
+        }).join('');
+
+    var self = this;
+    box.querySelector('.promo-export').onclick = function(){ self.exportCsv(); };
+  },
+
+  /**
+   * Every campaign, live and finished, as a CSV file.
+   *
+   * Built in the browser from the data already on screen rather than from
+   * a server endpoint. There is one source of truth that way, and the
+   * finished campaigns only exist locally anyway — a server-side export
+   * could not include the ones it had already swept, which would make the
+   * export quietly incomplete in exactly the case somebody wants it.
+   */
+  async exportCsv(){
+    try {
+      var w = await riffWallet.get();
+      var live = [];
+      try {
+        var r = await fetch('/api/promotions/mine?wallet=' + w);
+        if (r.ok) live = await r.json();
+      } catch(e){ /* the archive alone is still worth exporting */ }
+
+      var archived = await dbBoss.archivedPromotions();
+      var seen = {};
+      var all = [];
+      live.forEach(function(p){
+        seen[p.id] = true;
+        all.push({
+          id: p.id, name: p.label || p.name || '', url: p.url || '',
+          modes: p.modes || '', tags: p.tags || '',
+          state: Number(p.credits_remaining || 0) <= 0 ? 'finished' : (p.paused ? 'paused' : 'live'),
+          credits_bought: p.tokens || 0, credits_left: p.credits_remaining || 0,
+          views: p.views || 0, plays: p.plays || 0, likes: p.likes || 0,
+          dislikes: p.dislikes || 0, replays: p.replays || 0,
+          created_at: p.created_at || '', ended_at: p.ended_at || '', source: 'server'
+        });
+      });
+      // the ones the server has already deleted
+      archived.forEach(function(a){
+        if (seen[a.id]) return;
+        all.push({
+          id: a.id, name: a.label || a.name || '', url: a.url || '',
+          modes: a.modes || '', tags: a.tags || '',
+          state: 'finished',
+          credits_bought: a.credits || 0, credits_left: 0,
+          views: a.views || 0, plays: a.plays || 0, likes: a.likes || 0,
+          dislikes: a.dislikes || 0, replays: a.replays || 0,
+          created_at: a.createdAt || '', ended_at: a.endedAt || '', source: 'local archive'
+        });
+      });
+
+      if (!all.length){ this.status('Nothing to export yet', 'warn'); return; }
+
+      var cols = ['id','name','url','modes','tags','state','credits_bought','credits_left',
+        'views','plays','likes','dislikes','replays','created_at','ended_at','source'];
+      var csv = cols.join(',') + '\r\n' + all.map(function(row){
+        return cols.map(function(c){ return csvCell(row[c]); }).join(',');
+      }).join('\r\n') + '\r\n';
+
+      /* A BOM, because the overwhelmingly likely destination is Excel,
+         which reads a UTF-8 CSV as the system codepage without one and
+         turns every track title with an accent in it into mojibake. */
+      var blob = new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'riffrolled-campaigns-' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+      this.status(all.length + ' campaign' + (all.length === 1 ? '' : 's') + ' exported ✓', 'ok');
+    } catch(e){
+      this.status('Export failed: ' + e.message, 'err');
     }
   }
 };

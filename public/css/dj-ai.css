@@ -72,6 +72,13 @@
 
 .dj-fixed .dj-sec-head { cursor:default; }
 
+/* …except the Length row while it is collapsible. The ＋ is only
+   rendered in speed mode, which is exactly when clicking the row does
+   something, so :has() asks the right question without JS having to
+   add a class. In details mode Length is permanently open and the
+   default cursor is the honest one. */
+.dj-timesec .dj-sec-head:has(.dj-expand) { cursor:pointer; }
+
 .dj-caret { font-size:9px; color:rgba(255,255,255,0.3); width:9px; flex-shrink:0; }
 
 .dj-sec-ico { font-size:13px; flex-shrink:0; }
@@ -181,11 +188,21 @@
 
 .dj-knows-state.on { background:rgba(90,184,138,0.2); color:#8fdcb2; }
 
-.dj-share { display:flex; align-items:center; gap:7px; cursor:pointer; padding:3px 0 8px; user-select:none; }
+.dj-share, .dj-promo-opt { display:flex; align-items:center; gap:7px; cursor:pointer; padding:3px 0 8px; user-select:none; }
 
-.dj-share input { display:none; }
+.dj-share input, .dj-promo-opt input { display:none; }
 
-.dj-share .spin-label { font-size:11.5px; color:rgba(255,255,255,0.6); }
+.dj-share .spin-label, .dj-promo-opt .spin-label { font-size:11.5px; color:rgba(255,255,255,0.6); }
+
+/* The promoted opt-in. The explanation sits under it rather than in a
+   tooltip, because what it does — put paid placements in something you
+   are about to hand to someone else — is not a detail to discover on
+   hover. */
+.dj-promo-opt { padding:3px 0 2px; }
+.dj-promo-note {
+  font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.38);
+  padding:0 0 8px 34px;
+}
 
 .dj-know-row { display:flex; justify-content:space-between; font-size:11px;
   color:rgba(255,255,255,0.5); padding:2px 0; }

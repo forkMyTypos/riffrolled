@@ -1,3 +1,4 @@
+import { getConfig } from '../config.js';
 // ── oEmbed: does this YouTube video actually exist? ───────────────────
 //
 // The catalogue is shared. Anyone can POST to /api/track and /api/playlist/save,
@@ -48,13 +49,10 @@ const TTL_OK = 60 * 60 * 24 * 30;   // 30 days
 const TTL_BAD = 60 * 60;            // 1 hour
 
 /** Tunables, overridable in wrangler.toml [vars]. */
-export function verifyConfig(env) {
-  const n = Number(env.VERIFY_MAX_CHECKS);
+export async function verifyConfig(env) {
   if (env.OEMBED_BASE) _setEndpointForTests(env.OEMBED_BASE);
-  return {
-    maxChecks: Number.isFinite(n) && n >= 0 ? n : DEFAULT_MAX_CHECKS,
-    enabled: String(env.VERIFY_LINKS ?? '1') !== '0',
-  };
+  const c = await getConfig(env);
+  return { maxChecks: c.VERIFY_MAX_CHECKS, enabled: c.VERIFY_LINKS };
 }
 
 /* A cache key has to be a URL on a domain we control; this one is never

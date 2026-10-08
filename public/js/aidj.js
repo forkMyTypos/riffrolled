@@ -47,7 +47,9 @@ var djAi = {
     count: 15,
     minutes: 60,
     maxTrackMin: 8,
-    shareContext: true
+    shareContext: true,
+    allowPromoted: false, // opt-in: paid placements offered alongside the brief
+    briefId: ''           // ties a copy back to the placements it was offered
   },
 
   /* Speed mode asks four things and hides the rest behind More settings.
@@ -207,6 +209,12 @@ var djAi = {
 
   async pick(key, optionId){
     this.state.picks[key] = optionId;
+    /* Changing a pick changes the moods, so it is a different brief and
+       the next copy is a new placement. Deliberately hooked here and in
+       roll() rather than in save(): the track count and the familiarity
+       slider also call save(), and nudging the length from 15 to 16 is
+       not a second brief and must not cost anybody a second credit. */
+    this.newBrief();
     var o = this.optionById(optionId);
     if (o){   // remembering what gets used is what makes the picker useful
       await db.djOptions.update(o.id, { useCount: (o.useCount || 0) + 1, lastTs: Date.now() });
@@ -380,6 +388,7 @@ var djAi = {
     });
 
     this.state.chaos = chaos;
+    this.newBrief();            // a roll is a new brief — see pick()
     // the slider moves with a details-mode roll, in sane steps rather than
     // to a random integer. In speed mode it lives under More settings, so
     // a roll leaves whatever the listener set there alone.
@@ -472,6 +481,107 @@ var djAi = {
       : await this.buildDetailsPrompt();
   },
 
+  /* ── promoted placements ─────────────────────────────────────────────
+     Off by default and opt-in, because a brief is something the listener
+     is about to hand to someone else; putting advertising in it without
+     being asked would be a different product.
+
+     The money moves on COPY, not on import. Copying is the moment the
+     promoted track has definitely been in front of a person — it is in
+     their clipboard and on its way to an AI. Whether the AI keeps it, and
+     whether they then import the result, is a measure of how well the
+     placement worked rather than the thing being paid for. Charging on
+     import would also mean an AI that quietly dropped the track cost the
+     promoter nothing for attention that was genuinely spent.
+
+     The brief id is what makes copying the same brief twice free. It
+     survives until the brief changes: a new roll is a new brief and a new
+     placement, re-copying the same one is not. ── */
+
+  /** A fresh brief id, so the next copy is a new placement. */
+  newBrief(){
+    var a = new Uint8Array(16);
+    crypto.getRandomValues(a);
+    this.state.briefId = [].map.call(a, function(b){
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+    this._promoted = null;
+    return this.state.briefId;
+  },
+
+  briefId(){ return this.state.briefId || this.newBrief(); },
+
+  /**
+   * The moods this brief is asking for: the union of the tags on every
+   * option it picked.
+   *
+   * This is the whole matching mechanism. The DJ's own vocabulary is
+   * tagged from the same closed list the server validates a promoter
+   * against (src/tags.js), so "Night drive · Dark · Electronic" becomes
+   * a set of words a campaign can be matched on. A promoter free to
+   * invent tags would match nothing.
+   */
+  briefTags(){
+    var self = this, out = [];
+    this.cats.forEach(function(c){
+      if (!c.enabled) return;
+      var o = self.speed() ? self.effective(c.key) : self.picked(c.key);
+      if (!o || !o.tags) return;
+      o.tags.forEach(function(t){ if (out.indexOf(t) < 0) out.push(t); });
+    });
+    return out;
+  },
+
+  speed(){ return this.state.textMode === 'speed'; },
+
+  /** Ask the server which campaigns fit this brief. Charges nothing. */
+  async fetchPromoted(){
+    if (!this.state.allowPromoted) return [];
+    var tags = this.briefTags();
+    if (!tags.length) return [];
+    try {
+      var r = await fetch('/api/promotions/brief', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ brief_id: this.briefId(), tags: tags })
+      });
+      if (!r.ok) return [];
+      var d = await r.json();
+      this._promoted = d.promotions || [];
+      return this._promoted;
+    } catch(e){
+      // offline, or the endpoint is unhappy: the brief goes out without
+      // placements rather than not going out
+      return [];
+    }
+  },
+
+  /** Spend one credit per placement. Called when the brief is copied. */
+  async claimPromoted(){
+    if (!this.state.allowPromoted || !this.state.briefId) return 0;
+    if (!this._promoted || !this._promoted.length) return 0;
+    try {
+      var r = await fetch('/api/promotions/brief/claim', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ brief_id: this.state.briefId })
+      });
+      if (!r.ok) return 0;
+      var d = await r.json();
+      return d.charged || 0;
+    } catch(e){ return 0; }
+  },
+
+  /** The PROMOTED TRACKS section, or '' when there is nothing to say. */
+  async promotedBlock(){
+    var list = await this.fetchPromoted();
+    if (!list.length || typeof DJ_PROMOTED_BLOCK === 'undefined') return '';
+    var lines = list.map(function(p, i){
+      var moods = (p.tags || []).join(', ');
+      return (i + 1) + '. ' + (p.name || p.label || p.url) +
+        '\n   ' + p.url + (moods ? '\n   tagged: ' + moods : '');
+    }).join('\n');
+    return DJ_PROMOTED_BLOCK.replace('{{promoted_list}}', lines);
+  },
+
   /** the line a category contributes to a brief */
   _briefLineFor(key){
     var o = this.effective(key);
@@ -529,7 +639,10 @@ var djAi = {
       }
     }
 
+    var promoted = await this.promotedBlock();
+
     return tpl
+      .replace('{{promoted}}',           promoted)
       .replace('{{activity}}',           this._briefLineFor('activity'))
       .replace('{{feeling}}',            this._briefLineFor('feel'))
       .replace('{{direction}}',          this._briefLineFor('direction'))
@@ -621,6 +734,10 @@ var djAi = {
       L.push('I have not shared my listening history. Choose blind.');
       L.push('');
     }
+
+    // paid placements, same block as speed mode and on the same terms
+    var promotedBlock = await this.promotedBlock();
+    if (promotedBlock){ L.push(promotedBlock.trim()); L.push(''); }
 
     L.push('REPLY IN THIS EXACT FORMAT. I paste your whole reply straight back into riffrolled,');
     L.push('so put nothing before or after the block:');

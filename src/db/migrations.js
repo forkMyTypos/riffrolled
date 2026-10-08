@@ -91,6 +91,173 @@ const MIGRATIONS = [
     `UPDATE tracks SET verified = 1`,
     `CREATE INDEX IF NOT EXISTS idx_tracks_verified ON tracks(verified)`,
   ]},
+  { id: 12, name: 'config', sql: [
+    // Every number that steers the economy, in a row rather than in code.
+    // See src/config.js — the database is the first of three layers, with
+    // wrangler.toml vars and shipped defaults behind it, so an empty table
+    // (or no table at all) behaves exactly as the site did before.
+    `CREATE TABLE IF NOT EXISTS config (
+       key TEXT PRIMARY KEY, value TEXT NOT NULL,
+       note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)`,
+    // Who changed what, from what, to what. An economy you can retune is an
+    // economy somebody can mis-tune; without this there is no way to find
+    // out when a number started being wrong.
+    `CREATE TABLE IF NOT EXISTS config_audit (
+       id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL,
+       old_value TEXT NOT NULL DEFAULT '', new_value TEXT NOT NULL DEFAULT '',
+       at TEXT NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS idx_config_audit ON config_audit(at)`,
+    // Deliberately NOT seeded with values. An empty table means every key
+    // resolves to its wrangler.toml var or its shipped default, so this
+    // migration changes no behaviour at all — which is the point of doing
+    // it on its own.
+  ]},
+  { id: 13, name: 'aggregate counters', sql: [
+    // What the catalogue knows about how a track is received. Counters, not
+    // a log: one row per track however many times it is played, so storage
+    // stays flat forever and no query gets slower with age. A log of every
+    // play would be gigabytes a year at a few hundred listeners.
+    `ALTER TABLE tracks ADD COLUMN plays INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE tracks ADD COLUMN likes INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE tracks ADD COLUMN dislikes INTEGER NOT NULL DEFAULT 0`,
+    `CREATE INDEX IF NOT EXISTS idx_tracks_plays ON tracks(plays)`,
+
+    // The links graph, shared. It has lived in Dexie since v11 and never
+    // left the browser, which is why the server has had no idea whether a
+    // link anyone made turned out to be useful.
+    //
+    // `created_by` is the ONLY place a wallet appears in this whole step,
+    // and it is on the CONTRIBUTION, never on the consumption: we record
+    // who made a link, never who followed one. That keeps the promise in
+    // info.js intact while still making it possible to pay the person whose
+    // link other people actually use.
+    `CREATE TABLE IF NOT EXISTS links (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       key TEXT NOT NULL, type TEXT NOT NULL,
+       a TEXT NOT NULL, b TEXT NOT NULL,
+       origin TEXT NOT NULL DEFAULT 'manual',
+       created_by TEXT NOT NULL DEFAULT '',
+       follows INTEGER NOT NULL DEFAULT 0,
+       first_ts TEXT NOT NULL, last_ts TEXT NOT NULL)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_key ON links(key)`,
+    `CREATE INDEX IF NOT EXISTS idx_links_by ON links(created_by)`,
+    `CREATE INDEX IF NOT EXISTS idx_links_follows ON links(follows)`,
+  ]},
+  { id: 14, name: 'campaigns', sql: [
+    // A promotion row becomes a campaign. No new table: it already had an
+    // owner, a track, a spend, an expiry, a pause flag and three counters,
+    // so five columns finish the job and every existing query keeps working.
+    `ALTER TABLE promotions ADD COLUMN label TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE promotions ADD COLUMN modes TEXT NOT NULL DEFAULT 'popup'`,
+    `ALTER TABLE promotions ADD COLUMN dislikes INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE promotions ADD COLUMN replays INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE promotions ADD COLUMN ended_at TEXT NOT NULL DEFAULT ''`,
+
+    // The switch from selling time to selling attention. credits_remaining
+    // is what actually ends a campaign now; expires_at stays as an optional
+    // ceiling so a half-spent campaign can't sit in the pool forever.
+    //
+    // Existing rows are seeded from `tokens`, which is what their owner
+    // paid — so a campaign bought under the old time-based rules converts
+    // to the same number of impressions rather than being wiped.
+    `ALTER TABLE promotions ADD COLUMN credits_remaining INTEGER NOT NULL DEFAULT 0`,
+    `UPDATE promotions SET credits_remaining = tokens WHERE credits_remaining = 0`,
+    `UPDATE promotions SET label = name WHERE label = ''`,
+
+    `CREATE INDEX IF NOT EXISTS idx_promo_live ON promotions(credits_remaining, paused)`,
+
+    // Which brief offered which campaign, so copying the same brief twice
+    // cannot charge twice. Rows are tiny and swept with the campaign.
+    `CREATE TABLE IF NOT EXISTS brief_offers (
+       brief_id TEXT NOT NULL, promotion_id INTEGER NOT NULL,
+       charged INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL,
+       PRIMARY KEY (brief_id, promotion_id))`,
+  ]},
+
+  { id: 15, name: 'mining: site-wide retarget and early tiers', sql: [
+    /* Three things, all in service of one change: the per-wallet daily cap
+       goes away and difficulty becomes the only brake.
+
+       The cap never worked. Proof of work is Sybil-resistant because the
+       cost is CPU, which you cannot fake; a per-identity cap is only
+       Sybil-resistant if identities are expensive, and here a wallet is
+       64 random hex characters. Anyone willing to hold fifty wallets had
+       fifty times the cap, so the cap constrained precisely the honest
+       user with one. Difficulty constrains everybody equally. */
+
+    // How many credits the whole site minted, by UTC hour. One row per
+    // hour, one UPDATE per mint, pruned after a week: bounded forever,
+    // and enough history to measure a rate without storing who mined.
+    `CREATE TABLE IF NOT EXISTS mint_rate (
+       hour TEXT PRIMARY KEY, mints INTEGER NOT NULL DEFAULT 0)`,
+
+    /* The controller's one piece of state. `adjustment` is extra bits
+       added on top of the operator's base difficulty and is never
+       negative: retargeting defends against inflation, it does not hand
+       out discounts. That asymmetry matters — if a quiet site made
+       mining cheap, the way to mine cheaply would be to wait for a quiet
+       hour, and the operator's base would stop meaning anything. */
+    `CREATE TABLE IF NOT EXISTS mine_state (
+       id INTEGER PRIMARY KEY CHECK (id = 1),
+       adjustment INTEGER NOT NULL DEFAULT 0,
+       rate REAL NOT NULL DEFAULT 0,
+       changed_at TEXT NOT NULL DEFAULT '')`,
+    `INSERT OR IGNORE INTO mine_state (id) VALUES (1)`,
+
+    /* Joining order, so being early can be rewarded. A plain counter, not
+       a timestamp comparison, because the tier boundaries are "the first
+       thousand wallets" and that is a question about rank.
+
+       A discount per wallet is safe against the trick that killed the
+       cap: your CPU is the constraint, and every wallet you hold gets the
+       same discount, so a thousand early wallets mine no faster than one.
+       The reward is for being early, which is what it is meant to be. */
+    `ALTER TABLE wallets ADD COLUMN seq INTEGER`,
+    `UPDATE wallets SET seq = (
+        SELECT rn FROM (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS rn FROM wallets
+        ) r WHERE r.id = wallets.id
+      ) WHERE seq IS NULL`,
+    `CREATE INDEX IF NOT EXISTS idx_wallets_seq ON wallets(seq)`,
+  ]},
+
+  { id: 16, name: 'campaign tags for AI brief matching', sql: [
+    /* Which moods a promoted track suits, from the closed vocabulary in
+       src/tags.js — the same words the DJ's own options are tagged with,
+       so a promoter and a brief describe music in one language.
+
+       Stored as a comma string rather than a join table. A campaign has
+       at most eight tags and matching reads every live AI campaign at
+       once anyway, so a table would add a join to buy nothing. */
+    `ALTER TABLE promotions ADD COLUMN tags TEXT NOT NULL DEFAULT ''`,
+
+    /* Offers are recorded when a brief is built and charged when it is
+       copied, so brief_offers needs an index on the brief rather than
+       only the primary key. Claiming reads every offer for one brief. */
+    `CREATE INDEX IF NOT EXISTS idx_brief_offers_brief ON brief_offers(brief_id, charged)`,
+    `CREATE INDEX IF NOT EXISTS idx_brief_offers_at ON brief_offers(at)`,
+  ]},
+
+  { id: 17, name: 'contribution rewards', sql: [
+    /* Points earned per wallet per epoch, and nothing else. No record of
+       WHICH track somebody added — the point total is all the payout
+       needs, and a per-contribution log would be an unbounded table that
+       also happens to be a list of everything each wallet ever added.
+       See src/contrib.js for why the payout is a shared pool. */
+    `CREATE TABLE IF NOT EXISTS contrib (
+       wallet_id TEXT NOT NULL,
+       epoch TEXT NOT NULL,
+       points INTEGER NOT NULL DEFAULT 0,
+       updated_at TEXT NOT NULL DEFAULT '',
+       PRIMARY KEY (wallet_id, epoch))`,
+    `CREATE INDEX IF NOT EXISTS idx_contrib_epoch ON contrib(epoch)`,
+
+    /* One row per epoch that has been paid. This is the only thing
+       standing between a retried sweep and paying everybody twice, so it
+       is a table rather than a flag on something else. */
+    `CREATE TABLE IF NOT EXISTS contrib_paid (
+       epoch TEXT PRIMARY KEY, paid_at TEXT NOT NULL)`,
+  ]},
 ];
 
 // "already there" is success: the work this statement would do is done

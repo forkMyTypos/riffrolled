@@ -260,6 +260,13 @@ const MIGRATIONS = [
   ]},
 ];
 
+/* Exported for the upgrade test, which applies the early migrations,
+   inserts the kind of rows a live database actually holds, and then runs
+   the rest — because every other test starts from an empty database, and
+   "the migrations work" and "the migrations work on your data" are
+   different claims. Nothing in the Worker reads this. */
+export const _MIGRATIONS_FOR_TESTS = MIGRATIONS;
+
 // "already there" is success: the work this statement would do is done
 const ALREADY = /duplicate column|already exists/i;
 

@@ -755,9 +755,24 @@ var djAi = {
     L.push('  - Real, released tracks by real artists. Do not invent songs. Do not repeat a track.');
     L.push('  - No commentary outside the block.');
     L.push('');
-    L.push('YOUTUBE LINKS — REQUIRED');
-    L.push('Every track MUST have a real YouTube watch URL.');
-    L.push('A playlist is not complete unless all ' + s.count + ' tracks have verified YouTube URLs.');
+    /* This block used to say every track MUST have a URL and that the
+       playlist was incomplete without one for all of them. Read beside
+       the instruction not to invent ids, that is a contradiction, and an
+       AI resolves it the way the stronger wording points: it fills every
+       cell, with a Bandcamp page, an album link, or a video id it has
+       already used. A fifteen-track reply then imports as four. The rule
+       is the same as it always was — never invent a link — but the
+       requirement it was fighting with is gone. */
+    L.push('YOUTUBE LINKS');
+    L.push('riffrolled plays YouTube videos and nothing else. A Bandcamp, Spotify,');
+    L.push('SoundCloud or Apple Music link cannot be played and the track is dropped.');
+    L.push('');
+    L.push('Give exactly ' + s.count + ' TRACKS. You do NOT need ' + s.count + ' URLs.');
+    L.push('A track with an EMPTY url cell is complete and correct — riffrolled looks it');
+    L.push('up from the artist and title. Completeness is counted in tracks, never links.');
+    L.push('');
+    L.push('A wrong link is far worse than no link: it costs the listener that song');
+    L.push('silently, and they get a playlist shorter than the one you wrote.');
     L.push('');
     L.push('For EACH track:');
     L.push('  1. Search YouTube/web for the exact Artist + Track Title.');
@@ -774,11 +789,15 @@ var djAi = {
     L.push(' 10. Repeat the search if the first result is unsuitable.');
     L.push('');
     L.push('HARD REQUIREMENT');
-    L.push('Return exactly ' + s.count + ' tracks AND exactly ' + s.count + ' verified YouTube URLs.');
-    L.push('If a selected track cannot be confidently matched to a real YouTube result, replace it');
-    L.push('with another suitable track that can be verified.');
-    L.push('The URL must come from an actual search result made during this request. Never rely on');
-    L.push('memory. A plausible-looking URL is not acceptable.');
+    L.push('Return exactly ' + s.count + ' tracks.');
+    L.push('Every URL you DO give must come from an actual search result made during this');
+    L.push('request. Never rely on memory — a plausible-looking URL is not acceptable, and');
+    L.push('never give the same video id for two different tracks.');
+    L.push('');
+    L.push('If a track cannot be confidently matched to a real YouTube result, you may either');
+    L.push('replace it with another track you can verify, or keep it and leave its url cell');
+    L.push('empty. Both are correct. What is not correct is filling the cell with something');
+    L.push('that is not a YouTube video, or with an id you used for another track.');
     L.push('');
     L.push('JSON is also accepted if you prefer:');
     L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID",' +
@@ -1006,14 +1025,24 @@ var djAi = {
     });
   },
 
+  /* Same song twice in one reply keeps ONE copy — and specifically the
+     copy that has a link. The first-wins version threw away a playable
+     track whenever an AI listed a song once without a link and again
+     with one, which is exactly what a reply full of Bandcamp links does:
+     "A.L.I.S.O.N & Krosia — Spirit" appeared at 7 with a Bandcamp url
+     and at 15 with a YouTube one, and riffrolled kept the Bandcamp. */
   _dedupe(items){
-    var seen = {}, out = [];
+    var at = {}, out = [];
     items.forEach(function(it){
       if (!it || (!it.title && !it.artist)) return;
       var key = (it.artist + '|' + it.title).toLowerCase();
-      if (seen[key]) return;
-      seen[key] = 1;
-      out.push(it);
+      if (at[key] === undefined){
+        at[key] = out.length;
+        out.push(it);
+        return;
+      }
+      var kept = out[at[key]];
+      if (!kept.url && it.url) out[at[key]] = it;      // the one that can play wins
     });
     return out;
   },
@@ -1227,8 +1256,54 @@ var djAi = {
   },
 
   /** a short follow-up to paste back, naming exactly what failed */
-  buildFixPrompt(dead){
+  /**
+   * A follow-up naming exactly what riffrolled could not use.
+   *
+   * Three failures, not one. A dead link, a link to somewhere that is
+   * not YouTube, and the same video id handed back for several different
+   * songs all end with the track missing from the playlist, and all three
+   * are things the AI can put right if it is told which happened.
+   */
+  buildFixPrompt(dead, rep){
     var L = [];
+    var noLink = (rep && rep.noLink) || [];
+    var repeated = (rep && rep.repeated) || [];
+
+    L.push('riffrolled plays YouTube videos and nothing else, so some of that set could');
+    L.push('not be imported. Here is exactly what went wrong.');
+    L.push('');
+
+    if (noLink.length){
+      L.push(noLink.length + ' track(s) had a link that was not a YouTube video (Bandcamp,');
+      L.push('Spotify, SoundCloud, an album page):');
+      noLink.forEach(function(it, i){
+        L.push('  ' + (i + 1) + '. ' + (it.artist ? it.artist + ' — ' : '') + it.title);
+      });
+      L.push('');
+    }
+
+    if (repeated.length){
+      L.push(repeated.length + ' track(s) reused a video id already used for a different song,');
+      L.push('which means the link is wrong for at least one of them:');
+      repeated.forEach(function(it, i){
+        L.push('  ' + (i + 1) + '. ' + (it.artist ? it.artist + ' — ' : '') + it.title
+          + '  (same video as ' + it.repeatOf + ')');
+      });
+      L.push('');
+    }
+
+    if (!dead.length) return L.concat([
+      'Please send those tracks again, in the same pipe format, with ONE change:',
+      '',
+      '  - Give a real YouTube watch URL you have actually seen, or',
+      '  - leave the link cell EMPTY. An empty cell is the correct answer and',
+      '    riffrolled will find the track from the artist and title.',
+      '',
+      'Never reuse a video id, and never write one from memory. Ids are random',
+      'strings — one that looks plausible is almost always wrong, and a wrong',
+      'link is worse than no link.',
+    ]).join('\n');
+
     L.push('Those YouTube links do not exist. I checked every one of them against YouTube.');
     L.push('');
     L.push('These tracks need fixing:');
@@ -1268,10 +1343,106 @@ var djAi = {
 
      Nothing is looked up. The AI was asked to verify its links; a dead id
      fails on the deck, which the player already handles. ── */
+  /**
+   * Why a reply of N tracks became a playlist of fewer.
+   *
+   * riffrolled already knew all of this and said none of it: fifteen
+   * tracks went in, four came out, and the only clue was the number. The
+   * three reasons are completely different problems — one is the AI
+   * ignoring the brief, one is the AI inventing links, one is a dead
+   * video — and they need different responses from the listener.
+   */
+  importReport(items){
+    var r = { total: items.length, noLink: [], dead: [], repeated: [], playable: 0 };
+    var usedBy = {};
+    items.forEach(function(it){
+      if (it.dead){ r.dead.push(it); return; }
+      if (!it.url){ r.noLink.push(it); return; }
+      if (usedBy[it.url]){
+        // the same video id handed back for a different song: the AI
+        // filled a row it could not find a real link for
+        it.repeatOf = usedBy[it.url];
+        r.repeated.push(it);
+        return;
+      }
+      usedBy[it.url] = (it.artist ? it.artist + ' — ' : '') + it.title;
+      r.playable++;
+    });
+    return r;
+  },
+
+  /**
+   * Find YouTube links for tracks the AI left without one.
+   *
+   * `/api/resolve` has existed and been tested since before any of this,
+   * and nothing ever called it. That made "leave the url cell empty" a
+   * lie: an empty cell was dropped exactly as silently as a Bandcamp
+   * link, so the brief was inviting the AI into a different quiet
+   * failure. Telling an AI an empty cell is fine is only honest if
+   * riffrolled then goes and finds the track.
+   *
+   * Cheap first: the shared catalogue costs nothing, and only what is
+   * left over reaches a YouTube search, which is quota'd and capped
+   * server-side. Best-effort throughout — a track that cannot be
+   * resolved is reported, never invented.
+   */
+  async resolveMissing(items, onProgress){
+    var need = items.filter(function(it){ return !it.url && (it.title || it.artist); });
+    if (!need.length) return { asked: 0, found: 0 };
+    (onProgress || function(){})(need.length);
+
+    try {
+      var r = await fetch('/api/resolve', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          allowYouTube: true,
+          items: need.slice(0, 30).map(function(it){
+            return { artist: it.artist || '', title: it.title || '' };
+          })
+        })
+      });
+      if (!r.ok) return { asked: need.length, found: 0 };
+      var d = await r.json();
+      var found = 0;
+      (d.results || []).forEach(function(res){
+        if (!res || !res.ok || !res.url) return;
+        var it = need[res.i];
+        if (!it || it.url) return;
+        var id = self_ytId(res.url);
+        if (!id) return;
+        it.url = id;
+        /* Clear the dead flag too. A track whose invented link we just
+           replaced with a real one is not dead any more, and leaving the
+           flag set would have it reported as dead and then dropped by
+           importPlaylist — found and discarded in the same breath. */
+        it.dead = false;
+        it.resolvedVia = res.via || 'resolve';
+        if (res.name && !it.title) it.title = res.name;
+        found++;
+      });
+      return { asked: need.length, found: found, left: d.lookups_left };
+    } catch (e) {
+      return { asked: need.length, found: 0, offline: true };
+    }
+
+    function self_ytId(u){
+      var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(String(u || ''));
+      return m ? m[1] : null;
+    }
+  },
+
   async importPlaylist(parsed, rawReply){
-    // a link that has been checked and found missing is not playable, and
-    // importing it would only put a row on the deck that fails later
-    var playable = parsed.items.filter(function(it){ return it.url && !it.dead; });
+    /* A link checked and found missing is not playable, and a video id
+       already used by an earlier track in the same reply is not a second
+       track — importing it would add a row that plays a song already in
+       the set under somebody else's name. */
+    var seenUrl = {};
+    var playable = parsed.items.filter(function(it){
+      if (!it.url || it.dead) return false;
+      if (seenUrl[it.url]) return false;
+      seenUrl[it.url] = 1;
+      return true;
+    });
     if (!playable.length) return null;
 
     var base = parsed.name || this.briefSummaryName();
@@ -1344,6 +1515,7 @@ var djAi = {
     return {
       playlistId: plId, name: name, count: playable.length,
       skipped: parsed.items.length - playable.length,
+      report: this.importReport(parsed.items),
       totalSecs: total
     };
   },

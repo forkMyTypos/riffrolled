@@ -297,10 +297,17 @@ For EACH selected track:
 8. Never invent, guess, or recall a YouTube video ID.
 9. Never use a different song, remix, cover, live version, or similarly titled track unless it is clearly the intended recording.
 10. If the first result is unsuitable, search again.
+11. YOUTUBE ONLY. Bandcamp, Spotify, SoundCloud, Apple Music and artist websites cannot be played and the track will be dropped. A Bandcamp link is not a partial answer; it is a missing one.
+12. NEVER use the same video ID twice. If two tracks carry the same link, at least one of them is wrong, and the second is silently discarded.
 
-If a selected track genuinely cannot be matched to a real YouTube result, replace that track with another suitable track and search for its URL.
+If a selected track genuinely cannot be matched to a real YouTube result, you have two acceptable options, in this order:
 
-The final playlist must contain exactly {{track_count}} tracks and exactly {{track_count}} real YouTube URLs.
+  a. Replace that track with another suitable track and search for its URL.
+  b. Keep the track and leave the URL cell EMPTY.
+
+An empty URL cell is a correct, useful answer — riffrolled will try to find the track itself from the artist and title. A link to the wrong place, or a reused ID, is worse than no link at all, because it quietly costs the listener a song.
+
+The final playlist must contain exactly {{track_count}} TRACKS. It does not need {{track_count}} URLs: a track with an empty URL cell still counts, and riffrolled resolves it. Completeness is measured in tracks, never in links.
 
 THE BRIEF
 

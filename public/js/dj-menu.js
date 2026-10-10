@@ -501,9 +501,37 @@ var djMenuBoss = {
      music is usually right and it is only the link that was invented —
      and offered back to the AI as a short follow-up rather than making
      the listener write one. */
-  renderDead(dead, odd, total){
+  renderDead(dead, odd, total, rep){
     var box = this.el.querySelector('.dj-deadlist');
     var html = '';
+
+    /* Tracks the AI gave that riffrolled cannot play, named rather than
+       counted. A set of fifteen that lands as four needs to say which
+       eleven went and why — the three reasons below are different
+       failures and a listener can act on each of them differently. */
+    if (rep && rep.noLink.length){
+      html += "<div class='dj-dead-head'>" + rep.noLink.length + " of " + total +
+        " had no YouTube link and riffrolled couldn’t find one</div>" +
+        rep.noLink.slice(0, 8).map(function(it){
+          return "<div class='dj-dead-row'>" +
+            escapeHtml((it.artist ? it.artist + ' — ' : '') + it.title) + "</div>";
+        }).join('') +
+        (rep.noLink.length > 8 ? "<div class='dj-dead-row'>…and " + (rep.noLink.length - 8) + " more</div>" : '');
+    }
+
+    /* The quietest failure of the three. An AI that cannot find a link
+       sometimes repeats one it already used, so three different songs
+       arrive pointing at one video. riffrolled keeps the first and drops
+       the rest — silently, until now. */
+    if (rep && rep.repeated.length){
+      html += "<div class='dj-odd-head'>" + rep.repeated.length +
+        " reuse a link already used for another track</div>" +
+        rep.repeated.map(function(it){
+          return "<div class='dj-dead-row'>" +
+            escapeHtml((it.artist ? it.artist + ' — ' : '') + it.title) +
+            " <span class='dj-odd-actual'>→ same video as " + escapeHtml(it.repeatOf) + "</span></div>";
+        }).join('');
+    }
 
     if (dead.length){
       html += "<div class='dj-dead-head'>" + dead.length + " of " + total +
@@ -525,13 +553,17 @@ var djMenuBoss = {
         }).join('');
     }
 
-    if (dead.length) html += "<button class='dj-fix'>⧉ Copy a note asking your AI to fix these</button>";
+    /* A follow-up is worth offering for any of the three failures, not
+       just dead links — a reply full of Bandcamp urls is the AI ignoring
+       the brief, and it can fix that if it is told. */
+    var fixable = dead.length || (rep && (rep.noLink.length || rep.repeated.length));
+    if (fixable) html += "<button class='dj-fix'>⧉ Copy a note asking your AI to fix these</button>";
     box.innerHTML = html;
-    if (!dead.length) return;
+    if (!fixable) return;
 
     var self = this;
     box.querySelector('.dj-fix').onclick = async function(){
-      var text = djAi.buildFixPrompt(dead);
+      var text = djAi.buildFixPrompt(dead, rep);
       try {
         await navigator.clipboard.writeText(text);
         if (window.appToast) appToast('Follow-up copied — paste it to your AI', 'ok');
@@ -940,9 +972,22 @@ var djMenuBoss = {
       var report = await djAi.checkLinks(parsed.items, function(done, total, label){
         self.bstatus('Checking link ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
       });
+
+      /* Now go and find the ones the AI left blank, or whose links turned
+         out to be dead. The brief tells the AI an empty cell is a correct
+         answer; this is the half that makes that true. After the check,
+         so a track whose link was invented gets a second chance rather
+         than being dropped for the AI's mistake. */
+      parsed.items.forEach(function(it){ if (it.dead) it.url = ''; });
+      var found = await djAi.resolveMissing(parsed.items, function(n){
+        self.bstatus('Looking up ' + n + ' track' + (n > 1 ? 's' : '') + ' without a link…');
+      });
       var dead = parsed.items.filter(function(it){ return it.dead; });
       var odd = parsed.items.filter(function(it){ return it.mismatch; });
-      if (dead.length || odd.length) this.renderDead(dead, odd, parsed.items.length);
+      var rep = djAi.importReport(parsed.items);
+      if (dead.length || odd.length || rep.noLink.length || rep.repeated.length){
+        this.renderDead(dead, odd, parsed.items.length, rep);
+      }
 
       this.bstatus('Importing…');
       var saved = await djAi.importPlaylist(parsed, raw);
@@ -962,9 +1007,16 @@ var djMenuBoss = {
       if (window.dock) dock.openPanel(plBoss.currentEl);
       if (plBoss.queue.length) plBoss.playIndex(0);
 
-      var bits = ['Imported ' + saved.count + ' tracks'];
+      /* Say what happened to the ones that did not make it. "Imported 4
+         tracks · 11 skipped" was true and useless: eleven went for three
+         different reasons and the listener could act on each. */
+      var R = saved.report || { noLink:[], repeated:[], dead:[], total: saved.count };
+      var bits = ['Imported ' + saved.count + ' of ' + R.total];
       if (saved.totalSecs) bits.push(djAi.fmtSecs(saved.totalSecs));
-      if (saved.skipped) bits.push(saved.skipped + ' skipped');
+      if (found && found.found) bits.push(found.found + ' found by riffrolled');
+      if (R.noLink.length) bits.push(R.noLink.length + " couldn't be found");
+      if (R.repeated.length) bits.push(R.repeated.length + ' reused another track’s link');
+      if (R.dead.length) bits.push(R.dead.length + ' dead link' + (R.dead.length > 1 ? 's' : ''));
       if (report && report.renamed) bits.push(report.renamed + ' retitled from YouTube');
       if (report && report.offline) bits.push("couldn't reach YouTube to check");
       bits.push('→ Playlist');

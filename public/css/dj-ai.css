@@ -245,7 +245,10 @@
 
 .dj-gorow { padding:8px 0 0; }
 
-.dj-parsed { font-size:11px; color:rgba(255,255,255,0.45); }
+.dj-parsed { font-size:11px; line-height:1.45; color:rgba(255,255,255,0.45); }
+/* when the reply holds more links than we could read — the paste almost
+   certainly lost its line breaks, and saying so beats a short playlist */
+.dj-parsed.warn { color:#ffd98e; }
 
 .dj-go { margin-left:auto; font-size:12px; font-weight:600; padding:8px 13px; }
 
@@ -455,3 +458,7 @@ body.mobile .app-toast { bottom:calc(76px + env(safe-area-inset-bottom)); font-s
 .dj-pasteback[hidden] { display:none; }
 
 body.mobile .dj-open { padding:7px 11px; font-size:12px; }
+
+/* link checking is no longer optional, so this is a statement of fact
+   rather than a control */
+.dj-check-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.33); padding:4px 2px 6px; }

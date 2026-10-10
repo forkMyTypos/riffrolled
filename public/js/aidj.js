@@ -836,18 +836,109 @@ var djAi = {
      identified by what they look like rather than by position, because
      models drop and reorder them. Never throws; an empty items array is
      the "couldn't read it" signal. ── */
+  /** every YouTube link in a blob of text, in order */
+  LINK_RE: /(?:[?&]v=|youtu\.be\/|\/(?:shorts|embed)\/)([A-Za-z0-9_-]{11})/g,
+
+  _linkCount(s){
+    this.LINK_RE.lastIndex = 0;
+    var n = 0;
+    while (this.LINK_RE.exec(s)) n++;
+    this.LINK_RE.lastIndex = 0;
+    return n;
+  },
+
+  /**
+   * Put the line breaks back into a reply that lost them.
+   *
+   * This is the bug that made DJ AI look broken: a reply copied out of a
+   * rendered answer rather than a code block often arrives as one long
+   * line, and the parser is line-oriented, so one line meant one track.
+   * You got a playlist with a single song and no clue why. It happens far
+   * more on phones, where selecting rendered text is what you have.
+   *
+   * The brief dictates the format — `n | Artist | Title | URL | time |
+   * genre` — so the track boundary is a small number followed by a pipe,
+   * a dot or a bracket. Anchoring on the delimiter immediately after the
+   * digits is what keeps it off durations: in "3:40 | synth 2 | Artist",
+   * the only cut is before "2 |", because the 40 in 3:40 is followed by a
+   * space-pipe but is not preceded by whitespace, and 220 is not followed
+   * by a delimiter at all.
+   *
+   * It only runs when the text really does look flattened — two or more
+   * links with at most one line carrying one — and it keeps its work only
+   * if the result is an improvement. A repair that makes things worse is
+   * worse than no repair.
+   */
+  _unflatten(raw){
+    var links = this._linkCount(raw);
+    if (links < 2) return raw;
+
+    var self = this;
+    var carrying = raw.split(/\r?\n/).filter(function(l){ return self._linkCount(l) > 0; }).length;
+    if (carrying >= 2) return raw;              // already one per line
+
+    /* Only cut where the index CONTINUES THE SEQUENCE. "n | Artist" is
+       not a rare enough shape to anchor on by itself — an artist called
+       Blink 182, or a title ending in a year, puts a number before a pipe
+       in the middle of a track and splits it in half. Track indices, by
+       contrast, run 1, 2, 3; so the second track begins at the "2" that
+       comes after the first cut, and a stray "1 |" inside it is ignored
+       because 1 is not the number being looked for. */
+    /* `^|\s+` matters: track 1 is usually the very first thing in the
+       text, with no whitespace in front of it. Without the start anchor
+       the scanner never found index 1, kept looking for it, and matched
+       the "1" in "Song 1 |" halfway through the first track — splitting
+       it in two and promoting the genre to an artist. */
+    var re = /(?:^|\s+)(\d{1,2})\s*[|.)]\s/g;
+    var expect = 1, cuts = [], m;
+    while ((m = re.exec(raw))){
+      if (+m[1] !== expect) continue;
+      cuts.push(m.index);
+      expect++;
+      // the next search starts after this delimiter, never inside it
+      re.lastIndex = m.index + m[0].length - 1;
+    }
+    if (cuts.length < 2) return raw;
+
+    var parts = [], at = 0;
+    cuts.forEach(function(c){ parts.push(raw.slice(at, c)); at = c; });
+    parts.push(raw.slice(at));
+    var cut = parts.map(function(s){ return s.trim(); }).filter(Boolean).join('\n');
+
+    /* Keep the repair only if every link ended up on a line of its own.
+       Anything less means the guess was wrong, and a half-split reply
+       parses worse than the flattened one it came from. */
+    var after = cut.split(/\r?\n/).filter(function(l){ return self._linkCount(l) === 1; }).length;
+    return after === links ? cut : raw;
+  },
+
   parseReply(text){
     var raw = String(text || '').trim();
-    if (!raw) return { name:'', items:[] };
+    if (!raw) return { name:'', items:[], linksSeen:0 };
     raw = raw.replace(/^\s*```[a-zA-Z]*\s*/gm, '').replace(/```\s*$/gm, '');
+
     var out = this._parseJson(raw);
-    if (!out.items.length) out = this._parseLines(raw);
+    if (!out.items.length) out = this._parseLines(this._unflatten(raw));
     out.items = this._dedupe(out.items).slice(0, this.MAX_TRACKS);
+
+    /* How many links the reply contained, whatever we managed to read.
+       The import can then tell the difference between "your AI only gave
+       me one track" and "I could only read one of the twelve tracks in
+       there", which are the same screen to the listener and completely
+       different problems. */
+    out.linksSeen = this._linkCount(raw);
     return out;
   },
 
   _clean(s){
-    return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().replace(/^["'`*_\s]+|["'`*_\s]+$/g, '');
+    return String(s == null ? '' : s)
+      // a markdown link is the text somebody meant, wrapped in syntax they
+      // did not: [Song](https://…) was coming through as "[Song](" once the
+      // url had been pulled out of the cell
+      .replace(/\[([^\]]+)\]\((?:[^)]*)\)/g, '$1')
+      .replace(/\[([^\]]+)\]\(?\s*$/g, '$1')
+      .replace(/\s+/g, ' ').trim()
+      .replace(/^["'`*_\s]+|["'`*_\s]+$/g, '');
   },
 
   _ytId(s){
@@ -1042,6 +1133,18 @@ var djAi = {
       var urlM = /(https?:\/\/\S+)/.exec(body);
       var id2 = urlM ? self._ytId(urlM[1]) : null;
       var textPart = urlM ? body.replace(urlM[1], '').replace(/[\s\-–—|]+$/, '') : body;
+
+      /* A line that is nothing but a link belongs to the track above it.
+         Plenty of AIs lay a set out as "1. Artist — Title" with the URL
+         indented underneath, and reading that as its own entry produced a
+         list of titles with no links and a list of links with no titles —
+         so importPlaylist, which drops anything without a url, threw the
+         whole reply away. */
+      if (id2 && !self._clean(textPart)){
+        var prev = res.items[res.items.length - 1];
+        if (prev && !prev.url){ prev.url = id2; return; }
+      }
+
       var dash = self._splitDash(textPart);
       if (dash){ dash.url = id2 || ''; res.items.push(dash); }
     });

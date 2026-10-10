@@ -147,11 +147,11 @@ var djMenuBoss = {
         // reply never has to be found, selected and pasted into a box.
         "<button class='dj-pasteback' hidden>📋 Paste your reply</button>" +
         "<textarea class='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
-        "<label class='dj-check' title='Asks YouTube whether each link is a real video. Free — no key, no API quota.'>" +
-          "<input type='checkbox' class='dj-check-cb' checked>" +
-          "<span class='spin-track'><span class='spin-thumb'></span></span>" +
-          "<span class='spin-label'>Check the links first</span>" +
-        "</label>" +
+        /* Link checking used to be a toggle. It is keyless, costs no API
+           quota and takes a second — so offering it as a choice only
+           invited people to turn off the thing that catches an AI handing
+           back invented video ids. It just happens now. */
+        "<div class='dj-check-note'>Links are checked against YouTube before importing.</div>" +
         "<div class='row dj-gorow'>" +
           "<span class='dj-parsed'></span>" +
           "<button class='dj-go'>▶ IMPORT PLAYLIST</button>" +
@@ -478,9 +478,22 @@ var djMenuBoss = {
       var parsed = djAi.parseReply(reply.value);
       var n = parsed.items.length;
       var secs = djAi.totalSecs(parsed.items);
-      root.querySelector('.dj-parsed').textContent = n
-        ? (n + ' track' + (n > 1 ? 's' : '') + (secs ? ' · ' + djAi.fmtSecs(secs) : '') + ' read')
-        : '';
+      var el = root.querySelector('.dj-parsed');
+      if (!n){ el.textContent = ''; el.className = 'dj-parsed'; return; }
+
+      var txt = n + ' track' + (n > 1 ? 's' : '') + (secs ? ' · ' + djAi.fmtSecs(secs) : '') + ' read';
+      /* "1 track read" from a reply holding twelve links is a different
+         problem from an AI that only sent one, and they used to look
+         identical. Say which it is, before the import rather than after. */
+      var missed = (parsed.linksSeen || 0) - parsed.items.filter(function(i){ return i.url; }).length;
+      if (missed > 0){
+        txt += ' — but there are ' + parsed.linksSeen + ' links in that. '
+          + 'Try copying from the AI’s code block rather than the page.';
+        el.className = 'dj-parsed warn';
+      } else {
+        el.className = 'dj-parsed';
+      }
+      el.textContent = txt;
     });
   },
 
@@ -923,13 +936,10 @@ var djMenuBoss = {
       /* Check the links before anything is imported. An AI will claim it
          searched YouTube and hand back invented ids — this is free to
          verify, so there is no reason to find out on the deck. */
-      var report = null;
-      if (root.querySelector('.dj-check-cb').checked){
-        this.bstatus('Checking links…');
-        report = await djAi.checkLinks(parsed.items, function(done, total, label){
-          self.bstatus('Checking link ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
-        });
-      }
+      this.bstatus('Checking links…');
+      var report = await djAi.checkLinks(parsed.items, function(done, total, label){
+        self.bstatus('Checking link ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
+      });
       var dead = parsed.items.filter(function(it){ return it.dead; });
       var odd = parsed.items.filter(function(it){ return it.mismatch; });
       if (dead.length || odd.length) this.renderDead(dead, odd, parsed.items.length);

@@ -2,14 +2,20 @@
    The record player: plinth, platter, tonearm, video screen, transport,
    Spin/Awake toggles, first-run hint, Current Track body. */
 
-/* ── PLAYER ── */
+/* ── PLAYER ──
+   --vid is the video's side in pixels, set on #deck by screen.js (200 is
+   YouTube's minimum and the default). The record and the plinth are sized
+   from it, so the video stays centred in the middle of a record that grows
+   to fit — rather than a bigger video sitting on a record that did not
+   change. Phones pin it back to 200 (mobile.css). */
+#deck { --vid:200px; }
 .deck { display:flex; align-items:center; justify-content:center; position:relative; z-index:60; pointer-events:none; }
 
 /* re-enable clicks only on the interactive bits so panels behind the deck's empty areas stay usable */
 .deck .screen, .deck .np-area, .deck .np-area * { pointer-events:auto; }
 
 .plinth {
-  width:36rem; height:36rem;
+  width:max(36rem, calc(var(--vid) + 21rem)); height:max(36rem, calc(var(--vid) + 21rem));
  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
  margin:2em;
   border-radius:1rem;
@@ -17,10 +23,10 @@
   position:relative;
 }
 
-.turntable { width:30rem; height:30rem; border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
+.turntable { width:max(30rem, calc(var(--vid) + 15rem)); height:max(30rem, calc(var(--vid) + 15rem)); border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
 
 .platter {
-  width:28rem; height:28rem; border-radius:50%;
+  width:max(28rem, calc(var(--vid) + 13rem)); height:max(28rem, calc(var(--vid) + 13rem)); border-radius:50%;
   background:
     repeating-radial-gradient(circle at center, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px),
     radial-gradient(circle, #1c1c1c 0 18%, #0d0d0d 18% 70%, #000 70%);
@@ -34,12 +40,12 @@
 /* Video player — exactly 200x200, upright, unobscured (YouTube API requirement) */
 .screen {
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:200px; height:200px; border-radius:4px; overflow:hidden;
+  width:var(--vid); height:var(--vid); border-radius:4px; overflow:hidden;
   background:#000; z-index:3;
   box-shadow:0 0 0 7px #0a0a0a, 0 10px 30px rgba(0,0,0,0.65);
 }
 
-.screen #ytFrame, .screen iframe { width:200px; height:200px; display:block; border:0; }
+.screen #ytFrame, .screen iframe { width:100%; height:100%; display:block; border:0; }
 
 /* idle placeholder: shows YouTube's red play button over the (empty) player, like older versions; hidden once a track loads */
 .screen-ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; z-index:4; pointer-events:none; }
@@ -312,6 +318,10 @@
 .dh-tour { font-size:11px; height:28px; padding:0 12px; color:rgba(255,255,255,0.5);
   background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); }
 
+.dh-own { font-size:11px; height:28px; padding:0 12px; color:rgba(255,255,255,0.7);
+  background:transparent; border:1px solid rgba(255,255,255,0.18); border-radius:8px; cursor:pointer; }
+.dh-own:hover { color:#fff; background:rgba(255,255,255,0.08); }
+.dh-own[hidden] { display:none; }
 .dh-tour:hover { color:#fff; background:rgba(255,157,226,0.18); border-color:rgba(255,157,226,0.45); }
 
 /* reactions on the deck itself — the most common thing you want while a
@@ -333,7 +343,7 @@
 .screen.has-video .screen-ph { display:none; }
 
 /* the controls start 16px below the video */
-.np-area { top:calc(50% + 100px + 16px); bottom:auto; }
+.np-area { top:calc(50% + var(--vid) / 2 + 16px); bottom:auto; }
 
 /* title and reactions on one row: [♪ title] [👍] [👎] */
 .np-titlerow { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-width:0; }
@@ -342,7 +352,7 @@
 .deck-react .react-btn { padding:2px 9px; font-size:11px; background:rgba(0,0,0,0.35); }
 
 /* the first-run hint ends 16px above the video */
-.deck-hint { inset:auto 0 calc(50% + 100px + 16px) 0; }
+.deck-hint { inset:auto 0 calc(50% + var(--vid) / 2 + 16px) 0; }
 
 /* Spin: bottom-left corner of the plinth, clear of the record.
    The deck ignores the mouse (so panels behind it stay clickable) and
@@ -358,3 +368,88 @@
 
 /* Awake keeps a phone screen on; a desktop has no use for it */
 .np-toggles { display:none; }
+
+/* "More from this artist" in Track info */
+.ti-more { margin:8px 0 2px; }
+.ti-more[hidden] { display:none; }
+.ti-more-btn { width:100%; min-height:32px; padding:6px 10px; font-size:12px; color:#fff; cursor:pointer;
+  background:rgba(217,140,255,0.16); border:1px solid rgba(217,140,255,0.4); border-radius:9px; text-align:left; }
+.ti-more-btn:hover { background:rgba(217,140,255,0.28); }
+.ti-more-btn:disabled { opacity:.55; cursor:default; }
+
+
+/* ── resizing the video ───────────────────────────────────────────────
+   The grip sits just OUTSIDE the video's bottom-right corner — on the
+   record, not on the player — because YouTube requires that nothing cover
+   the player, and its own fullscreen button lives in that very corner.
+   While it is being dragged the iframe ignores the pointer, or it would
+   swallow the move events the moment the cursor crossed onto it. */
+.screen-grip {
+  position:absolute; z-index:6; padding:0; cursor:nwse-resize; touch-action:none;
+  width:22px; height:22px; border-radius:50%;
+  left:calc(50% + var(--vid) / 2 + 8px); top:calc(50% + var(--vid) / 2 - 22px);   /* beside the lower-right corner: clear of the video and of the title row */
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.28);
+  color:rgba(255,255,255,0.7); pointer-events:auto; opacity:.55; transition:opacity .15s, background .15s;
+}
+.screen-grip::before { content:''; position:absolute; inset:5px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; border-radius:0 0 3px 0; }
+.deck:hover .screen-grip, .screen-grip:focus-visible, .screen-grip.dragging { opacity:1; }
+.screen-grip:hover { background:rgba(138,123,255,0.4); }
+.screen-grip:focus-visible { outline:2px solid #8a7bff; outline-offset:2px; }
+.deck.resizing .screen iframe { pointer-events:none; }
+body.mobile .screen-grip { display:none; }
+
+/* ── the deck title ───────────────────────────────────────────────────
+   Bigger than it was, because it is the one line that says what is
+   playing. Clicking it edits the title — on this device only; the shared
+   catalogue keeps the name it has. The dotted underline on hover is the
+   only hint: it should read as text at rest, not as a form field. */
+.np-titlerow .np-title { font-size:17px; font-weight:600; color:rgba(255,255,255,0.88); cursor:text; border-bottom:1px dotted transparent; }
+.np-titlerow .np-title:hover { border-bottom-color:rgba(255,255,255,0.35); color:#fff; }
+.np-titlerow .np-title.empty { cursor:default; border-bottom-color:transparent; }
+.np-title-edit {
+  flex:1 1 auto; min-width:0; font:inherit; font-size:17px; font-weight:600; color:#fff;
+  background:rgba(0,0,0,0.5); border:1px solid rgba(217,140,255,0.6); border-radius:7px; padding:3px 8px;
+}
+.np-title-edit:focus { outline:none; box-shadow:0 0 0 2px rgba(217,140,255,0.25); }
+.np-title-edit[hidden] { display:none; }
+.np-titlerow.editing .np-title, .np-titlerow.editing .deck-react { display:none; }
+
+/* ── the remote ───────────────────────────────────────────────────────
+   On a desktop (remote.js floats it) it is a round puck you can drop
+   anywhere: play in the middle, back and forward either side, track info
+   above, the repeat menu below. Same buttons and ids as the row it
+   replaced. On a phone it stays in the deck as that row — a puck that
+   drags competes with scrolling, and a finger is not a mouse. */
+.remote { position:relative; }
+.remote .rm-info { width:30px; height:30px; font-size:13px; }
+
+body:not(.mobile) .remote.floating {
+  position:fixed; z-index:75; width:152px; height:152px; border-radius:50%;
+  background:radial-gradient(circle at 50% 38%, rgba(48,42,80,0.94), rgba(14,14,28,0.95) 72%);
+  border:1px solid rgba(255,255,255,0.16);
+  box-shadow:0 12px 34px rgba(0,0,0,0.65), inset 0 0 0 7px rgba(0,0,0,0.32), inset 0 0 0 8px rgba(255,255,255,0.05);
+  cursor:grab; touch-action:none; user-select:none; pointer-events:auto;
+}
+body:not(.mobile) .remote.floating.dragging { cursor:grabbing; box-shadow:0 18px 44px rgba(0,0,0,0.7), inset 0 0 0 7px rgba(0,0,0,0.32); }
+body:not(.mobile) .remote.floating * { pointer-events:auto; }
+body:not(.mobile) .remote.floating .transport { position:absolute; inset:0; display:block; }
+body:not(.mobile) .remote.floating .t-ctl { display:contents; }
+body:not(.mobile) .remote.floating .t-btn { position:absolute; transform:translate(-50%,-50%); cursor:pointer; }
+body:not(.mobile) .remote.floating #btnPlay { left:50%; top:50%; width:58px; height:58px; font-size:22px;
+  background:rgba(138,123,255,0.22); border-color:rgba(138,123,255,0.55); color:#fff; }
+body:not(.mobile) .remote.floating #btnPlay:hover { background:rgba(138,123,255,0.4); }
+body:not(.mobile) .remote.floating #btnPrev { left:19%; top:50%; width:36px; height:36px; }
+body:not(.mobile) .remote.floating #btnNext { left:81%; top:50%; width:36px; height:36px; }
+body:not(.mobile) .remote.floating .rm-info { left:50%; top:17%; }
+body:not(.mobile) .remote.floating #btnCtl { left:50%; top:83%; }
+body:not(.mobile) .remote.floating .t-menu {
+  bottom:calc(100% + 10px); right:auto; left:50%; transform:translateX(-50%); min-width:250px;
+}
+body:not(.mobile) .remote.floating .t-menu.below { bottom:auto; top:calc(100% + 10px); }
+
+/* fingers need 40px+ targets */
+body.mobile .remote .t-btn, body.mobile .remote .t-btn.t-ctl-btn, body.mobile .remote .rm-info { width:42px; height:42px; font-size:15px; }
+body.mobile .remote .t-btn.play { width:50px; height:50px; font-size:19px; }
+
+/* in the flow (phones): the old row, with the new ⋯ and ℹ at the end */
+.remote:not(.floating) .transport { display:flex; gap:10px; align-items:center; justify-content:center; }

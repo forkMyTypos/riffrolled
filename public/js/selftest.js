@@ -281,7 +281,7 @@ async function runSelfTests(){
       assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
       assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
       assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
-      assert(p.indexOf('YOUTUBE LINKS — REQUIRED') > 0, 'link instructions present');
+      assert(p.indexOf('YOUTUBE LINKS') > 0 && p.indexOf('riffrolled plays YouTube videos and nothing else') > 0, 'link instructions present');
       assert(p.indexOf('HARD REQUIREMENT') > 0, 'and the hard requirement');
       assert(p.indexOf('Never rely on') > 0, 'memory is not an acceptable source');
       assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
@@ -311,7 +311,7 @@ async function runSelfTests(){
       assert(p.indexOf('PHASE 2 — FIND THE YOUTUBE LINKS') > 0, 'the two phases are separate');
       assert(p.indexOf('PHASE 1') < p.indexOf('PHASE 2'), 'and in that order — taste before lookup');
       assert(p.indexOf('Never invent, guess, or recall a YouTube video ID') > 0, 'ids may not be recalled');
-      assert(p.indexOf('Choose exactly 15 tracks') > 0 && p.indexOf('exactly 15 real YouTube URLs') > 0,
+      assert(p.indexOf('Choose exactly 15 tracks') > 0 && p.indexOf('complete 15-track playlist') > 0,
         'the count reaches both phases');
       assert(p.indexOf('{{') < 0, 'every placeholder filled');
       assert(p.indexOf('Tracks: 15') > 0 && p.indexOf('Return exactly 15 tracks') > 0, 'count in both places');

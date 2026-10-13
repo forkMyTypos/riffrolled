@@ -20,6 +20,7 @@
 import { json } from '../utils/response.js';
 import { getConfig, PUBLIC_KEYS } from '../config.js';
 import { TAGS, MAX_TAGS } from '../tags.js';
+import { GENRES } from '../genres.js';
 
 /** The browser's view: the few settings the UI genuinely has to know. */
 export async function handlePublicConfig(request, env) {
@@ -35,6 +36,9 @@ export async function handlePublicConfig(request, env) {
      working. One source, shipped. */
   out.TAGS = TAGS;
   out.MAX_TAGS = MAX_TAGS;
+  // the genre list is shipped the same way, for the same reason: the
+  // Database filter and the Promote picker must offer what the server holds
+  out.GENRES = GENRES;
 
   return json(env, out, 200, { 'Cache-Control': 'public, max-age=30' });
 }

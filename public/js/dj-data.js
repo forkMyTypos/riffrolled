@@ -124,6 +124,17 @@ var DJ_CATEGORIES = [
       { label: 'Experimental',                 tags: ['weird','raw','cold','modern'] },
       { label: 'World',                        tags: ['organic','warm','bright','ritual'] },
       { label: 'Indie',                        tags: ['organic','light','melancholy','modern'] },
+      // the rest of the closed genre list (src/genres.js): a starting
+      // coordinate for each place the catalogue actually goes
+      { label: 'Synthwave',                    tags: ['electronic','retro','night','motion'] },
+      { label: 'Lo-fi',                        tags: ['calm','focus','warm','solo'] },
+      { label: 'Soul',                         tags: ['warm','organic','social','retro'] },
+      { label: 'Classical',                    tags: ['calm','cinematic','organic','solo'] },
+      { label: 'Soundtrack',                   tags: ['cinematic','polished','still'] },
+      { label: 'Folk',                         tags: ['organic','warm','solo','melancholy'] },
+      { label: 'Reggae and dub',               tags: ['warm','hypnotic','social','organic'] },
+      { label: 'Latin',                        tags: ['warm','social','bright','motion'] },
+      { label: 'Pop',                          tags: ['bright','polished','social','modern'] },
       { label: 'Something completely different',tags: ['weird','modern','raw'] }
     ]
   },
@@ -207,7 +218,14 @@ var DJ_CATEGORIES = [
       { label: 'Gradually building',tags: ['motion','slow','cinematic'],
         line: 'Build the energy gradually across the set — start low, end high.' },
       { label: 'High energy',       tags: ['fast','intense','bright'] },
-      { label: 'Absolutely mental', tags: ['fast','intense','heavy','weird'] }
+      { label: 'Absolutely mental', tags: ['fast','intense','heavy','weird'] },
+      { label: 'Easy going',        tags: ['calm','light','slow','warm'] },
+      { label: 'Steady groove',     tags: ['motion','organic','warm'] },
+      { label: 'Slow burn',         tags: ['slow','intense','cinematic'],
+        line: 'A slow burn: restrained for a long time, then it earns its payoff.' },
+      { label: 'Peak time',         tags: ['fast','euphoric','intense','social'] },
+      { label: 'Up and down',       tags: ['motion','intense','weird'],
+        line: 'Move the energy up and down through the set. Never sit in one place for long.' }
     ]
   },
 
@@ -224,6 +242,11 @@ var DJ_CATEGORIES = [
       { label: '90s',      tags: ['retro','raw'] },
       { label: '2000s',    tags: ['modern','polished'] },
       { label: 'Modern',   tags: ['modern'] },
+      { label: '60s',      tags: ['retro','organic','warm','raw'] },
+      { label: '2010s',    tags: ['modern','polished','electronic'] },
+      { label: 'Last few years', tags: ['modern','bright'] },
+      { label: 'Timeless', tags: ['organic','warm','still'],
+        line: 'Timeless: music that does not sound like any particular year.' },
       { label: 'Any era',  tags: [] }
     ]
   },
@@ -238,7 +261,12 @@ var DJ_CATEGORIES = [
     options: [
       { label: 'Cruising',         tags: ['slow','motion','calm'] },
       { label: 'Fast',             tags: ['fast','motion'] },
-      { label: 'Fucking flying',   tags: ['fast','intense','heavy'] }
+      { label: 'Fucking flying',   tags: ['fast','intense','heavy'] },
+      { label: 'Strolling',        tags: ['slow','calm','still'] },
+      { label: 'Mid-tempo',        tags: ['motion','organic','warm'] },
+      { label: 'Slow and heavy',   tags: ['slow','heavy','dark'] },
+      { label: 'Building speed',   tags: ['motion','fast','cinematic'],
+        line: 'Start slow and keep getting faster through the set.' }
     ]
   }
 ];

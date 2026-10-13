@@ -1016,6 +1016,9 @@ var djAi = {
     if (/[.!?,;]/.test(t)) return false;              // a sentence is a reason
     if (t.split(/\s+/).length > 3) return false;      // so is a phrase
 
+    // anything the closed genre list recognises is a genre, however it is spelled
+    if (window.riffGenres && riffGenres.normalize(t).genre) return true;
+
     var words = t.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).filter(Boolean);
     var known = this.GENRE_WORDS;
     return words.some(function(w){
@@ -1475,10 +1478,19 @@ var djAi = {
           if (it.secs) meta.durSec = it.secs;
           if (it.ytTitle && !row.ytTitle) meta.ytTitle = it.ytTitle;   // what the video calls itself
           if (it.genre){
-            meta.genre = it.genre;
-            // the AI's genre becomes a tag too, so Random Mix and search see it
+            /* The genre field is the closed list (genres.js); what the AI
+               actually said is kept as a tag, so nothing it told us is
+               lost and Random Mix and search still see its own word. A
+               word that matches nothing leaves genre blank rather than
+               adding a one-off to a list that exists to stay short. */
+            var g = window.riffGenres ? riffGenres.normalize(it.genre) : { genre: it.genre, raw: it.genre };
+            if (g.genre) meta.genre = g.genre;
+            meta.genreRaw = g.raw;
             var tags = (row.tags || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-            if (tags.indexOf(it.genre.toLowerCase()) === -1) tags.push(it.genre.toLowerCase());
+            [g.raw, g.genre].forEach(function(w){
+              w = String(w || '').toLowerCase();
+              if (w && tags.indexOf(w) === -1) tags.push(w);
+            });
             meta.tags = tags.join(', ');
           }
           if (Object.keys(meta).length) await dbBoss.updateTrackMeta(it.url, meta);

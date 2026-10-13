@@ -83,3 +83,16 @@ body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; paddin
 /* phones: Awake gets its own row under the transport */
 body.mobile .np-toggles { display:flex; justify-content:center; }
 body.mobile .spin-side { left:10px; bottom:10px; }
+
+/* The tab bar waits until riffrolled knows whether this person is new here
+   (newhere.js), so a returning listener never sees the short bar flash
+   before the full one. It is a few milliseconds; the alternative is the
+   whole bar visibly rearranging itself on every load. */
+body.mobile:not(.nh-known) .rightM { visibility:hidden; }
+
+/* the ⋯ tab */
+body.mobile .dock-btn.dock-more { color:rgba(255,255,255,0.75); }
+body.mobile .dock-btn.dock-more .dock-ico-more { font-size:22px; line-height:1; letter-spacing:1px; }
+
+/* the video stays at YouTube's 200px on a phone; resizing is a desktop thing */
+body.mobile #deck { --vid:200px !important; }

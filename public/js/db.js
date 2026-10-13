@@ -237,6 +237,34 @@ db.on('blocked', function(){
 });
 
 var dbBoss = {
+  /* One-time tidy of the genre on tracks already in this browser, so the
+     library speaks the same closed list as new imports (genres.js). The
+     original word moves to genreRaw and into the tags first, so nothing
+     is lost, and the setting makes it run exactly once. */
+  backfillGenres: async function(){
+    if (!window.riffGenres) return 0;
+    try {
+      if (await dbBoss.getSetting('genreBackfill') === '1') return 0;
+      var n = 0;
+      await db.tracks.toCollection().modify(function(t){
+        if (!t.genre) return;
+        var g = riffGenres.normalize(t.genre);
+        if (g.genre === t.genre) return;
+        t.genreRaw = t.genreRaw || t.genre;
+        var tags = String(t.tags || '').split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+        [g.raw, g.genre].forEach(function(w){
+          w = String(w || '').toLowerCase();
+          if (w && tags.indexOf(w) === -1) tags.push(w);
+        });
+        t.tags = tags.join(', ');
+        t.genre = g.genre;
+        n++;
+      });
+      await dbBoss.setSetting('genreBackfill', '1');
+      return n;
+    } catch(e){ return 0; }
+  },
+
   /* ── finished campaigns, kept locally ──────────────────────────────
      Called whenever the Promote panel sees a campaign with no credits
      left. The server will delete that row within a day; this is the

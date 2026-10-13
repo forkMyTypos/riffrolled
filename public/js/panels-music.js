@@ -313,6 +313,9 @@ var dataBoss = {
         "<div class='row'>" +
           "<input type='text' class='dbs-input' placeholder='Search the catalogue…'>" +
         "</div>" +
+        "<div class='row dbs-genre-row'>" +
+          "<select class='dbs-genre' aria-label='Filter by genre' data-testid='db-genre'><option value=''>All genres</option></select>" +
+        "</div>" +
         "<div class='dbs-results scrollable'></div>" +
         "<div class='status-bar dbs-status'></div>" +
       "</div>";
@@ -323,6 +326,17 @@ var dataBoss = {
     var self = this;
     var input = this.el.querySelector('.dbs-input');
     input.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.run(); }, 160); });
+
+    /* The genre list is the closed one in src/genres.js. The copy that
+       ships with the page is enough to draw the menu at once; the server's
+       own list replaces it when it answers, so a genre added on the server
+       shows up here without a new page. */
+    var sel = this.el.querySelector('.dbs-genre');
+    this.fillGenres(sel, (window.riffGenres && riffGenres.LIST) || []);
+    fetch('/api/config').then(function(r){ return r.ok ? r.json() : null; }).then(function(c){
+      if (c && Array.isArray(c.GENRES) && c.GENRES.length) self.fillGenres(sel, c.GENRES);
+    }).catch(function(){});
+    sel.addEventListener('change', function(){ self.run(); });
 
     this.el.querySelector('.dbs-results').addEventListener('click', async function(e){
       var item = e.target.closest('.st-remote'); if (!item) return;
@@ -360,6 +374,16 @@ var dataBoss = {
     this.run();   // empty query: latest additions
   },
 
+  fillGenres(sel, list){
+    var keep = sel.value;
+    sel.innerHTML = '';
+    var all = document.createElement('option'); all.value = ''; all.textContent = 'All genres'; sel.appendChild(all);
+    list.forEach(function(g){
+      var o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o);
+    });
+    sel.value = keep;
+  },
+
   status(msg, kind){
     var el = this.el.querySelector('.dbs-status');
     el.textContent = msg || '';
@@ -378,12 +402,18 @@ var dataBoss = {
     var q = (this.el.querySelector('.dbs-input').value || '').trim();
     var self = this;
     try {
+      var genre = this.el.querySelector('.dbs-genre').value;
+      // a genre alone is a straight filter; with words as well, search
+      // first and keep the rows of that genre (the search endpoint takes
+      // one question at a time)
       var endpoint = q
         ? '/api/search?q=' + encodeURIComponent(q) + '&limit=50&source=db'
-        : '/api/tracks?limit=30';
+        : genre ? '/api/tracks?genre=' + encodeURIComponent(genre) + '&limit=50'
+                : '/api/tracks?limit=30';
       var r = await fetch(endpoint);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var list = await r.json();
+      if (genre && q) list = list.filter(function(t){ return t.genre === genre; });
 
       // promoted strip: tracks the community spent riff tokens on
       var promoHtml = '';
@@ -410,18 +440,19 @@ var dataBoss = {
       } catch(e2){ /* strip is optional */ }
 
       if (!list.length && !promoHtml){
-        results.innerHTML = "<div class='empty'>" + (q ? 'Nothing in the database for that' : 'The database is empty') + "</div>";
+        results.innerHTML = "<div class='empty'>" + (q || genre ? 'Nothing in the database for that' : 'The database is empty') + "</div>";
         this.status('');
         return;
       }
       results.innerHTML = promoHtml
-        + (list.length ? "<div class='srh-sec-head'>" + (q ? 'Results' : 'Latest additions') + "</div>" : '')
+        + (list.length ? "<div class='srh-sec-head'>" + (q || genre ? 'Results' : 'Latest additions') + "</div>" : '')
         + list.map(function(t){
         var vid = self.idFromUrl(t.url || '');
         if (!vid) return '';
         return "<div class='st-item st-remote' data-yt='" + escapeHtml(vid) + "' data-name='" + escapeHtml(t.name || vid) + "'>"
           + "<button class='icon-btn st-play' title='Play now'>▶</button>"
           + "<span class='name'>" + escapeHtml(t.name || vid) + "</span>"
+          + (t.genre ? "<span class='dbs-gtag' title='Genre'>" + escapeHtml(t.genre) + "</span>" : '')
           + "<button class='icon-btn st-promote' title='Promote (costs riff tokens)'>📣</button>"
           + "<button class='icon-btn st-add' title='Save + add to current playlist'>＋</button>"
           + "</div>";

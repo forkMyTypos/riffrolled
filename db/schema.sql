@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS tracks (
   name   TEXT NOT NULL DEFAULT '',
   artist TEXT NOT NULL DEFAULT '',
   genre  TEXT NOT NULL DEFAULT '',
+  genre_raw TEXT NOT NULL DEFAULT '',   -- what the AI actually said; genre is the closed list (src/genres.js)
   url    TEXT NOT NULL DEFAULT ''
 );
 

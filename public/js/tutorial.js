@@ -112,6 +112,11 @@ var tourBoss = {
         return;
       }
     } catch(e){ return; }
+    /* A phone is not forced through the tour: a multi-step card laid over
+       a four-icon screen is the "too much at once" this was meant to
+       cure. The empty deck offers one action instead (player.js), and the
+       tour is there for anyone who taps "Show me how". */
+    if (document.body.classList.contains('mobile')) return;
     var self = this;
     setTimeout(function(){ self.start(); }, 900);              // let the deck settle first
   },

@@ -18,6 +18,7 @@ import {
   insertTracks, getTrackByUrl, canonicalYouTubeUrl, createPlaylist, addPlaylistTracks,
   knownUrls, markVerified,
 } from '../db/queries.js';
+import { normalizeGenre } from '../genres.js';
 import { verifyMany, verifyConfig, idFromUrl } from '../services/oembed.js';
 
 const MAX_TRACKS = 50;
@@ -103,8 +104,12 @@ export async function handleSavePlaylist(request, env) {
     // fill a blank genre from what the AI said; never overwrite one a
     // person has set
     if (t.genre && !row.genre) {
-      await env.DB.prepare(`UPDATE tracks SET genre = ?2 WHERE id = ?1 AND (genre = '' OR genre IS NULL)`)
-        .bind(row.id, t.genre).run();
+      const g = normalizeGenre(t.genre);
+      await env.DB.prepare(
+        `UPDATE tracks SET genre = ?2,
+                           genre_raw = CASE WHEN genre_raw = '' THEN ?3 ELSE genre_raw END
+          WHERE id = ?1 AND (genre = '' OR genre IS NULL)`)
+        .bind(row.id, g.genre, g.raw).run();
     }
   }
   if (!ids.length) return errorJson(env, 'Nothing could be saved', 400);

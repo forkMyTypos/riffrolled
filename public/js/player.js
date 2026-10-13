@@ -140,6 +140,7 @@ var player = {
   },
 
   load: function (ytId, title) {
+    if (window.newHere) newHere.clear();    // the first track ends "new here"
     this.ensureVisible();
     this.currentYtId = ytId;
     if (this.el.screenPh) this.el.screenPh.style.display = 'none';
@@ -361,9 +362,26 @@ var deckHint = {
       if ((await db.tracks.count()) > 0) return;    // returning user: stay quiet
     } catch(e){ return; }
     el.hidden = false;
-    el.querySelector('.dh-go').onclick = function(){
+    var go = el.querySelector('.dh-go');
+    go.onclick = function(){
       if (window.dock && window.importBoss) dock.openPanel(importBoss.el);
     };
+    /* On a phone the first screen offers ONE thing to do, and it is the
+       most distinctive thing riffrolled does: have the DJ make you a
+       playlist. Adding your own music is still one tap away, and the
+       tour is no longer forced on someone who has not asked for it. */
+    if (document.body.classList.contains('mobile') && window.djMenuBoss){
+      el.querySelector('.dh-title').textContent = 'Roll a playlist';
+      el.querySelector('.dh-sub').textContent = 'Tell DJ AI a mood — or let it decide.';
+      go.textContent = '🎲 Roll a playlist';
+      go.setAttribute('data-testid', 'first-action');
+      go.onclick = function(){ if (window.dock) dock.openPanel(djMenuBoss.el); };
+      var own = el.querySelector('.dh-own');
+      if (own){
+        own.hidden = false;
+        own.onclick = function(){ if (window.dock && window.importBoss) dock.openPanel(importBoss.el); };
+      }
+    }
     var tour = el.querySelector('.dh-tour');
     if (tour) tour.onclick = function(){ if (window.tourBoss) tourBoss.start(0); };
     this.el = el;
@@ -417,6 +435,9 @@ var ytGuard = {
     });
     bad.forEach(function(e){
       var fl = e.closest ? e.closest('#promoPop, #thumbPop, #appBanner') : null;
+      // the remote is allowed to be wherever it was put, but not on the player:
+      // it steps aside rather than being hidden
+      if (e.closest && e.closest('#remote') && window.remote){ remote.avoidPlayer(); return; }
       if (fl){ fl.classList.remove('show'); fl.hidden = true; }
       else console.warn('ytGuard: something is covering the YouTube player', e);
     });

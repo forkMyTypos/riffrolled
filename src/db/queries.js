@@ -1,6 +1,7 @@
 // ── D1 query layer ────────────────────────────────────────────────────
 // All SQL lives here as prepared statements with bound parameters.
-// Table: tracks { id (auto), name, artist, genre, url }
+// Table: tracks { id (auto), name, artist, genre, genre_raw, url }
+import { normalizeGenre } from '../genres.js';
 
 /** Canonicalise any YouTube link/id form to https://www.youtube.com/watch?v=ID,
  *  or null if it isn't a valid YouTube video reference. Everything written to
@@ -16,10 +17,14 @@ export function canonicalYouTubeUrl(input) {
 
 /** Clamp text fields so no caller can bloat rows. */
 function clampTrack(t) {
+  // genre is the closed list (src/genres.js); what was actually said is
+  // kept beside it, so a word we do not recognise is blank, not lost
+  const g = normalizeGenre(t.genre);
   return {
     name:   String(t.name   || '').slice(0, 300),
     artist: String(t.artist || '').slice(0, 200),
-    genre:  String(t.genre  || '').slice(0, 100),
+    genre:  g.genre,
+    genre_raw: g.raw,
     url:    t.url,
   };
 }
@@ -38,7 +43,8 @@ export async function searchTracks(db, q, limit) {
         WHERE verified = 1
           AND (name   LIKE ?1 ESCAPE '\\' COLLATE NOCASE
             OR artist LIKE ?1 ESCAPE '\\' COLLATE NOCASE
-            OR genre  LIKE ?1 ESCAPE '\\' COLLATE NOCASE)
+            OR genre  LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+            OR genre_raw LIKE ?1 ESCAPE '\\' COLLATE NOCASE)
         ORDER BY id DESC
         LIMIT ?2`
     )
@@ -52,7 +58,8 @@ export async function listTracks(db, genre, limit) {
   const stmt = genre
     ? db.prepare(
         `SELECT id, name, artist, genre, url FROM tracks
-          WHERE verified = 1 AND genre LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+          WHERE verified = 1 AND (genre LIKE ?1 ESCAPE '\\' COLLATE NOCASE
+                              OR genre_raw LIKE ?1 ESCAPE '\\' COLLATE NOCASE)
           ORDER BY id DESC LIMIT ?2`
       ).bind(likeParam(genre), limit)
     : db.prepare(
@@ -88,11 +95,11 @@ export async function insertTracks(db, tracks, source = '', verified = 0) {
   const ok = verified ? 1 : 0;
   // NOT EXISTS keeps the first arrival's timestamp: re-adding never rewrites history
   const stmt = db.prepare(
-    `INSERT INTO tracks (name, artist, genre, url, added_at, source, verified)
-     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+    `INSERT INTO tracks (name, artist, genre, genre_raw, url, added_at, source, verified)
+     SELECT ?1, ?2, ?3, ?8, ?4, ?5, ?6, ?7
       WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
   );
-  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok)));
+  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok, t.genre_raw)));
   return clean.length;
 }
 

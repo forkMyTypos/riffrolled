@@ -52,57 +52,75 @@
             <div class="arm-head"></div>
             </div>
 
+            <!-- Sits just outside the video's bottom-right corner, never on
+                 it: YouTube requires that nothing covers the player. -->
+            <button class="screen-grip" id="screenGrip" type="button" role="slider"
+                    aria-label="Video size" aria-valuemin="200" aria-valuemax="420" aria-valuenow="200"
+                    title="Drag to resize the video (double-click to reset)" data-testid="video-grip"></button>
+
             <div class="deck-hint" id="deckHint" hidden>
                 <div class="dh-title">Nothing on the deck yet</div>
                 <div class="dh-sub">Paste a YouTube link or import a channel to spin your first record.</div>
                 <button class="dh-go">▶ Add some music</button>
+                <button class="dh-own" hidden>+ Add your own music</button>
                 <button class="dh-tour">🎓 Show me how</button>
             </div>
 
             <div class="np-area">
                 <div class="np-titlerow">
-                    <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text">No track loaded</span></div>
+                    <div class="np-title" id="npTitle"><svg class="np-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l10-2v3L11 6.5V17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="2.6" fill="currentColor"/><circle cx="17" cy="15.5" r="2.6" fill="currentColor"/></svg><span class="np-text" data-testid="deck-title">No track loaded</span></div>
+                    <input type="text" class="np-title-edit" id="npTitleEdit" hidden maxlength="300"
+                           aria-label="Track title" data-testid="deck-title-edit">
                     <div class="np-react deck-react">
                         <button class="react-btn react-like" title="Like this track">👍 <span class="count like-count">0</span></button>
                         <button class="react-btn react-dislike" title="Dislike this track">👎 <span class="count dislike-count">0</span></button>
                     </div>
                 </div>
 
+                <!-- The remote. On a desktop it is a round puck that floats
+                     where you drop it (remote.js moves it out of the deck);
+                     on a phone it stays here, in the flow, as a row. Same
+                     buttons, same ids, either way. -->
+                <div class="remote" id="remote" data-testid="remote" role="group" aria-label="Player controls">
                 <div class="transport">
-                    <button class="t-btn" id="btnPrev" title="Previous">⏮</button>
-                    <button class="t-btn play" id="btnPlay" title="Play / pause">▶</button>
-                    <button class="t-btn" id="btnNext" title="Next">⏭</button>
-                    <!-- what happens when a track or the playlist ends.
-                         A menu rather than three more buttons on the
-                         transport: it is set once and then left alone. -->
-                    <div class="t-ctl">
-                        <button class="t-btn t-ctl-btn" id="btnCtl" title="Repeat and replay"
-                                aria-haspopup="true" aria-expanded="false">⋯</button>
-                        <div class="t-menu" id="ctlMenu" hidden role="menu">
-                            <button class="t-mi" data-a="again" role="menuitem">
-                                <span class="t-mi-ico">↻</span>Play this again
-                            </button>
-                            <div class="t-mi-sep"></div>
-                            <div class="t-mi-lbl">When a track ends</div>
-                            <button class="t-mi" data-r="all" role="menuitemradio">
-                                <span class="t-mi-ico">🔁</span>
-                                <span class="t-mi-txt">Play the whole playlist, round and round</span>
-                                <span class="t-mi-tick" aria-hidden="true">✓</span>
-                            </button>
-                            <button class="t-mi" data-r="one" role="menuitemradio">
-                                <span class="t-mi-ico">🔂</span>
-                                <span class="t-mi-txt">Keep replaying this one track</span>
-                                <span class="t-mi-tick" aria-hidden="true">✓</span>
-                            </button>
-                            <button class="t-mi" data-r="off" role="menuitemradio">
-                                <span class="t-mi-ico">⏹</span>
-                                <span class="t-mi-txt">Stop at the end of the playlist</span>
-                                <span class="t-mi-tick" aria-hidden="true">✓</span>
-                            </button>
+                        <button class="t-btn" id="btnPrev" title="Previous">⏮</button>
+                        <button class="t-btn play" id="btnPlay" title="Play / pause">▶</button>
+                        <button class="t-btn" id="btnNext" title="Next">⏭</button>
+                        <!-- what happens when a track or the playlist ends.
+                             A menu rather than three more buttons on the
+                             transport: it is set once and then left alone. -->
+                        <div class="t-ctl">
+                            <button class="t-btn t-ctl-btn" id="btnCtl" title="Repeat and replay"
+                                    aria-haspopup="true" aria-expanded="false">⋯</button>
+                            <div class="t-menu" id="ctlMenu" hidden role="menu">
+                                <button class="t-mi" data-a="again" role="menuitem">
+                                    <span class="t-mi-ico">↻</span>Play this again
+                                </button>
+                                <button class="t-mi" data-a="more" role="menuitem" hidden data-testid="ctl-more-artist">
+                                    <span class="t-mi-ico">♫</span><span class="t-mi-txt"></span>
+                                </button>
+                                <div class="t-mi-sep"></div>
+                                <div class="t-mi-lbl">When a track ends</div>
+                                <button class="t-mi" data-r="all" role="menuitemradio">
+                                    <span class="t-mi-ico">🔁</span>
+                                    <span class="t-mi-txt">Play the whole playlist, round and round</span>
+                                    <span class="t-mi-tick" aria-hidden="true">✓</span>
+                                </button>
+                                <button class="t-mi" data-r="one" role="menuitemradio">
+                                    <span class="t-mi-ico">🔂</span>
+                                    <span class="t-mi-txt">Keep replaying this one track</span>
+                                    <span class="t-mi-tick" aria-hidden="true">✓</span>
+                                </button>
+                                <button class="t-mi" data-r="off" role="menuitemradio">
+                                    <span class="t-mi-ico">⏹</span>
+                                    <span class="t-mi-txt">Stop at the end of the playlist</span>
+                                    <span class="t-mi-tick" aria-hidden="true">✓</span>
+                                </button>
+                            </div>
                         </div>
+                        <button class="t-btn rm-info" id="btnInfo" title="Track info" aria-label="Track info" data-testid="btn-info">ℹ</button>
                     </div>
                 </div>
-
 
                 <!-- phones only: Awake keeps the screen on while music plays -->
                 <div class="np-toggles">
@@ -180,6 +198,11 @@
                    title="Open this video on YouTube">YouTube ↗</a>
             </div>
 
+            <!-- hidden unless riffrolled can tell who made the track -->
+            <div class="ti-more" hidden>
+                <button class="ti-more-btn" type="button" data-testid="more-artist"></button>
+            </div>
+
             <!-- shown only while the panel is pinned to a track that is not
                  the one playing -->
             <div class="ti-elsewhere" hidden>
@@ -228,9 +251,15 @@
 <script defer src="js/stats.js"></script>
 <script defer src="js/db.js"></script>
 <script defer src="js/ui.js"></script>
+<script defer src="js/newhere.js"></script>
+<script defer src="js/genres.js"></script>
 <script defer src="js/player.js"></script>
 <script defer src="js/track-info.js"></script>
 <script defer src="js/playlist.js"></script>
+<script defer src="js/artist.js"></script>
+<script defer src="js/remote.js"></script>
+<script defer src="js/screen.js"></script>
+<script defer src="js/deck-title.js"></script>
 <script defer src="js/panels-music.js"></script>
 <script defer src="js/panels-tokens.js"></script>
 <script defer src="js/dj-data.js"></script>

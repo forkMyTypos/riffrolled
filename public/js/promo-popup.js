@@ -61,6 +61,7 @@ var promoPopup = {
     if (this.shown >= this.SESSION_CAP) return;
     if (Date.now() < this._next) return;
     if (document.hidden) return;                          // not while tabbed away
+    if (window.newHere && newHere.on) return;             // nothing has been played yet: no adverts
     await this.showOne();
   },
 

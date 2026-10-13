@@ -58,11 +58,13 @@ var plBoss = {
       e.stopPropagation();
       menu.hidden = !menu.hidden;
       btn.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+      if (!menu.hidden) self.refreshMoreItem();
     };
     menu.addEventListener('click', function(e){
       var mi = e.target.closest('.t-mi');
       if (!mi) return;
       if (mi.dataset.a === 'again'){ self.playAgain(); close(); return; }
+      if (mi.dataset.a === 'more'){ self.moreFromArtist(); close(); return; }
       if (mi.dataset.r){ self.setRepeat(mi.dataset.r); close(); }
     });
     // a menu that only closes via its own button is a menu you fight
@@ -75,6 +77,33 @@ var plBoss = {
     });
 
     this.loadRepeat();
+  },
+
+  /* "More from <artist>" in the ⋯ menu: shown only when riffrolled can
+     name the artist of what is playing, and says how many it already has. */
+  async refreshMoreItem(){
+    var mi = document.querySelector('#ctlMenu [data-a="more"]');
+    if (!mi || !window.riffArtist) return;
+    var ytId = player.currentYtId;
+    mi.hidden = true;
+    if (!ytId) return;
+    try {
+      var info = await riffArtist.localOthers(ytId);
+      if (player.currentYtId !== ytId || !info.artist) return;
+      mi.querySelector('.t-mi-txt').textContent = info.rows.length
+        ? 'More from ' + info.artist + ' · ' + info.rows.length + ' in your library'
+        : 'Find more from ' + info.artist;
+      mi.hidden = false;
+    } catch(e){}
+  },
+
+  async moreFromArtist(){
+    if (!window.riffArtist || !player.currentYtId) return;
+    var res;
+    try { res = await riffArtist.queueMore(player.currentYtId); }
+    catch(e){ res = { ok:false, message:'That didn’t work: ' + (e && e.message || e) }; }
+    if (window.appToast) appToast(res.message, res.ok ? 'ok' : '');
+    document.documentElement.setAttribute('data-rr-last-action', 'moreFromArtist');
   },
 
   bindKeys(){
@@ -576,6 +605,55 @@ var plBoss = {
 
     this.syncHighlight();
     this.updateStatus();
+  },
+
+  /**
+   * Make these tracks the ones that play next, in order, right after
+   * `afterYtId`. Tracks already in the playlist are moved up beside it
+   * rather than duplicated; new ones are added. If the playing track is not
+   * in the active playlist (or there is none) they go into a new playlist
+   * of their own, headed by the playing track, so "next" is still true.
+   * Returns how many tracks are now queued behind it.
+   */
+  async queueAfterCurrent(afterYtId, ytIds, label){
+    const rows = [];
+    for (const id of ytIds){ const t = await dbBoss.getTrack(id); if (t) rows.push(t); }
+    const cur = await dbBoss.getTrack(afterYtId);
+    if (!cur || !rows.length) return 0;
+
+    let plId = this.activeId;
+    let joins = plId ? await db.playlistTracks.where('playlistId').equals(plId).sortBy('order') : [];
+    let at = joins.findIndex(j => j.trackId === cur.id);
+
+    if (!plId || at < 0){
+      plId = await dbBoss.createPl('More from ' + (label || 'this artist'));
+      await dbBoss.addToPlaylist(plId, cur.id);
+      joins = await db.playlistTracks.where('playlistId').equals(plId).sortBy('order');
+      at = 0;
+      await this.setActivePlaylist(plId);
+    }
+
+    const wanted = new Set(rows.map(r => r.id));
+    const curJoin = joins[at];
+    const rest = joins.filter(j => j !== curJoin && !wanted.has(j.trackId));
+    const before = joins.slice(0, at).filter(j => !wanted.has(j.trackId));
+    const after = rest.slice(before.length);
+    const have = new Map(joins.filter(j => wanted.has(j.trackId)).map(j => [j.trackId, j]));
+
+    const order = [...before, curJoin];
+    for (const r of rows){
+      let j = have.get(r.id);
+      if (!j){
+        const newId = await db.playlistTracks.add({ playlistId: plId, trackId: r.id, addedAt: Date.now(), order: 9e6 });
+        j = { id: newId, trackId: r.id };
+      }
+      order.push(j);
+    }
+    order.push(...after);
+    await Promise.all(order.map((j, i) => db.playlistTracks.update(j.id, { order: i })));
+    await this.renderTracks();
+    this.renderPlaylists();
+    return rows.length;
   },
 
   async reorder(from, to){

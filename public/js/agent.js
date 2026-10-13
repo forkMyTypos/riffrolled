@@ -166,6 +166,21 @@
       }
     },
 
+    /**
+     * Queue the other tracks by whoever made `ytId` (default: what is
+     * playing) right after the playing track. Library first, then the
+     * shared catalogue. Returns what it did, never throws.
+     */
+    async moreFromArtist(ytId){
+      if (!window.riffArtist) return { ok:false, error:'not loaded' };
+      try {
+        var id = ytId ? parseIds(ytId)[0] : (window.player && player.currentYtId);
+        var res = await riffArtist.queueMore(id);
+        await refreshState();
+        return res;
+      } catch(e){ return { ok:false, error:String(e && e.message || e) }; }
+    },
+
     /** Play a video already in the playlist, or any id. */
     async play(ytId){
       if (!window.player) return { ok:false, error:'player not ready' };

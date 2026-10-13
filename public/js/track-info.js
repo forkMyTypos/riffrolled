@@ -47,6 +47,7 @@ var trackInfo = {
       plays: q('.ti-plays'), added: q('.ti-added'), yt: q('.ti-yt'),
       elsewhere: q('.ti-elsewhere'), back: q('.ti-back'),
       tags: q('.ti-tags'), tagNew: q('.ti-tagnew'),
+      more: q('.ti-more'), moreBtn: q('.ti-more-btn'),
       likeCount: q('.like-count'), dislikeCount: q('.dislike-count')
     };
 
@@ -57,9 +58,12 @@ var trackInfo = {
     this.ui.title.addEventListener('change', function(){
       self.save({ name: this.value.trim() }, true);
     });
-    this.ui.artist.addEventListener('change', function(){
-      self.save({ artist: this.value.trim() });
+    this.ui.artist.addEventListener('change', async function(){
+      await self.save({ artist: this.value.trim() });
+      self.renderMore();        // a corrected artist changes what "more" means
     });
+
+    this.ui.moreBtn.addEventListener('click', function(){ self.more(); });
 
     this.ui.tagNew.addEventListener('keydown', function(e){
       if (e.key === 'Enter'){ e.preventDefault(); self.addTag(this.value); this.value = ''; return; }
@@ -103,6 +107,38 @@ var trackInfo = {
     if (window.dock && this.el) dock.openPanel(this.el);
   },
 
+  /* ── more from this artist (artist.js does the thinking) ─────────── */
+
+  async renderMore(){
+    if (!this.ui || !this.ui.more) return;
+    var ytId = this.target, box = this.ui.more, btn = this.ui.moreBtn;
+    if (!ytId || !window.riffArtist){ box.hidden = true; return; }
+    var info;
+    try { info = await riffArtist.localOthers(ytId); } catch(e){ box.hidden = true; return; }
+    if (this.target !== ytId) return;
+    // no artist we can name: hide the button rather than offer one that cannot work
+    if (!info.artist){ box.hidden = true; return; }
+    box.hidden = false;
+    btn.disabled = false;
+    btn.textContent = info.rows.length
+      ? '♫ Queue more from ' + info.artist + ' · ' + info.rows.length + ' in your library'
+      : '♫ Find more from ' + info.artist;
+    btn.dataset.n = String(info.rows.length);
+  },
+
+  async more(){
+    var ytId = this.target;
+    if (!ytId || !window.riffArtist) return;
+    var btn = this.ui.moreBtn;
+    btn.disabled = true;
+    var res;
+    try { res = await riffArtist.queueMore(ytId); }
+    catch(e){ res = { ok:false, message:'That didn’t work: ' + (e && e.message || e) }; }
+    if (window.appToast) appToast(res.message, res.ok ? 'ok' : '');
+    document.documentElement.setAttribute('data-rr-last-action', 'moreFromArtist');
+    await this.renderMore();
+  },
+
   async unpin(){
     this.pinned = false;
     if (window.player && player.currentYtId) this.target = player.currentYtId;
@@ -110,16 +146,27 @@ var trackInfo = {
   },
 
   async save(patch, alsoTitle){
-    if (!this.target || !window.dbBoss) return;
+    return this.saveFor(this.target, patch, alsoTitle);
+  },
+
+  /**
+   * The one place a track's own fields are written. It is told WHICH track,
+   * so a caller never depends on what the panel happens to be showing at
+   * the moment the write lands — the deck title and this panel both use it.
+   */
+  async saveFor(ytId, patch, alsoTitle){
+    if (!ytId || !window.dbBoss) return;
     var name = patch.name;
     if (alsoTitle && !name) return;          // refuse to blank a title
-    await dbBoss.updateTrackMeta(this.target, patch);
-    if (this._track) Object.assign(this._track, patch);
+    await dbBoss.updateTrackMeta(ytId, patch);
+    var onScreen = this.target === ytId;
+    if (onScreen && this._track) Object.assign(this._track, patch);
 
     // the deck caption is the same fact in another place
-    if (alsoTitle && window.player && player.currentYtId === this.target && player.el.title){
+    if (alsoTitle && window.player && player.currentYtId === ytId && player.el.title){
       player.el.title.textContent = name;
     }
+    if (onScreen && this.ui && this.ui.title && alsoTitle) this.ui.title.value = name;
     if (window.plBoss){ await plBoss.renderTracks(); plBoss.renderPlaylists(); }
     if (window.searchBoss) searchBoss.render();
   },
@@ -196,6 +243,7 @@ var trackInfo = {
       this._track = null;
       this.renderTags();
       this.renderPinnedState();
+      this.renderMore();
       return;
     }
 
@@ -231,6 +279,7 @@ var trackInfo = {
 
       this.renderTags();
       this.renderPinnedState();
+      this.renderMore();
     } catch(e){ /* the panel is informational; never let it throw into a load */ }
   }
 };

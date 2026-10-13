@@ -39,19 +39,35 @@ var dock = {
     if (this.mobile){
       // app-style bottom tabs: Player first, then one tab per panel
       this._mBtns = [];
+      /* While someone is new here (newhere.js) the tab bar is the Player,
+         the three things you can use in your first minute, and a ⋯ for
+         everything else. Eleven icons on a 360px screen is a wall. */
+      const trimmed = this.newHereTrim();
+      const shown = (trimmed ? this.items.filter(it => this.FIRST_MINUTE.includes(it.label)) : this.items)
+        .filter(it => !it.noButton);
       const tabs = [{ icon:'🎛', label:'Player', short:'Player', player:true }]
-        .concat(this.items.map(it => ({ ...it, short: this.shortLabel(it.label) })));
+        .concat(shown.map(it => ({ ...it, short: this.shortLabel(it.label) })));
+      if (trimmed) tabs.push({ icon:'⋯', label:'More', short:'More', more:true });
       tabs.forEach(t => {
         const btn = document.createElement('button');
         btn.className = 'dock-btn';
         btn.title = t.label;
         btn.setAttribute('aria-label', t.label);
-        if (t.iconSvg) btn.innerHTML = t.iconSvg; else btn.textContent = t.icon;
+        if (t.more){
+          btn.classList.add('dock-more');
+          btn.setAttribute('data-testid', 'dockbtn-more');
+          btn.innerHTML = '<span class="dock-ico-more" aria-hidden="true">⋯</span>';
+        } else if (t.iconSvg) btn.innerHTML = t.iconSvg; else btn.textContent = t.icon;
         if (t.accent) btn.style.setProperty('--accent', t.accent);
         const lbl = document.createElement('span');
         lbl.className = 'dock-lbl';
         lbl.textContent = t.short;
         btn.appendChild(lbl);
+        if (t.more){
+          btn.onclick = () => { this._moreOpen = true; this.render(); this.showMobile(this._mActive || 'player'); };
+          bar.appendChild(btn);
+          return;
+        }
         btn.onclick = () => this.showMobile(t.player ? 'player' : t.label);
         this._mBtns.push([t.player ? 'player' : t.label, btn]);
         bar.appendChild(btn);
@@ -60,10 +76,10 @@ var dock = {
       return;
     }
 
-    this.items.forEach((it, idx) => {
+    this.items.filter(it => !it.noButton).forEach((it, idx, list) => {
       if (!it.el) return;
       // hairline between groups: finding music · the token economy · everything else
-      if (idx > 0 && it.group && it.group !== this.items[idx - 1].group){
+      if (idx > 0 && it.group && it.group !== list[idx - 1].group){
         const sep = document.createElement('span');
         sep.className = 'dock-sep';
         bar.appendChild(sep);
@@ -247,8 +263,31 @@ var dock = {
     return { 'Track info':'Track', 'Current Track':'Track', 'About & Legal':'About', 'Database':'Data', 'Random Mix':'Mix', 'Promote':'Promo', 'DJ AI':'DJ AI' }[label] || label.split(' ')[0];
   },
 
+  /* Panels a newcomer on a phone gets in the tab bar. Everything else is
+     things you go looking for, behind ⋯. */
+  FIRST_MINUTE: ['Playlist', 'Search', 'DJ AI'],
+  _moreOpen: false,
+
+  // is the phone tab bar currently the short, new-here one?
+  newHereTrim(){
+    return !!(this.mobile && window.newHere && newHere.on && !this._moreOpen);
+  },
+
+  // newhere.js calls this when it learns the answer, and again when it flips
+  refreshForNewHere(){
+    if (!this.mobile) return;
+    this.render();
+    this.showMobile(this._mActive || 'player');
+  },
+
   // mobile: show exactly one view — 'player' (the deck) or a panel by label
   showMobile(label){
+    // a panel opened from somewhere other than the tab bar (the tour, a
+    // hint, the DJ) must have a tab to come back from
+    if (label !== 'player' && this.newHereTrim() && !this.FIRST_MINUTE.includes(label)){
+      this._moreOpen = true;
+      this.render();
+    }
     this._mActive = label;
     document.body.classList.toggle('m-view-panel', label !== 'player');
     // YouTube: the player must be visible while it plays. Leaving the Player
@@ -267,6 +306,7 @@ var dock = {
 
   setMode(isMobile){
     this.mobile = isMobile;
+    if (window.remote) remote.mount(isMobile);   // floats on a desktop, stays in the deck on a phone
     this.render();
     if (isMobile){
       this.showMobile(this._mActive || 'player');
@@ -434,7 +474,11 @@ dock.build([
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
   { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
   { icon:'🕘', label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
-  { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, group:'music', accent:'#d98cff' },
+  // Track info has no dock button: it is one tap from the ℹ on any
+  // playlist row or the deck, and it pops up by itself when a track
+  // changes. It is still a registered panel, so it keeps its place in the
+  // saved layout and opens full-screen on a phone.
+  { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d' },
   { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
@@ -486,6 +530,11 @@ dock.items.forEach(it => {
   else if (mq.addListener) mq.addListener(apply); // older Safari
   apply();
 })();
+
+// is this someone's first few minutes? (decides how much of the dock a phone shows)
+if (window.newHere) newHere.init();
+// …and tidy the genres of anything already in the library, once
+setTimeout(function(){ if (dbBoss.backfillGenres) dbBoss.backfillGenres(); }, 1500);
 
 // load any saved layout (positions / sizes / which panels are open), then track changes
 dock.init();

@@ -23,6 +23,7 @@ src/
   contrib.js           contribution rewards — a shared pool, not a per-act payment
   sweep.js             hourly housekeeping: finished campaigns, old rows, payouts
   tags.js              the 29-word mood vocabulary, server side
+  genres.js            the 31-genre closed list + the rules that map an AI's words onto it
   routes/
     search.js          GET  /api/search?q=&limit=
     tracks.js          GET  /api/tracks?genre=&limit= · POST /api/track
@@ -44,6 +45,20 @@ Frontend files worth knowing: `public/js/track-info.js` owns the Track info pane
 (it holds a target track, which is why it can show one you are not playing),
 `public/js/dock.js` places panels, `public/js/promo-popup.js` draws the promoted
 record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
+
+Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
+only Player, Playlist, Search, DJ AI and ⋯ until they play something),
+`genres.js` (GENERATED from `src/genres.js` — never edit it by hand; the genres test
+rewrites it and fails if the two differ), `artist.js` (artist matching and
+"more of this artist"), `remote.js` (the round remote: replaces the deck's button
+row, floats on desktop and is remembered, stays a row on a phone), `screen.js` (video
+resizing — the one number is `--vid`, never below 200px) and `deck-title.js` (rename
+the playing track from the deck; local to this device, written through
+`trackInfo.saveFor`).
+
+**Genres.** `tracks.genre` is one of the 31 names in `src/genres.js` or blank; whatever
+word the AI used is kept in `tracks.genre_raw`. Migration 18 normalises the old rows
+(batched, safe to re-run). To change the list, edit `src/genres.js` and re-run the genres test.
 
 ## Deploy
 

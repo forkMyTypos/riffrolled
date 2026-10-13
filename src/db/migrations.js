@@ -10,6 +10,8 @@
 //     treated as already applied, which also covers columns added by hand)
 //   · db/schema.sql is kept as readable documentation; this file is what runs
 
+import { normalizeGenre } from '../genres.js';
+
 const MIGRATIONS = [
   { id: 1, name: 'base schema', sql: [
     `CREATE TABLE IF NOT EXISTS tracks (
@@ -258,6 +260,29 @@ const MIGRATIONS = [
     `CREATE TABLE IF NOT EXISTS contrib_paid (
        epoch TEXT PRIMARY KEY, paid_at TEXT NOT NULL)`,
   ]},
+  { id: 18, name: 'closed genre list', sql: [
+    /* tracks.genre becomes a closed list (src/genres.js). What the AI
+       actually said moves to genre_raw FIRST, so tidying the list can
+       never lose a word: a genre that matches nothing is blanked in
+       genre, and still searchable and recoverable here. */
+    `ALTER TABLE tracks ADD COLUMN genre_raw TEXT NOT NULL DEFAULT ''`,
+    `UPDATE tracks SET genre_raw = genre WHERE genre_raw = '' AND genre != ''`,
+  ], run: async (db) => {
+    // Normalise each DISTINCT spelling once rather than each row: a few
+    // hundred spellings across thousands of tracks. Safe to repeat — a
+    // value already on the list maps to itself.
+    const { results } = await db.prepare(`SELECT DISTINCT genre FROM tracks WHERE genre != ''`).bind().all();
+    const changes = [];
+    for (const r of results || []) {
+      const g = String(r.genre);
+      const n = normalizeGenre(g).genre;
+      if (n !== g) changes.push([g, n]);
+    }
+    const stmt = db.prepare(`UPDATE tracks SET genre = ?2 WHERE genre = ?1`);
+    for (let i = 0; i < changes.length; i += 40) {
+      await db.batch(changes.slice(i, i + 40).map(([from, to]) => stmt.bind(from, to)));
+    }
+  }},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,
@@ -293,6 +318,11 @@ export async function ensureSchema(db) {
               throw new Error(`migration ${m.id} (${m.name}) failed: ${err.message}`);
             }
           }
+        }
+        // a migration that needs code, not just SQL (it must be safe to repeat)
+        if (typeof m.run === 'function') {
+          try { await m.run(db); }
+          catch (err) { throw new Error(`migration ${m.id} (${m.name}) failed: ${err.message}`); }
         }
         // INSERT OR IGNORE: another isolate may have finished the same one
         await db.prepare(

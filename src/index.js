@@ -12,6 +12,7 @@ import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleResolve } from './routes/resolve.js';
 import { handleSavePlaylist } from './routes/playlists.js';
+import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMixReport } from './routes/mixes.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
 import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, handleMyPromotions, handlePromotionAction, handleBriefOffers, handleBriefClaim } from './routes/promote.js';
 import { handlePublicConfig } from './routes/config.js';
@@ -27,6 +28,11 @@ const ROUTES = [
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
   ['POST', /^\/api\/resolve$/, (req, env) => handleResolve(req, env)],
   ['POST', /^\/api\/playlist\/save$/, (req, env) => handleSavePlaylist(req, env)],
+  ['GET',  /^\/api\/mixes$/,            (req, env, url) => handleListMixes(req, env, url)],
+  ['POST', /^\/api\/mixes\/share$/,     (req, env) => handleShareMix(req, env)],
+  ['GET',  /^\/api\/mixes\/\d+$/,       (req, env, url) => handleGetMix(req, env, url)],
+  ['POST', /^\/api\/mixes\/\d+\/play$/,   (req, env, url) => handleMixPlay(req, env, url)],
+  ['POST', /^\/api\/mixes\/\d+\/report$/, (req, env, url) => handleMixReport(req, env, url)],
   ['GET',  /^\/api\/channel$/, (req, env, url) => handleChannelImport(req, env, url)],
   ['GET',  /^\/api\/playlist$/, (req, env, url) => handlePlaylistImport(req, env, url)],
   ['POST', /^\/api\/mine\/challenge$/, (req, env) => handleMineChallenge(req, env)],

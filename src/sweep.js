@@ -84,6 +84,14 @@ export async function sweep(env, now = new Date().toISOString()) {
     out.errors.push('rate: ' + (err && err.message));
   }
 
+  // share counters only matter for the day they were made
+  try {
+    const cutoff = new Date(Date.parse(now) - 2 * 24 * 3600_000).toISOString().slice(0, 10);
+    await env.DB.prepare(`DELETE FROM mix_shares WHERE day < ?1`).bind(cutoff).run();
+  } catch (err) {
+    out.errors.push('mix_shares: ' + (err && err.message));
+  }
+
   /* Contribution rewards for any epoch that has closed. This is the one
      step here that creates credits rather than deleting rows, so it is
      also the one where a retry must not repeat itself — contrib.js

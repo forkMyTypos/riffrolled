@@ -33,9 +33,11 @@ src/
     stats.js           anonymous counters + link authorship (pays nobody — see below)
     config.js          GET /api/config — the few settings the browser needs
     playlists.js       POST /api/playlist/save
+    mixes.js           the Mixes panel: list, open, share, play, report
     channel.js         channel / playlist import
   db/queries.js        all SQL (prepared statements only)
   db/migrations.js     self-applying, append-only — never edit an old one
+  services/ingest.js   shared 'verify and store these tracks' step (playlist save + mix share)
   services/youtube.js  the only module that touches the YouTube Data API
   services/oembed.js   keyless "does this video exist" checks
   utils/response.js    JSON/CORS helpers
@@ -50,8 +52,7 @@ Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
 only Player, Playlist, Search, DJ AI and ⋯ until they play something),
 `genres.js` (GENERATED from `src/genres.js` — never edit it by hand; the genres test
 rewrites it and fails if the two differ), `artist.js` (artist matching and
-"more of this artist"), `remote.js` (the round remote: replaces the deck's button
-row, floats on desktop and is remembered, stays a row on a phone), `screen.js` (video
+"more of this artist"), `remote.js` (the controls: prev, play, next, repeat and info as chrome knobs set into the bottom edge of the record player — one set of buttons, same ids; a plain row below the record on a phone; nothing floats or drags), `screen.js` (video
 resizing — the one number is `--vid`, never below 200px) and `deck-title.js` (rename
 the playing track from the deck; local to this device, written through
 `trackInfo.saveFor`).
@@ -83,6 +84,20 @@ custom domain, and the WAF rate-limiting rules on `/api/*`.
 The hourly Cron Trigger comes from `wrangler.toml`, so it arrives with a deploy — no
 dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Triggers.
 
+**Mixes.** The Mixes panel (the dock icon under Playlist) has three doors: *By Us* (premade
+mixes, added from the admin tool), *Make a Mix* (opens the DJ AI) and *Mixes* (community, shared by
+listeners with the opt-in ↗ button on a playlist). A mix is only an ordered list of YouTube links;
+riffrolled stores the list, YouTube plays the music. Tables (migration 19): `mixes` (kind
+`premade`|`community`, name, blurb, genre, fingerprint — a unique hash of the ordered track ids so the
+same list is never stored twice, hidden, sort, plays, reports), `mix_tracks`, `mix_reports` (one report
+per person per mix), `mix_shares` (daily limit; pruned after 2 days). People are counted by a salted
+hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns sharing off**),
+`MIX_REPORTS_TO_HIDE` (default 3; community only — premade never auto-hides), `MIX_MIN_TRACKS` (default 3).
+In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
+button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
+Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
+the tables are missing (`/api/health` should show `"schema":19`).
+
 ## Endpoints
 
 | Method | Path                    | Body                              | Returns |
@@ -91,6 +106,10 @@ dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Tr
 | GET    | /api/tracks?genre=&limit=| —                                | `[{id,name,artist,genre,url}]` |
 | POST   | /api/track              | `{name,url,artist?,genre?}`       | the created/existing track |
 | POST   | /api/resolve            | `{items:[{artist,title,videoId?,verified?}], allowYouTube?}` | `{results:[{i,ok,via,url,name,artist}], lookups_used, lookups_left}` |
+| GET    | /api/mixes?kind=&sort=&genre=&q=&limit=&offset= | — | `{mixes:[{id,name,blurb,genre,tracks,plays,cover,artists}]}` |
+| GET    | /api/mixes/:id          | —                                 | the mix and its `items` |
+| POST   | /api/mixes/share        | `{name,blurb?,genre?,tracks:[{name,artist,genre,url}]}` | `201 {id}` or `{existing:true,id}`; 429 `daily_limit` |
+| POST   | /api/mixes/:id/play · /report | —                           | counters; a report is one per person |
 | POST   | /api/playlist/save      | `{name, tracks:[{name,artist,genre,url}]}` | `{id, name, tracks}` — riffrolled's own copy of a set |
 | GET    | /api/config             | —                                 | the handful of settings the UI needs, plus the mood vocabulary |
 | POST   | /api/mine/challenge     | `{wallet}`                        | `{challenge, difficulty_bits, reward, tier, …}` |

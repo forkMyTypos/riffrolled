@@ -283,6 +283,47 @@ const MIGRATIONS = [
       await db.batch(changes.slice(i, i + 40).map(([from, to]) => stmt.bind(from, to)));
     }
   }},
+  { id: 19, name: 'mixes', sql: [
+    /* A mix is a named, ordered set of tracks that is MEANT to be shown to
+       other people — which is what separates it from `playlists`, riffrolled's
+       anonymous copy of a DJ AI set that nobody can browse.
+
+         kind 'premade'    added by the owner in the local admin tool
+         kind 'community'  shared by a listener with the Share button
+
+       There is no owner column, on purpose: a community mix is anonymous,
+       like everything else riffrolled keeps. Abuse is handled by what the
+       server CAN see — a per-day count and a report count, both keyed by a
+       hash that includes the date, so neither survives as a record of a
+       person (mix_shares is pruned after two days).
+
+       fingerprint is a hash of the ordered track ids. Sharing the same set
+       twice returns the first one rather than filling the list. */
+    `CREATE TABLE IF NOT EXISTS mixes (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       kind TEXT NOT NULL DEFAULT 'community',
+       name TEXT NOT NULL DEFAULT '',
+       blurb TEXT NOT NULL DEFAULT '',
+       genre TEXT NOT NULL DEFAULT '',
+       tags TEXT NOT NULL DEFAULT '',
+       fingerprint TEXT NOT NULL DEFAULT '',
+       hidden INTEGER NOT NULL DEFAULT 0,
+       sort INTEGER NOT NULL DEFAULT 0,
+       plays INTEGER NOT NULL DEFAULT 0,
+       reports INTEGER NOT NULL DEFAULT 0,
+       created_at TEXT NOT NULL DEFAULT '')`,
+    `CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != ''`,
+    `CREATE TABLE IF NOT EXISTS mix_tracks (
+       mix_id INTEGER NOT NULL, track_id INTEGER NOT NULL, position INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS idx_mix_tracks ON mix_tracks(mix_id, position)`,
+    `CREATE TABLE IF NOT EXISTS mix_reports (
+       mix_id INTEGER NOT NULL, who TEXT NOT NULL, created_at TEXT NOT NULL,
+       PRIMARY KEY (mix_id, who))`,
+    `CREATE TABLE IF NOT EXISTS mix_shares (
+       day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY (day, who))`,
+  ]},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

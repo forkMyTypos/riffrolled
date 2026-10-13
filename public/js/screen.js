@@ -13,8 +13,9 @@
        monitor, and shrinking the window pulls the video back in
 
    WHAT IT MUST NOT DO
-     The handle sits outside the video's corner, never on it — YouTube's
-     own fullscreen button lives there and nothing may cover the player.
+     The handle is the record player's own lower-right corner — invisible,
+     with a tooltip and a resize cursor — never on the video, where YouTube's
+     own fullscreen button lives.
      Phones do not resize (mobile.css pins --vid to 200). */
 
 var screenSize = {
@@ -42,10 +43,11 @@ var screenSize = {
     });
     this.grip.addEventListener('pointermove', function(e){
       var d = self._drag; if (!d || d.id !== e.pointerId) return;
-      // the video grows from its centre, so its corner moves half as far
-      // as its side grows: a pointer that travelled (dx, dy) means a side
-      // that grew by dx + dy
-      self.set(d.start + (e.clientX - d.x) + (e.clientY - d.y), false);
+      // the record player is anchored at the left and centred vertically, so
+      // its lower-right corner moves by the growth across, and by half of it
+      // down: a pointer that follows the corner has travelled (dx, dy) with
+      // growth = dx = 2·dy. Averaging the two estimates is steady either way.
+      self.set(d.start + ((e.clientX - d.x) + 2 * (e.clientY - d.y)) / 2, false);
     });
     var end = function(e){
       var d = self._drag; if (!d || (e && d.id !== e.pointerId)) return;
@@ -82,11 +84,10 @@ var screenSize = {
     return this;
   },
 
-  /** The largest side this window can hold: the record is 21rem bigger than the video. */
+  /** The largest video this window can hold: the record player is 376px bigger than the video. */
   max(){
-    var rem = 16;
-    var byHeight = window.innerHeight - 21 * rem - 64;
-    var byWidth = window.innerWidth - 90 - 21 * rem - 64;       // the dock rail, then the record's margins
+    var byHeight = window.innerHeight - 376 - 64;
+    var byWidth = window.innerWidth - 90 - 376 - 64;       // the dock rail, then the record's margins
     return Math.max(this.MIN, Math.min(this.CAP, Math.floor(byHeight), Math.floor(byWidth)));
   },
 

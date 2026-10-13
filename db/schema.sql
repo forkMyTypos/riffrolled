@@ -102,3 +102,37 @@ CREATE TABLE IF NOT EXISTS ai_lookups (
   searches   INTEGER NOT NULL DEFAULT 0,    -- search.list calls spent that day
   updated_at TEXT NOT NULL DEFAULT ''
 );
+
+-- ── mixes: sets meant to be shown to other people ────────────────────
+-- 'premade' are added by the owner in the local admin tool; 'community'
+-- are shared by listeners with the Share button. No owner column: a
+-- community mix is anonymous. fingerprint (a hash of the ordered track
+-- ids) stops the same set being listed twice. mix_shares and mix_reports
+-- hold a per-day hash used only to rate-limit; mix_shares is pruned.
+
+CREATE TABLE IF NOT EXISTS mixes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL DEFAULT 'community',
+  name TEXT NOT NULL DEFAULT '',
+  blurb TEXT NOT NULL DEFAULT '',
+  genre TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '',
+  fingerprint TEXT NOT NULL DEFAULT '',
+  hidden INTEGER NOT NULL DEFAULT 0,
+  sort INTEGER NOT NULL DEFAULT 0,
+  plays INTEGER NOT NULL DEFAULT 0,
+  reports INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != '';
+CREATE TABLE IF NOT EXISTS mix_tracks (
+  mix_id INTEGER NOT NULL, track_id INTEGER NOT NULL, position INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_mix_tracks ON mix_tracks(mix_id, position);
+CREATE TABLE IF NOT EXISTS mix_reports (
+  mix_id INTEGER NOT NULL, who TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (mix_id, who)
+);
+CREATE TABLE IF NOT EXISTS mix_shares (
+  day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, who)
+);

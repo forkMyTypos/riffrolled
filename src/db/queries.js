@@ -74,7 +74,7 @@ export async function listTracks(db, genre, limit) {
  * Insert tracks, skipping any url we already have (dedupe by url).
  * Works whether or not the unique index exists.
  */
-const SOURCES = new Set(['search', 'channel', 'playlist', 'paste', 'ai']);
+const SOURCES = new Set(['search', 'channel', 'playlist', 'paste', 'ai', 'mix']);
 
 /**
  * @param verified 1 when something has confirmed each video exists (the

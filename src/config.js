@@ -90,6 +90,14 @@ export const SCHEMA = {
   VERIFY_MAX_CHECKS:    { type: 'num', def: 24, min: 0,  max: 45,
     note: 'Live oEmbed checks per request. The free plan allows 50 external subrequests in total.' },
 
+  // ── mixes ──
+  MIX_SHARE_PER_DAY:    { type: 'num', def: 5, min: 0, max: 1000,
+    note: 'Mixes one person (one network address) may share a day. 0 switches sharing off.' },
+  MIX_REPORTS_TO_HIDE:  { type: 'num', def: 3, min: 1, max: 100,
+    note: 'Different people who must report a community mix before it hides itself. You can still hide or restore any mix in the admin tool.' },
+  MIX_MIN_TRACKS:       { type: 'num', def: 3, min: 1, max: 20,
+    note: 'Fewest tracks a shared mix may have. A one-track mix is a link, not a mix.' },
+
   // ── AI DJ resolution (dormant) ──
   AI_YT_DAILY:          { type: 'num', def: 40, min: 0,  max: 100,
     note: 'YouTube search.list calls a day, site-wide. Each costs 100 of 10,000 quota units.' },

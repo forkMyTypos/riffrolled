@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/dock.css">
 <link rel="stylesheet" href="css/features.css">
 <link rel="stylesheet" href="css/dj-ai.css">
+<link rel="stylesheet" href="css/mixes.css">
 <link rel="stylesheet" href="css/tutorial.css">
 <link rel="stylesheet" href="css/mobile.css">
 
@@ -52,11 +53,11 @@
             <div class="arm-head"></div>
             </div>
 
-            <!-- Sits just outside the video's bottom-right corner, never on
-                 it: YouTube requires that nothing covers the player. -->
+            <!-- The record player's own lower-right corner: invisible, with a
+                 tooltip. Nowhere near the video — nothing may cover the player. -->
             <button class="screen-grip" id="screenGrip" type="button" role="slider"
-                    aria-label="Video size" aria-valuemin="200" aria-valuemax="420" aria-valuenow="200"
-                    title="Drag to resize the video (double-click to reset)" data-testid="video-grip"></button>
+                    aria-label="Record player size" aria-valuemin="200" aria-valuemax="420" aria-valuenow="200"
+                    title="Drag to resize the record player (double-click to reset)" data-testid="video-grip"></button>
 
             <div class="deck-hint" id="deckHint" hidden>
                 <div class="dh-title">Nothing on the deck yet</div>
@@ -77,10 +78,10 @@
                     </div>
                 </div>
 
-                <!-- The remote. On a desktop it is a round puck that floats
-                     where you drop it (remote.js moves it out of the deck);
-                     on a phone it stays here, in the flow, as a row. Same
-                     buttons, same ids, either way. -->
+                <!-- The remote. On a desktop remote.js sets it into the bottom edge of
+                     the record player's plinth as a strip of chrome knobs; on a
+                     phone it stays here, in the flow, as a row. Same buttons,
+                     same ids, either way. -->
                 <div class="remote" id="remote" data-testid="remote" role="group" aria-label="Player controls">
                 <div class="transport">
                         <button class="t-btn" id="btnPrev" title="Previous">⏮</button>
@@ -266,6 +267,7 @@
 <script defer src="js/aidj.js"></script>
 <script defer src="js/dj-menu.js"></script>
 <script defer src="js/info.js"></script>
+<script defer src="js/mixes.js"></script>
 <script defer src="js/promo-popup.js"></script>
 <script defer src="js/dock.js"></script>
 <script defer src="js/agent.js"></script>

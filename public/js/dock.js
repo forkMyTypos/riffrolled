@@ -13,6 +13,7 @@ mixBoss.setup();
 // after, so dock.build below still finds its element
 djMenuBoss.setup();
 djHistoryBoss.setup();
+mixesBoss.setup();
 infoBoss.setup();
 
 
@@ -30,6 +31,11 @@ var dock = {
   _touched: null,  // labels opened/closed by someone BEFORE the saved layout arrived
 
   build(items){ this.items = items; this.render(); },
+
+  /* A stable name for a panel and its button, from the label. render() builds
+     the buttons afresh every time the layout mode changes, so the name has to
+     be put on at creation — setting it once after build() found no buttons. */
+  slugOf(label){ return String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); },
 
   render(){
     const bar = document.querySelector('.rightM');
@@ -53,6 +59,7 @@ var dock = {
         btn.className = 'dock-btn';
         btn.title = t.label;
         btn.setAttribute('aria-label', t.label);
+        if (!t.more && !t.player) btn.setAttribute('data-testid', 'dockbtn-' + this.slugOf(t.label));
         if (t.more){
           btn.classList.add('dock-more');
           btn.setAttribute('data-testid', 'dockbtn-more');
@@ -91,6 +98,7 @@ var dock = {
       if (it.accent) btn.style.setProperty('--accent', it.accent);
       if (it.bottom) btn.classList.add('dock-bottom');   // pinned to the rail's end
       btn.setAttribute('aria-label', it.label);
+      btn.setAttribute('data-testid', 'dockbtn-' + this.slugOf(it.label));
       it.btn = btn;
       if (!it._init){ it._init = true; it.el.classList.toggle('is-hidden', !!it.startHidden); }
       const hidden = it.el.classList.contains('is-hidden');
@@ -468,6 +476,7 @@ dock.build([
   // panel that is visible before the saved layout has loaded flashes at the left
   // edge and then jumps. Nothing open means nothing to jump.
   { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, startHidden:true, group:'music', accent:'#9d8cff' },
+  { iconSvg: MIXES_SVG, label:'Mixes', el: mixesBoss.el, startHidden:true, group:'music', accent:'#ffb86b' },
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
@@ -499,7 +508,7 @@ dock.items.forEach(it => {
      the label text — which is translated, reworded, and in at least one
      case starts with a fullwidth ＋ that no search for "+" will find. */
   if (!it.el) return;
-  const slug = String(it.label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const slug = dock.slugOf(it.label);
   it.slug = slug;
   it.el.setAttribute('data-testid', 'panel-' + slug);
   it.el.setAttribute('data-panel', slug);

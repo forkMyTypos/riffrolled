@@ -15,7 +15,7 @@
 .deck .screen, .deck .np-area, .deck .np-area * { pointer-events:auto; }
 
 .plinth {
-  width:max(36rem, calc(var(--vid) + 21rem)); height:max(36rem, calc(var(--vid) + 21rem));
+  width:calc(var(--vid) + 376px); height:calc(var(--vid) + 376px);   /* 576px at the 200px default, growing 1:1 with the video */
  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
  margin:2em;
   border-radius:1rem;
@@ -23,10 +23,10 @@
   position:relative;
 }
 
-.turntable { width:max(30rem, calc(var(--vid) + 15rem)); height:max(30rem, calc(var(--vid) + 15rem)); border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
+.turntable { width:calc(var(--vid) + 280px); height:calc(var(--vid) + 280px); border-radius:50%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; }
 
 .platter {
-  width:max(28rem, calc(var(--vid) + 13rem)); height:max(28rem, calc(var(--vid) + 13rem)); border-radius:50%;
+  width:calc(var(--vid) + 248px); height:calc(var(--vid) + 248px); border-radius:50%;
   background:
     repeating-radial-gradient(circle at center, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px),
     radial-gradient(circle, #1c1c1c 0 18%, #0d0d0d 18% 70%, #000 70%);
@@ -385,17 +385,16 @@
    While it is being dragged the iframe ignores the pointer, or it would
    swallow the move events the moment the cursor crossed onto it. */
 .screen-grip {
-  position:absolute; z-index:6; padding:0; cursor:nwse-resize; touch-action:none;
-  width:22px; height:22px; border-radius:50%;
-  left:calc(50% + var(--vid) / 2 + 8px); top:calc(50% + var(--vid) / 2 - 22px);   /* beside the lower-right corner: clear of the video and of the title row */
-  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.28);
-  color:rgba(255,255,255,0.7); pointer-events:auto; opacity:.55; transition:opacity .15s, background .15s;
+  /* An invisible handle on the record player's own lower-right corner. The
+     cursor and the tooltip are the whole affordance. It is nowhere near the
+     video, so nothing covers the player. */
+  position:absolute; z-index:6; padding:0; margin:0; cursor:nwse-resize; touch-action:none;
+  width:30px; height:30px; right:32px; bottom:32px;
+  background:transparent; border:0; border-radius:0 0 1rem 0; pointer-events:auto;
 }
-.screen-grip::before { content:''; position:absolute; inset:5px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; border-radius:0 0 3px 0; }
-.deck:hover .screen-grip, .screen-grip:focus-visible, .screen-grip.dragging { opacity:1; }
-.screen-grip:hover { background:rgba(138,123,255,0.4); }
-.screen-grip:focus-visible { outline:2px solid #8a7bff; outline-offset:2px; }
+.screen-grip:focus-visible { outline:2px solid #8a7bff; outline-offset:-2px; }
 .deck.resizing .screen iframe { pointer-events:none; }
+.deck.resizing, .deck.resizing * { cursor:nwse-resize !important; user-select:none; }
 body.mobile .screen-grip { display:none; }
 
 /* ── the deck title ───────────────────────────────────────────────────
@@ -415,41 +414,44 @@ body.mobile .screen-grip { display:none; }
 .np-titlerow.editing .np-title, .np-titlerow.editing .deck-react { display:none; }
 
 /* ── the remote ───────────────────────────────────────────────────────
-   On a desktop (remote.js floats it) it is a round puck you can drop
-   anywhere: play in the middle, back and forward either side, track info
-   above, the repeat menu below. Same buttons and ids as the row it
-   replaced. On a phone it stays in the deck as that row — a puck that
-   drags competes with scrolling, and a finger is not a mouse. */
+   Round chrome knobs. On a desktop remote.js sets them into the bottom edge
+   of the plinth — the 48px of bare plinth under the record (the plinth is
+   always 96px wider than the turntable, at any size) — so they read as part
+   of the record player. On a phone they are the row below the record.
+   Same buttons and ids either way. */
 .remote { position:relative; }
-.remote .rm-info { width:30px; height:30px; font-size:13px; }
 
-body:not(.mobile) .remote.floating {
-  position:fixed; z-index:75; width:152px; height:152px; border-radius:50%;
-  background:radial-gradient(circle at 50% 38%, rgba(48,42,80,0.94), rgba(14,14,28,0.95) 72%);
-  border:1px solid rgba(255,255,255,0.16);
-  box-shadow:0 12px 34px rgba(0,0,0,0.65), inset 0 0 0 7px rgba(0,0,0,0.32), inset 0 0 0 8px rgba(255,255,255,0.05);
-  cursor:grab; touch-action:none; user-select:none; pointer-events:auto;
+/* the knob itself */
+.remote .t-btn {
+  background:radial-gradient(circle at 32% 26%, #fbfbff 0%, #c4c4d0 30%, #7c7c8a 68%, #43434f 100%);
+  border:1px solid #1a1a22; color:#17171f; font-variant-emoji:text;
+  box-shadow:0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85), inset 0 -2px 3px rgba(0,0,0,0.35);
+  transition:transform 0.08s, filter 0.15s, box-shadow 0.08s;
 }
-body:not(.mobile) .remote.floating.dragging { cursor:grabbing; box-shadow:0 18px 44px rgba(0,0,0,0.7), inset 0 0 0 7px rgba(0,0,0,0.32); }
-body:not(.mobile) .remote.floating * { pointer-events:auto; }
-body:not(.mobile) .remote.floating .transport { position:absolute; inset:0; display:block; }
-body:not(.mobile) .remote.floating .t-ctl { display:contents; }
-body:not(.mobile) .remote.floating .t-btn { position:absolute; transform:translate(-50%,-50%); cursor:pointer; }
-body:not(.mobile) .remote.floating #btnPlay { left:50%; top:50%; width:58px; height:58px; font-size:22px;
-  background:rgba(138,123,255,0.22); border-color:rgba(138,123,255,0.55); color:#fff; }
-body:not(.mobile) .remote.floating #btnPlay:hover { background:rgba(138,123,255,0.4); }
-body:not(.mobile) .remote.floating #btnPrev { left:19%; top:50%; width:36px; height:36px; }
-body:not(.mobile) .remote.floating #btnNext { left:81%; top:50%; width:36px; height:36px; }
-body:not(.mobile) .remote.floating .rm-info { left:50%; top:17%; }
-body:not(.mobile) .remote.floating #btnCtl { left:50%; top:83%; }
-body:not(.mobile) .remote.floating .t-menu {
-  bottom:calc(100% + 10px); right:auto; left:50%; transform:translateX(-50%); min-width:250px;
+.remote .t-btn:hover { color:#000; filter:brightness(1.12); }
+.remote .t-btn:active { transform:translateY(1px) scale(0.97); box-shadow:0 1px 2px rgba(0,0,0,0.7), inset 0 1px 3px rgba(0,0,0,0.4); }
+.remote .t-btn:focus-visible { outline:2px solid #8a7bff; outline-offset:2px; }
+.remote .t-btn.play { color:#2a1d6e; }
+.remote .t-btn.t-ctl-btn.on { color:#6a1fa8; box-shadow:0 0 0 2px rgba(217,140,255,0.7), 0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85); }
+
+/* the strip: ⓘ ⏮ ▶ ⏭ ⋯ — play in the middle, the two settings at the ends */
+.remote .transport { display:flex; gap:12px; align-items:center; justify-content:center; }
+.remote .rm-info { order:-1; width:30px; height:30px; font-size:13px; }
+.remote .t-ctl { order:1; }
+
+body:not(.mobile) .remote.docked {
+  position:absolute; left:50%; bottom:2px; transform:translateX(-50%); z-index:6;
+  pointer-events:auto; width:max-content;
 }
-body:not(.mobile) .remote.floating .t-menu.below { bottom:auto; top:calc(100% + 10px); }
+body:not(.mobile) .remote.docked * { pointer-events:auto; }
+body:not(.mobile) .remote.docked #btnPrev, body:not(.mobile) .remote.docked #btnNext { width:34px; height:34px; font-size:14px; }
+body:not(.mobile) .remote.docked #btnPlay { width:44px; height:44px; font-size:18px; }
+/* the menu opens beside the strip (remote.js places it exactly), never over the video */
+body:not(.mobile) .remote.docked .t-ctl { position:static; }
+body:not(.mobile) .remote.docked .t-menu {
+  bottom:0; right:auto; left:calc(100% + 12px); transform:none; min-width:250px; z-index:80;
+}
 
 /* fingers need 40px+ targets */
 body.mobile .remote .t-btn, body.mobile .remote .t-btn.t-ctl-btn, body.mobile .remote .rm-info { width:42px; height:42px; font-size:15px; }
 body.mobile .remote .t-btn.play { width:50px; height:50px; font-size:19px; }
-
-/* in the flow (phones): the old row, with the new ⋯ and ℹ at the end */
-.remote:not(.floating) .transport { display:flex; gap:10px; align-items:center; justify-content:center; }

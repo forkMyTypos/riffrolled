@@ -297,6 +297,7 @@ var plBoss = {
         <div class="active-pl-name-row">
           <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
+          <button class="icon-btn pl-share" title="Share this playlist as a mix, for everyone to play" aria-label="Share this playlist as a mix" data-testid="pl-share">↗</button>
           <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
         </div>
 
@@ -366,6 +367,12 @@ var plBoss = {
         srh.value = '';
       }
     });
+
+    // ── ↗ share this playlist as a mix (opens the Mixes panel's share sheet) ──
+    root.querySelector('.pl-share').onclick = () => {
+      if (!this.activeId){ appNotify('Pick a playlist to share first', 'warn'); return; }
+      if (window.mixesBoss) mixesBoss.openShare(this.activeId);
+    };
 
     // ── ＋ new playlist (uses the search text as the name if present) ──
     root.querySelector('.pl-add').onclick = async () => {

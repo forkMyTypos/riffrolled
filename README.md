@@ -95,6 +95,51 @@ dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Tr
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
 
+## Driving riffrolled from code
+
+There is a small, versioned API on `window.riffrolled` (`public/js/agent.js`).
+Use it rather than the DOM: it is riffrolled's own code path, it is tested, and
+the layout is free to change underneath it.
+
+```js
+await riffrolled.state()
+// { version:1, ready:true, tracks:42, playlists:3, playlistTracks:15,
+//   playing:false, currentId:'', playlistName:'Night Drive' }
+
+await riffrolled.addTracks('https://youtu.be/ID1 ID2 https://www.youtube.com/watch?v=ID3')
+// { ok:true, added:3, tracks:[{id,title,trackId}], failed:[], ids:[...] }
+
+await riffrolled.importReply(wholeAiReply)   // parse + check + resolve + build
+// { ok:true, imported:12, parsed:15, playlist:'🤖 Night Drive', report:{...} }
+
+await riffrolled.play('ID1')
+```
+
+It takes no money, spends no credits and does nothing a person could not do by
+hand in the UI. Nothing there can promote a track or touch a wallet.
+
+**URL entry points**, for anything that can only navigate:
+
+| Param | Does |
+| --- | --- |
+| `?add=ID1,ID2` | adds those videos on load; the count lands in `data-rr-url-add` |
+| `?notutorial=1` | skips the first-run tour (also `?agent=1`) |
+
+**Reading state without scraping.** `<html>` carries `data-rr-tracks`,
+`data-rr-playlist-tracks`, `data-rr-playing`, `data-rr-current`,
+`data-rr-last-added` and `data-rr-last-action`. A `riffrolled:changed`
+CustomEvent fires on `window` after anything that alters the library.
+
+**Stable hooks** where the UI is genuinely the thing to drive:
+`data-testid` on `paste-box`, `add-tracks-btn`, `paste-status`, `dj-reply`,
+`dj-import-btn`, `dj-copy-btn`, `dj-roll-btn`, plus `panel-<slug>` and
+`dockbtn-<slug>` for every dock panel, each carrying `data-open="0|1"`.
+
+Do not match on button text. The Add button reads `＋ Add` with a **fullwidth
+plus (U+FF0B)**, so a search for `"+ Add"` finds nothing — that single
+character is what made one agent conclude the paste box was broken when it was
+working fine.
+
 ## The economy
 
 Three things create or move credits. Everything else is display.

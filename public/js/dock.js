@@ -411,7 +411,35 @@ dock.build([
 // each panel wears its dock colour, so a glance says which panel you're in
 dock.items.forEach(it => {
   if (it.el && it.accent) it.el.style.setProperty('--accent', it.accent);
+
+  /* …and a stable name, set once from the registry rather than written
+     into eleven markup strings. Anything driving riffrolled can address
+     a panel and its dock button by what they ARE, instead of matching
+     the label text — which is translated, reworded, and in at least one
+     case starts with a fullwidth ＋ that no search for "+" will find. */
+  if (!it.el) return;
+  const slug = String(it.label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  it.slug = slug;
+  it.el.setAttribute('data-testid', 'panel-' + slug);
+  it.el.setAttribute('data-panel', slug);
+  if (it.btn) it.btn.setAttribute('data-testid', 'dockbtn-' + slug);
 });
+
+/* Whether each panel is open, as an attribute. A caller should not have
+   to reason about `is-hidden`, `offsetParent` and the mobile layout to
+   answer "is the Import panel up?". */
+(function(){
+  const sync = () => dock.items.forEach(it => {
+    if (it.el) it.el.setAttribute('data-open', it.el.classList.contains('is-hidden') ? '0' : '1');
+  });
+  const wrap = (name) => {
+    const orig = dock[name];
+    if (typeof orig !== 'function') return;
+    dock[name] = function(){ const r = orig.apply(this, arguments); sync(); return r; };
+  };
+  ['openPanel', 'setHidden', 'showMobile', 'applyLayout'].forEach(wrap);
+  sync();
+})();
 
 /* desktop vs mobile based on screen width */
 (function(){

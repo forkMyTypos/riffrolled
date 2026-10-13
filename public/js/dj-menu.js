@@ -78,7 +78,7 @@ var djMenuBoss = {
       "<div class='dj-submodes'></div>" +
 
       "<div class='sec dj-rollbar'>" +
-        "<button class='dj-rollall' title='Roll the brief, build the prompt and copy it'>🎲 RIFF ROLL</button>" +
+        "<button class='dj-rollall' data-testid='dj-roll-btn' title='Roll the brief, build the prompt and copy it'>🎲 RIFF ROLL</button>" +
         "<label class='dj-chaos' title='Deliberately collide the choices — the brief tells the DJ it was on purpose'>" +
           "<input type='checkbox' class='dj-chaos-cb'><span class='spin-track'><span class='spin-thumb'></span></span>" +
           "<span class='spin-label'>🌀 Chaos</span>" +
@@ -126,7 +126,7 @@ var djMenuBoss = {
         "<div class='dj-brief'></div>" +
         "<div class='row dj-copyrow'>" +
           "<span class='dj-copy-note'></span>" +
-          "<button class='dj-copy'>⧉ COPY DJ BRIEF</button>" +
+          "<button class='dj-copy' data-testid='dj-copy-btn' aria-label='Copy DJ brief'>⧉ COPY DJ BRIEF</button>" +
         "</div>" +
         // one press: copy the brief and open the AI. Saves nothing but the
         // trip to a bookmark — which is most of the friction in practice.
@@ -146,18 +146,18 @@ var djMenuBoss = {
         // clipboard directly (the click is the gesture that permits it), so a
         // reply never has to be found, selected and pasted into a box.
         "<button class='dj-pasteback' hidden>📋 Paste your reply</button>" +
-        "<textarea class='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
+        "<textarea class='dj-reply' data-testid='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
         /* Link checking used to be a toggle. It is keyless, costs no API
            quota and takes a second — so offering it as a choice only
            invited people to turn off the thing that catches an AI handing
            back invented video ids. It just happens now. */
         "<div class='dj-check-note'>Links are checked against YouTube before importing.</div>" +
         "<div class='row dj-gorow'>" +
-          "<span class='dj-parsed'></span>" +
-          "<button class='dj-go'>▶ IMPORT PLAYLIST</button>" +
+          "<span class='dj-parsed' data-testid='dj-parsed' role='status' aria-live='polite'></span>" +
+          "<button class='dj-go' data-testid='dj-import-btn' aria-label='Import playlist'>▶ IMPORT PLAYLIST</button>" +
         "</div>" +
         "<div class='dj-deadlist'></div>" +
-        "<div class='status-bar dj-bstatus'></div>" +
+        "<div class='status-bar dj-bstatus' data-testid='dj-status' role='status' aria-live='polite'></div>" +
       "</div>";
 
     this.el = menuB.createMenu(DJAI_SVG.replace(/adg/g, 'adgT') + ' DJ AI', main);
@@ -1021,6 +1021,16 @@ var djMenuBoss = {
       if (report && report.offline) bits.push("couldn't reach YouTube to check");
       bits.push('→ Playlist');
       this.bstatus(bits.join(' · '), 'ok');
+      /* The same numbers as attributes. The sentence above is written for
+         a person and will be reworded; these will not. */
+      var sEl = root.querySelector('.dj-bstatus');
+      if (sEl){
+        sEl.setAttribute('data-imported', String(saved.count));
+        sEl.setAttribute('data-parsed', String(R.total));
+        sEl.setAttribute('data-playlist', saved.name || '');
+      }
+      try { window.dispatchEvent(new CustomEvent('riffrolled:changed',
+        { detail: { action:'importReply', imported: saved.count, parsed: R.total } })); } catch(e){}
 
       root.querySelector('.dj-reply').value = '';
       root.querySelector('.dj-parsed').textContent = '';

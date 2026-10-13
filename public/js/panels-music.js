@@ -150,12 +150,12 @@ var importBoss = {
       "</div>" +
       "<div class='sec paste-sec'>" +
         "<div class='sec-head'>Paste video links or IDs</div>" +
-        "<textarea class='paste-box' rows='4' placeholder='Paste YouTube links or video IDs — separated by commas, spaces, or new lines…'></textarea>" +
+        "<textarea class='paste-box' data-testid='paste-box' rows='4' placeholder='Paste YouTube links or video IDs — separated by commas, spaces, or new lines…'></textarea>" +
         "<div class='row paste-row'>" +
           "<span class='paste-count'></span>" +
-          "<button class='icon-btn paste-go' title='Add these videos'>＋ Add</button>" +
+          "<button class='icon-btn paste-go' data-testid='add-tracks-btn' aria-label='Add tracks' title='Add these videos'>＋ Add</button>" +
         "</div>" +
-        "<div class='status-bar paste-status'></div>" +
+        "<div class='status-bar paste-status' data-testid='paste-status' role='status' aria-live='polite'></div>" +
       "</div>";
     this.el = menuB.createMenu('▶ Import', main);
     menuB.place(this.el, { right:'470px', top:'400px', width:'330px' });
@@ -221,10 +221,16 @@ var importBoss = {
     var go = root.querySelector('.paste-go');
     var countEl = root.querySelector('.paste-count');
     var pStatusEl = root.querySelector('.paste-status'), pT;
+    /* The result stays put. It used to clear itself after 8 seconds,
+       which is fine for a glance and useless for anything checking
+       afterwards — a person who looked away and an agent polling the DOM
+       both found an empty box and no way to tell "nothing happened" from
+       "it worked a moment ago". It is replaced by the next action
+       instead of expiring. */
     function pStatus(msg, kind){
       pStatusEl.textContent = msg || '';
       pStatusEl.className = 'status-bar paste-status' + (kind ? ' ' + kind : '');
-      if (msg && kind === 'ok'){ clearTimeout(pT); pT = setTimeout(function(){ if(pStatusEl.textContent===msg) pStatus(''); }, 8000); }
+      pStatusEl.setAttribute('data-state', kind || (msg ? 'busy' : 'idle'));
     }
     // accepts watch?v=, youtu.be/, shorts/, embed/ URLs and bare 11-char IDs;
     // split on commas, whitespace, or newlines; deduped
@@ -275,9 +281,16 @@ var importBoss = {
         pStatus('Adding… ' + (i + 1) + '/' + ids.length);
       }
       plBoss.afterDbChange();
-      pStatus('Added ' + added + (plBoss.activeId ? ' to the current playlist' : ' to your library'), 'ok');
+      pStatus('Added ' + added + ' of ' + ids.length +
+        (plBoss.activeId ? ' to the current playlist' : ' to your library'), 'ok');
+      // readable without parsing the sentence above, which is written for
+      // a person and will be reworded
+      pStatusEl.setAttribute('data-added', String(added));
+      pStatusEl.setAttribute('data-asked', String(ids.length));
       box.value = ''; countEl.textContent = '';
       go.disabled = false;
+      try { window.dispatchEvent(new CustomEvent('riffrolled:changed',
+        { detail: { action:'addTracks', added: added, asked: ids.length } })); } catch(e){}
     };
   }
 };

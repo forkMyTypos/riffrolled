@@ -59,10 +59,17 @@ var remote = {
     return this;
   },
 
-  /** Desktop docks into the plinth; a phone keeps the row in the deck. Called by dock.setMode. */
+  /**
+   * Where the controls live. A phone, and the Classic skin, keep them in the
+   * deck's flow under the title; every other skin docks them into the plinth.
+   * Called by dock.setMode and by skinBoss.set.
+   */
   mount(isMobile){
     if (!this.el) return;
-    if (isMobile){
+    var layout = window.skinBoss ? skinBoss.sync(isMobile) : 'deck';
+    var menu = document.getElementById('ctlMenu');       // forget a position set for another layout
+    if (menu){ menu.style.left = menu.style.right = menu.style.bottom = menu.style.transform = ''; }
+    if (isMobile || layout === 'inline'){
       this.docked = false;
       this.el.classList.remove('docked');
       var row = document.querySelector('.np-area .np-titlerow');

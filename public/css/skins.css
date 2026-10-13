@@ -1,0 +1,270 @@
+/* riffrolled — skins.css
+   How the record player LOOKS: the plinth's finish and the controls on it.
+   js/skins.js picks the skin and sets two attributes on #deck:
+
+     data-skin    = studio | walnut | neon | chrome | classic     (the finish)
+     data-layout  = deck | strip | inline                         (where the controls sit)
+
+   LAYOUTS (js/remote.js decides where the node lives to match)
+     deck    keys and a selector knob in the plinth's two bottom corners, each
+             with its name printed beneath, and an LED          (studio, walnut, neon)
+     strip   round knobs in a row along the plinth's bottom edge       (chrome)
+     inline  the original: a row of round buttons under the title,
+             inside the record                                          (classic)
+
+   FINISHES for the deck layout are only variables (--pl-*, --key-*, ...), so a
+   new one is a dozen lines. The phone is always studio / deck (skins.js), with
+   the controls as a bar under the record.
+
+   Nothing here may ever cover the YouTube player: every control lives outside
+   the video's square, and the repeat menu is placed beside, never over, it.
+   Same buttons and ids in every skin — player.js and playlist.js drive them. */
+
+/* ═══ shared by every skin ═══ */
+.remote { position:relative; }
+.remote .t-btn svg { width:13px; height:13px; fill:currentColor; display:block; }
+.remote .key-start .ic-pause, .remote .key-start.is-playing .ic-play { display:none; }
+.remote .key-start.is-playing .ic-pause { display:block; }
+.remote .deck-led, .remote .knob-scale { display:none; }
+
+/* the repeat button's face outside the deck layout: the mode, as a glyph */
+#deck:not([data-layout="deck"]) .remote .deck-knob::before { content:'⟳'; font-size:16px; line-height:1; }
+#deck:not([data-layout="deck"]) .remote .deck-knob[data-mode="one"]::before { content:'⟳¹'; font-size:12px; letter-spacing:-1px; }
+#deck:not([data-layout="deck"]) .remote .deck-knob[data-mode="off"]::before { content:'⇥'; font-size:15px; }
+
+/* ═══ skin variables (studio is the default) ═══ */
+#deck {
+  --pl-bg:
+    radial-gradient(ellipse 80% 55% at 28% 0%, rgba(255,255,255,0.055), transparent 70%),
+    linear-gradient(165deg, #25232f 0%, #191822 52%, #121118 100%);
+  --pl-edge:rgba(255,255,255,0.06);
+  --pl-shadow:0 10px 36px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 6px rgba(0,0,0,0.45);
+  --key-bg:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, rgba(0,0,0,0.035) 1px 2px),
+    linear-gradient(180deg, #e6e6ec 0%, #c3c3cc 48%, #a3a3ae 100%);
+  --key-ink:#24232c; --key-edge:#08080c; --key-hi:rgba(255,255,255,0.85); --key-depth:#55545f;
+  --key-glow:0 0 0 transparent;
+  --well:#0b0a10; --well-edge:rgba(255,255,255,0.05);
+  --label:rgba(236,232,255,0.42);
+  --knob-a:#4a4957; --knob-b:#2b2a34; --knob-c:#1e1d25; --knurl-a:#3d3c48; --knurl-b:#16151c; --knob-edge:#06060a; --ptr:#efeef6;
+  --led-off:#3a1712; --led-on:#ff4f36; --led-glow:rgba(255,79,54,0.75);
+  --scale-on:#ffb36b; --scale-glow:rgba(255,140,60,0.55);
+}
+#deck[data-skin="walnut"] {
+  --pl-bg:
+    repeating-linear-gradient(92deg, rgba(0,0,0,0.12) 0 2px, rgba(255,255,255,0.03) 2px 5px, rgba(0,0,0,0.07) 5px 9px, rgba(255,255,255,0.015) 9px 12px),
+    linear-gradient(165deg, #7d4d2b 0%, #5c3519 55%, #3e2210 100%);
+  --pl-edge:rgba(255,220,170,0.2);
+  --pl-shadow:0 10px 36px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,225,180,0.25), inset 0 -3px 8px rgba(0,0,0,0.5);
+  --key-bg:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.13) 0 1px, rgba(0,0,0,0.04) 1px 2px),
+    linear-gradient(180deg, #f6dd92 0%, #d2a94d 48%, #a77d2b 100%);
+  --key-ink:#3a2a0b; --key-edge:#1d1306; --key-hi:rgba(255,248,215,0.9); --key-depth:#6b4e16;
+  --well:#1a0e06; --well-edge:rgba(255,220,170,0.14);
+  --label:rgba(255,236,200,0.62);
+  --knob-a:#e8c775; --knob-b:#b88a36; --knob-c:#8a6420; --knurl-a:#d4ac55; --knurl-b:#6d4d16; --knob-edge:#1d1306; --ptr:#1c1002;
+  --led-off:#4a2a08; --led-on:#ffb02e; --led-glow:rgba(255,176,46,0.8);
+  --scale-on:#ffe08a; --scale-glow:rgba(255,200,90,0.6);
+}
+#deck[data-skin="neon"] {
+  --pl-bg:
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(255,60,200,0.10), transparent 70%),
+    linear-gradient(165deg, #0e0b20 0%, #080612 100%);
+  --pl-edge:rgba(120,200,255,0.4);
+  --pl-shadow:0 0 0 1px rgba(120,90,255,0.3), 0 0 36px rgba(110,80,255,0.38), inset 0 0 26px rgba(0,200,255,0.08);
+  --key-bg:linear-gradient(180deg, #1a1638 0%, #0e0b22 100%);
+  --key-ink:#7fe9ff; --key-edge:#38d8ff; --key-hi:rgba(120,230,255,0.28); --key-depth:#05040d;
+  --key-glow:0 0 10px rgba(60,210,255,0.4);
+  --well:#05040c; --well-edge:rgba(130,90,255,0.45);
+  --label:rgba(150,230,255,0.66);
+  --knob-a:#2e2760; --knob-b:#18143c; --knob-c:#0d0b24; --knurl-a:#3b3274; --knurl-b:#0d0b24; --knob-edge:#38d8ff; --ptr:#ff5fd8;
+  --led-off:#33102c; --led-on:#ff3fbf; --led-glow:rgba(255,63,191,0.85);
+  --scale-on:#ff7fe3; --scale-glow:rgba(255,100,220,0.65);
+}
+#deck[data-skin="neon"] .platter {
+  background:
+    repeating-radial-gradient(circle at center, rgba(120,100,255,0.08) 0 1px, transparent 1px 4px),
+    radial-gradient(circle, #1d1146 0 18%, #0b0621 18% 70%, #03020a 70%);
+}
+
+/* ═══ layout: deck — studio, walnut, neon (and the phone) ═══ */
+#deck[data-layout="deck"] .plinth { background:var(--pl-bg); border:1px solid var(--pl-edge); box-shadow:var(--pl-shadow); }
+
+/* the printed name under each control */
+#deck[data-layout="deck"] .remote [data-label]::after {
+  content:attr(data-label); position:absolute; left:50%; top:calc(100% + 7px); transform:translateX(-50%);
+  font:600 7.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing:1.3px;
+  color:var(--label); white-space:nowrap; pointer-events:none;
+}
+
+/* a key, sitting in a well */
+#deck[data-layout="deck"] .remote .deck-key {
+  position:relative; padding:0; border-radius:4px; cursor:pointer; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--key-edge); color:var(--key-ink); background:var(--key-bg);
+  box-shadow:
+    inset 0 1px 0 var(--key-hi), inset 0 -2px 0 rgba(0,0,0,0.22),
+    0 2px 0 var(--key-depth),                 /* the key's own depth */
+    0 0 0 3px var(--well),                    /* the well */
+    0 0 0 4px var(--well-edge),               /* the well's edge catching light */
+    var(--key-glow);
+  transition:transform 0.06s, box-shadow 0.06s, filter 0.15s;
+}
+#deck[data-layout="deck"] .remote .deck-key svg { width:12px; height:12px; }
+#deck[data-layout="deck"] .remote .deck-key:hover { filter:brightness(1.1); }
+#deck[data-layout="deck"] .remote .deck-key:active {
+  transform:translateY(2px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.3), 0 0 0 var(--key-depth), 0 0 0 3px var(--well), 0 0 0 4px var(--well-edge), var(--key-glow);
+}
+#deck[data-layout="deck"] .remote .deck-key:focus-visible, #deck[data-layout="deck"] .remote .deck-knob:focus-visible { outline:2px solid #8a7bff; outline-offset:5px; }
+#deck[data-layout="deck"] .remote .key-start { width:64px; height:28px; }
+#deck[data-layout="deck"] .remote .key-start svg { width:13px; height:13px; }
+#deck[data-layout="deck"] .remote .key-skip  { width:38px; height:22px; }
+#deck[data-layout="deck"] .remote .key-info  { width:32px; height:22px; }
+
+/* the LED beside START · STOP: dark until a record is playing */
+#deck[data-layout="deck"] .remote .deck-led {
+  display:block; width:6px; height:6px; border-radius:50%; flex-shrink:0;
+  background:var(--led-off); box-shadow:inset 0 1px 1px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.6);
+  transition:background 0.2s, box-shadow 0.2s;
+}
+#deck[data-layout="deck"] .remote.playing .deck-led { background:var(--led-on); box-shadow:0 0 6px 1px var(--led-glow), inset 0 -1px 1px rgba(120,0,0,0.5); }
+
+/* the REPEAT selector: a knurled knob with a pointer */
+#deck[data-layout="deck"] .remote .t-ctl { position:relative; flex-shrink:0; }
+#deck[data-layout="deck"] .remote .deck-knob {
+  --rot:-55deg;
+  position:relative; width:34px; height:34px; padding:0; border-radius:50%; cursor:pointer; color:transparent;
+  border:1px solid var(--knob-edge);
+  background:
+    radial-gradient(circle at 42% 36%, var(--knob-a) 0%, var(--knob-b) 46%, var(--knob-c) 64%, transparent 65%),
+    repeating-conic-gradient(var(--knurl-a) 0deg 7deg, var(--knurl-b) 7deg 14deg);
+  box-shadow:0 2px 4px rgba(0,0,0,0.65), 0 0 0 3px var(--well), 0 0 0 4px var(--well-edge), var(--key-glow);
+}
+#deck[data-layout="deck"] .remote .deck-knob::before {
+  content:''; position:absolute; left:50%; top:4px; width:2px; height:9px; margin-left:-1px; border-radius:1px;
+  background:var(--ptr); box-shadow:0 0 3px var(--ptr);
+  transform-origin:50% 12px; transform:rotate(var(--rot)); transition:transform 0.25s cubic-bezier(.3,1.4,.5,1);
+}
+#deck[data-layout="deck"] .remote .deck-knob[data-mode="one"] { --rot:0deg; }
+#deck[data-layout="deck"] .remote .deck-knob[data-mode="off"] { --rot:55deg; }
+#deck[data-layout="deck"] .remote .deck-knob:hover { filter:brightness(1.15); }
+#deck[data-layout="deck"] .remote .deck-knob[data-label]::after { top:calc(100% + 9px); }
+
+/* ALL · ONE · OFF printed round the knob; the chosen one lights */
+#deck[data-layout="deck"] .remote .knob-scale { display:block; position:absolute; left:50%; top:50%; width:0; height:0; pointer-events:none; }
+#deck[data-layout="deck"] .remote .knob-scale i {
+  position:absolute; font:600 7px/1 system-ui, -apple-system, "Segoe UI", sans-serif; font-style:normal; letter-spacing:0.8px;
+  color:var(--label); opacity:0.75; white-space:nowrap; transform:translate(-50%,-50%); transition:color 0.2s;
+}
+#deck[data-layout="deck"] .remote .knob-scale i[data-m="all"] { left:-24px; top:-20px; }
+#deck[data-layout="deck"] .remote .knob-scale i[data-m="one"] { left:0;     top:-30px; }
+#deck[data-layout="deck"] .remote .knob-scale i[data-m="off"] { left:24px;  top:-20px; }
+#deck[data-layout="deck"] .remote .t-ctl[data-mode="all"] i[data-m="all"],
+#deck[data-layout="deck"] .remote .t-ctl[data-mode="one"] i[data-m="one"],
+#deck[data-layout="deck"] .remote .t-ctl[data-mode="off"] i[data-m="off"] { color:var(--scale-on); opacity:1; text-shadow:0 0 5px var(--scale-glow); }
+
+/* desktop: in the plinth's two bottom corners
+     left:  ● [START · STOP]  [PREV] [NEXT]        right:  [INFO] (REPEAT)
+   The invisible resize grip keeps the very corner (right:32px). */
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked {
+  position:absolute; left:0; right:0; bottom:0; height:110px; z-index:6; pointer-events:none;
+}
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .transport { position:absolute; inset:0; display:block; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-btn,
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .deck-led,
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-ctl { position:absolute; pointer-events:auto; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-menu, body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-menu * { pointer-events:auto; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .deck-led { left:30px;  bottom:38px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnPlay  { left:46px;  bottom:27px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnPrev  { left:128px; bottom:30px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnNext  { left:180px; bottom:30px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnInfo  { right:142px; bottom:30px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-ctl    { right:84px; bottom:24px; width:34px; height:34px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnCtl   { position:relative; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-menu { bottom:0; right:auto; left:calc(100% + 16px); transform:none; min-width:250px; z-index:80; }
+
+/* Spin is the deck's other switch: top-left, with its name printed like the rest */
+body:not(.mobile) #deck[data-layout="deck"] .spin-side { top:20px; bottom:auto; left:22px; }
+body:not(.mobile) #deck[data-layout="deck"] .spin-side .spin-label {
+  font:600 7.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing:1.3px; text-transform:uppercase; color:var(--label);
+}
+
+/* phone: a control bar under the record, in the plinth's finish */
+body.mobile #deck .remote .transport {
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  padding:12px 12px 24px; max-width:100%; box-sizing:border-box; border-radius:12px;
+  background:linear-gradient(170deg, #24222e, #15141b);
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 6px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+body.mobile #deck .remote .key-start { width:66px; height:40px; }
+body.mobile #deck .remote .key-skip  { width:44px; height:40px; }
+body.mobile #deck .remote .key-info  { width:40px; height:40px; }
+body.mobile #deck .remote .deck-knob { width:40px; height:40px; }
+body.mobile #deck .remote .deck-knob::before { top:5px; height:10px; transform-origin:50% 15px; }
+body.mobile #deck .remote .knob-scale { display:none !important; }
+/* phone order: INFO  PREV  ● START·STOP  NEXT  REPEAT */
+body.mobile #deck .remote .rm-info { order:-3; }
+body.mobile #deck .remote #btnPrev { order:-2; }
+body.mobile #deck .remote .deck-led { order:-1; margin-right:-4px; }
+body.mobile #deck .remote .t-ctl { order:1; }
+
+/* ═══ layout: strip — chrome: round knobs along the plinth's bottom edge ═══ */
+#deck[data-layout="strip"] .remote .t-btn {
+  background:radial-gradient(circle at 32% 26%, #fbfbff 0%, #c4c4d0 30%, #7c7c8a 68%, #43434f 100%);
+  border:1px solid #1a1a22; color:#17171f;
+  box-shadow:0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85), inset 0 -2px 3px rgba(0,0,0,0.35);
+  transition:transform 0.08s, filter 0.15s, box-shadow 0.08s;
+}
+#deck[data-layout="strip"] .remote .t-btn:hover { color:#000; filter:brightness(1.12); }
+#deck[data-layout="strip"] .remote .t-btn:active { transform:translateY(1px) scale(0.97); box-shadow:0 1px 2px rgba(0,0,0,0.7), inset 0 1px 3px rgba(0,0,0,0.4); }
+#deck[data-layout="strip"] .remote .t-btn:focus-visible { outline:2px solid #8a7bff; outline-offset:2px; }
+#deck[data-layout="strip"] .remote .t-btn.play { color:#2a1d6e; }
+#deck[data-layout="strip"] .remote .t-btn.t-ctl-btn.on { color:#6a1fa8; box-shadow:0 0 0 2px rgba(217,140,255,0.7), 0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85); }
+#deck[data-layout="strip"] .remote .transport { display:flex; gap:12px; align-items:center; justify-content:center; }
+#deck[data-layout="strip"] .remote .rm-info { order:-1; width:30px; height:30px; }
+#deck[data-layout="strip"] .remote .t-ctl { order:1; position:static; }
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked {
+  position:absolute; left:50%; bottom:2px; transform:translateX(-50%); z-index:6; pointer-events:auto; width:max-content;
+}
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked * { pointer-events:auto; }
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked #btnPrev,
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked #btnNext { width:34px; height:34px; font-size:14px; }
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked #btnPlay { width:44px; height:44px; }
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked #btnCtl { width:30px; height:30px; }
+body:not(.mobile) #deck[data-layout="strip"] .remote.docked .t-menu { bottom:0; right:auto; left:calc(100% + 12px); transform:none; min-width:250px; z-index:80; }
+
+/* ═══ layout: inline — classic: the original row under the title, inside the record ═══
+   (the buttons are the plain translucent circles from deck.css) */
+#deck[data-layout="inline"] .remote .transport { display:flex; gap:10px; align-items:center; justify-content:center; }
+#deck[data-layout="inline"] .remote .rm-info { order:1; width:30px; height:30px; }
+#deck[data-layout="inline"] .remote .t-ctl { order:0; }
+/* the menu hangs below the row here — above it is the video */
+#deck[data-layout="inline"] .t-menu { top:calc(100% + 8px); bottom:auto; right:auto; left:50%; transform:translateX(-50%); min-width:250px; }
+
+/* ═══ the skin arrows: < [record player] > ═══
+   Hidden until the pointer is over the record player (skins.js adds
+   .skin-hover to #deck). They hang off the plinth's left and right edges. */
+.skin-nav {
+  position:absolute; top:50%; width:44px; height:96px; margin-top:-48px; padding:0; z-index:7;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(20,20,34,0.78); color:#e8e4ff; border:1px solid rgba(255,255,255,0.14); cursor:pointer;
+  font:300 30px/1 system-ui, "Segoe UI", sans-serif;
+  opacity:0; pointer-events:none; transition:opacity 0.18s, background 0.15s;
+}
+.skin-nav.prev { left:-44px; border-radius:12px 0 0 12px; border-right:0; }
+.skin-nav.next { right:-44px; border-radius:0 12px 12px 0; border-left:0; }
+.skin-nav:hover { background:rgba(60,50,120,0.9); }
+.skin-nav:focus-visible { opacity:1; pointer-events:auto; outline:2px solid #8a7bff; outline-offset:-3px; }
+#deck.skin-hover .skin-nav { opacity:1; pointer-events:auto; }
+body.mobile .skin-nav { display:none; }
+
+/* the skin's name, shown for a moment after a change */
+.skin-name {
+  position:absolute; left:50%; top:10px; transform:translateX(-50%) translateY(-6px); z-index:7;
+  padding:4px 14px; border-radius:20px; background:rgba(10,10,20,0.85); color:#fff; border:1px solid rgba(255,255,255,0.18);
+  font:600 11px/1 system-ui, "Segoe UI", sans-serif; letter-spacing:1.2px; text-transform:uppercase;
+  opacity:0; pointer-events:none; transition:opacity 0.25s, transform 0.25s;
+}
+.skin-name.show { opacity:1; transform:translateX(-50%) translateY(0); }

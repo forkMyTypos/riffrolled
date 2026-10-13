@@ -87,7 +87,7 @@ var screenSize = {
   /** The largest video this window can hold: the record player is 376px bigger than the video. */
   max(){
     var byHeight = window.innerHeight - 376 - 64;
-    var byWidth = window.innerWidth - 90 - 376 - 64;       // the dock rail, then the record's margins
+    var byWidth = window.innerWidth - 90 - 376 - 64 - 48;  // the dock rail, then the record's margins (80px on its left)
     return Math.max(this.MIN, Math.min(this.CAP, Math.floor(byHeight), Math.floor(byWidth)));
   },
 

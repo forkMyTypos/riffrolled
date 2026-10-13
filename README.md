@@ -52,7 +52,7 @@ Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
 only Player, Playlist, Search, DJ AI and ⋯ until they play something),
 `genres.js` (GENERATED from `src/genres.js` — never edit it by hand; the genres test
 rewrites it and fails if the two differ), `artist.js` (artist matching and
-"more of this artist"), `remote.js` (the deck's own controls: a brushed-aluminium START · STOP key with an LED, PREV / NEXT and INFO keys and a REPEAT selector knob, set into the plinth's bottom corners with their names printed beneath — styled in `deck.css`; one set of buttons, same ids; a control bar under the record on a phone; nothing floats or drags), `screen.js` (video
+"more of this artist"), `remote.js` (the deck's controls — one set of buttons, same ids in every skin — and where they live: docked into the plinth, or in the deck's flow for the Classic skin and on a phone), `skins.js` + `css/skins.css` (record-player skins: `<` `>` arrows that appear only while the pointer is over the record player step through Studio, Walnut, Neon, Chrome and Classic; a skin is `data-skin` + `data-layout` on `#deck`, and the deck-layout finishes are just CSS variables, so a new one is a dozen lines; the choice is a per-device setting, `deckSkin`; phones always get Studio), `screen.js` (video
 resizing — the one number is `--vid`, never below 200px) and `deck-title.js` (rename
 the playing track from the deck; local to this device, written through
 `trackInfo.saveFor`).

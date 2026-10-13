@@ -413,45 +413,152 @@ body.mobile .screen-grip { display:none; }
 .np-title-edit[hidden] { display:none; }
 .np-titlerow.editing .np-title, .np-titlerow.editing .deck-react { display:none; }
 
-/* ── the remote ───────────────────────────────────────────────────────
-   Round chrome knobs. On a desktop remote.js sets them into the bottom edge
-   of the plinth — the 48px of bare plinth under the record (the plinth is
-   always 96px wider than the turntable, at any size) — so they read as part
-   of the record player. On a phone they are the row below the record.
-   Same buttons and ids either way. */
+/* ── the record player's own controls ────────────────────────────────
+   Built like the controls on a real deck rather than app buttons laid on
+   top of one: a brushed-aluminium START · STOP key with a red LED beside it,
+   two smaller PREV / NEXT keys, an INFO key, and a knurled REPEAT selector
+   whose pointer turns to ALL / ONE / OFF. Each sits in a dark well cut into
+   the plinth and has its name printed on the plinth beneath it.
+   On a desktop remote.js docks them into the plinth's bottom corners, where
+   the round record leaves the most room; they never go near the video.
+   On a phone they are a control bar under the record, in the same finish.
+   Same buttons and ids as ever — playlist.js and player.js drive them. */
+
+/* the plinth: a solid object with a finish, so the controls have something to be part of */
+.plinth {
+  background:
+    radial-gradient(ellipse 80% 55% at 28% 0%, rgba(255,255,255,0.055), transparent 70%),
+    linear-gradient(165deg, #25232f 0%, #191822 52%, #121118 100%);
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 10px 36px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 6px rgba(0,0,0,0.45);
+}
+
 .remote { position:relative; }
+.remote .transport { position:relative; }
 
-/* the knob itself */
-.remote .t-btn {
-  background:radial-gradient(circle at 32% 26%, #fbfbff 0%, #c4c4d0 30%, #7c7c8a 68%, #43434f 100%);
-  border:1px solid #1a1a22; color:#17171f; font-variant-emoji:text;
-  box-shadow:0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85), inset 0 -2px 3px rgba(0,0,0,0.35);
-  transition:transform 0.08s, filter 0.15s, box-shadow 0.08s;
+/* the printed name under each control */
+.remote [data-label]::after {
+  content:attr(data-label); position:absolute; left:50%; top:calc(100% + 7px); transform:translateX(-50%);
+  font:600 7.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing:1.3px;
+  color:rgba(236,232,255,0.42); white-space:nowrap; pointer-events:none;
 }
-.remote .t-btn:hover { color:#000; filter:brightness(1.12); }
-.remote .t-btn:active { transform:translateY(1px) scale(0.97); box-shadow:0 1px 2px rgba(0,0,0,0.7), inset 0 1px 3px rgba(0,0,0,0.4); }
-.remote .t-btn:focus-visible { outline:2px solid #8a7bff; outline-offset:2px; }
-.remote .t-btn.play { color:#2a1d6e; }
-.remote .t-btn.t-ctl-btn.on { color:#6a1fa8; box-shadow:0 0 0 2px rgba(217,140,255,0.7), 0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.85); }
 
-/* the strip: ⓘ ⏮ ▶ ⏭ ⋯ — play in the middle, the two settings at the ends */
-.remote .transport { display:flex; gap:12px; align-items:center; justify-content:center; }
-.remote .rm-info { order:-1; width:30px; height:30px; font-size:13px; }
-.remote .t-ctl { order:1; }
+/* a key: brushed aluminium, in a well */
+.remote .deck-key {
+  position:relative; padding:0; border-radius:4px; cursor:pointer; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid #08080c; color:#24232c;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, rgba(0,0,0,0.035) 1px 2px),
+    linear-gradient(180deg, #e6e6ec 0%, #c3c3cc 48%, #a3a3ae 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -2px 0 rgba(0,0,0,0.22),
+    0 2px 0 #55545f,                       /* the key's own depth */
+    0 0 0 3px #0b0a10,                     /* the well */
+    0 0 0 4px rgba(255,255,255,0.05);      /* the well's edge catching light */
+  transition:transform 0.06s, box-shadow 0.06s, filter 0.15s;
+}
+.remote .deck-key svg { width:12px; height:12px; fill:currentColor; display:block; }
+.remote .deck-key:hover { filter:brightness(1.07); color:#000; }
+.remote .deck-key:active {
+  transform:translateY(2px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.3), 0 0 0 #55545f, 0 0 0 3px #0b0a10, 0 0 0 4px rgba(255,255,255,0.05);
+}
+.remote .deck-key:focus-visible, .remote .deck-knob:focus-visible { outline:2px solid #8a7bff; outline-offset:5px; }
+.remote .key-start { width:64px; height:28px; }
+.remote .key-start svg { width:13px; height:13px; }
+.remote .key-skip  { width:38px; height:22px; }
+.remote .key-info  { width:32px; height:22px; }
+.remote .key-start .ic-pause, .remote .key-start.is-playing .ic-play { display:none; }
+.remote .key-start.is-playing .ic-pause { display:block; }
 
+/* the LED beside START · STOP: dark until a record is playing */
+.remote .deck-led {
+  width:6px; height:6px; border-radius:50%; flex-shrink:0;
+  background:#3a1712; box-shadow:inset 0 1px 1px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.6);
+  transition:background 0.2s, box-shadow 0.2s;
+}
+.remote.playing .deck-led { background:#ff4f36; box-shadow:0 0 6px 1px rgba(255,79,54,0.75), inset 0 -1px 1px rgba(120,0,0,0.5); }
+
+/* the REPEAT selector: a knurled knob with a pointer */
+.remote .t-ctl { position:relative; flex-shrink:0; }
+.remote .deck-knob {
+  --rot:-55deg;
+  position:relative; width:34px; height:34px; padding:0; border-radius:50%; cursor:pointer; color:transparent;
+  border:1px solid #06060a;
+  background:
+    radial-gradient(circle at 42% 36%, #4a4957 0%, #2b2a34 46%, #1e1d25 64%, transparent 65%),
+    repeating-conic-gradient(#3d3c48 0deg 7deg, #16151c 7deg 14deg);
+  box-shadow:0 2px 4px rgba(0,0,0,0.65), 0 0 0 3px #0b0a10, 0 0 0 4px rgba(255,255,255,0.05);
+}
+.remote .deck-knob::before {
+  content:''; position:absolute; left:50%; top:4px; width:2px; height:9px; margin-left:-1px; border-radius:1px;
+  background:#efeef6; box-shadow:0 0 3px rgba(255,255,255,0.35);
+  transform-origin:50% 12px; transform:rotate(var(--rot)); transition:transform 0.25s cubic-bezier(.3,1.4,.5,1);
+}
+.remote .deck-knob[data-mode="one"] { --rot:0deg; }
+.remote .deck-knob[data-mode="off"] { --rot:55deg; }
+.remote .deck-knob:hover { filter:brightness(1.15); }
+.remote .deck-knob[data-label]::after { top:calc(100% + 9px); }
+
+/* ALL · ONE · OFF printed round the knob; the chosen one lights */
+.remote .knob-scale { position:absolute; left:50%; top:50%; width:0; height:0; pointer-events:none; }
+.remote .knob-scale i {
+  position:absolute; font:600 7px/1 system-ui, -apple-system, "Segoe UI", sans-serif; font-style:normal; letter-spacing:0.8px;
+  color:rgba(236,232,255,0.32); white-space:nowrap; transform:translate(-50%,-50%); transition:color 0.2s;
+}
+.remote .knob-scale i[data-m="all"] { left:-24px; top:-20px; }
+.remote .knob-scale i[data-m="one"] { left:0;     top:-30px; }
+.remote .knob-scale i[data-m="off"] { left:24px;  top:-20px; }
+.remote .t-ctl[data-mode="all"] i[data-m="all"],
+.remote .t-ctl[data-mode="one"] i[data-m="one"],
+.remote .t-ctl[data-mode="off"] i[data-m="off"] { color:#ffb36b; text-shadow:0 0 5px rgba(255,140,60,0.55); }
+
+/* ── desktop: in the plinth's two bottom corners ──
+   left:  ● [START · STOP]  [PREV] [NEXT]
+   right:              [INFO] (REPEAT)
+   The invisible resize grip keeps the very corner (right:32px). */
 body:not(.mobile) .remote.docked {
-  position:absolute; left:50%; bottom:2px; transform:translateX(-50%); z-index:6;
-  pointer-events:auto; width:max-content;
+  position:absolute; left:0; right:0; bottom:0; height:110px; z-index:6; pointer-events:none;
 }
-body:not(.mobile) .remote.docked * { pointer-events:auto; }
-body:not(.mobile) .remote.docked #btnPrev, body:not(.mobile) .remote.docked #btnNext { width:34px; height:34px; font-size:14px; }
-body:not(.mobile) .remote.docked #btnPlay { width:44px; height:44px; font-size:18px; }
-/* the menu opens beside the strip (remote.js places it exactly), never over the video */
-body:not(.mobile) .remote.docked .t-ctl { position:static; }
-body:not(.mobile) .remote.docked .t-menu {
-  bottom:0; right:auto; left:calc(100% + 12px); transform:none; min-width:250px; z-index:80;
+body:not(.mobile) .remote.docked .transport { position:absolute; inset:0; display:block; }
+body:not(.mobile) .remote.docked .t-btn,
+body:not(.mobile) .remote.docked .deck-led,
+body:not(.mobile) .remote.docked .t-ctl { position:absolute; pointer-events:auto; }
+body:not(.mobile) .remote.docked .t-menu, body:not(.mobile) .remote.docked .t-menu * { pointer-events:auto; }
+body:not(.mobile) .remote.docked .deck-led { left:30px;  bottom:38px; }
+body:not(.mobile) .remote.docked #btnPlay  { left:46px;  bottom:27px; }
+body:not(.mobile) .remote.docked #btnPrev  { left:128px; bottom:30px; }
+body:not(.mobile) .remote.docked #btnNext  { left:180px; bottom:30px; }
+body:not(.mobile) .remote.docked #btnInfo  { right:142px; bottom:30px; }
+body:not(.mobile) .remote.docked .t-ctl    { right:84px; bottom:24px; width:34px; height:34px; }
+body:not(.mobile) .remote.docked #btnCtl   { position:relative; }
+/* the repeat menu is placed by remote.js beside the knob, never over the video */
+body:not(.mobile) .remote.docked .t-menu { bottom:0; right:auto; left:calc(100% + 16px); transform:none; min-width:250px; z-index:80; }
+
+/* Spin is the deck's other switch: top-left, with its name printed like the rest */
+body:not(.mobile) .spin-side { top:20px; bottom:auto; left:22px; }
+body:not(.mobile) .spin-side .spin-label {
+  font:600 7.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing:1.3px; text-transform:uppercase;
+  color:rgba(236,232,255,0.42);
 }
 
-/* fingers need 40px+ targets */
-body.mobile .remote .t-btn, body.mobile .remote .t-btn.t-ctl-btn, body.mobile .remote .rm-info { width:42px; height:42px; font-size:15px; }
-body.mobile .remote .t-btn.play { width:50px; height:50px; font-size:19px; }
+/* ── phone: a control bar under the record, in the plinth's finish ── */
+body.mobile .remote .transport {
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  padding:12px 12px 24px; max-width:100%; box-sizing:border-box; border-radius:12px;
+  background:linear-gradient(170deg, #24222e, #15141b);
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 6px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+body.mobile .remote .key-start { width:66px; height:40px; }
+body.mobile .remote .key-skip  { width:44px; height:40px; }
+body.mobile .remote .key-info  { width:40px; height:40px; }
+body.mobile .remote .deck-knob { width:40px; height:40px; }
+body.mobile .remote .deck-knob::before { top:5px; height:10px; transform-origin:50% 15px; }
+body.mobile .remote .knob-scale { display:none; }
+/* phone order: INFO  PREV  ● START·STOP  NEXT  REPEAT */
+body.mobile .remote .rm-info { order:-3; }
+body.mobile .remote #btnPrev { order:-2; }
+body.mobile .remote .deck-led { order:-1; margin-right:-4px; }
+body.mobile .remote .t-ctl { order:1; }

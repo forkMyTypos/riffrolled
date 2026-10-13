@@ -168,10 +168,12 @@ var plBoss = {
        visible without opening the menu — otherwise "why did it stop?"
        has no answer on screen. */
     if (btn){
-      var face = { all:'🔁', one:'🔂', off:'⋯' }[this.repeat] || '⋯';
       var why = { all:'Repeat: whole playlist', one:'Repeat: this one track',
                   off:'Repeat off — stops at the end' }[this.repeat];
-      btn.textContent = face;
+      // a rotary selector: the pointer and the lit label show the mode
+      btn.dataset.mode = this.repeat;
+      if (btn.parentNode) btn.parentNode.dataset.mode = this.repeat;
+      btn.setAttribute('aria-label', why + ' — replay options');
       btn.title = why + ' · click for replay options';
       btn.classList.toggle('on', this.repeat !== 'all');
     }

@@ -3,9 +3,9 @@
 
    THEY ARE PART OF THE RECORD PLAYER
 
-   On a desktop the controls are a strip of round chrome knobs set into the
-   bottom edge of the plinth — the strip of bare plinth that runs under the
-   record — like the buttons on a real turntable. They used to be a separate
+   On a desktop the controls are the turntable's own: aluminium keys and a
+   selector knob set into the plinth's bottom corners, each with its name
+   printed beneath it, like the controls on a real deck. They used to be a separate
    puck you could drag around; it never looked like it belonged. Nothing
    floats now, nothing is dragged, nothing is remembered, and so there is no
    position to lose and no way to leave the controls somewhere odd.
@@ -17,10 +17,12 @@
    #btnNext, #btnCtl, #ctlMenu, #btnInfo), same handlers bound by
    playlist.js — only moved and restyled.
 
-   DESKTOP: the node is moved into the plinth (.docked). The plinth's bottom
-   gap is a constant 48px whatever size the record is (deck.css sizes the
-   plinth 376px bigger than the video and the turntable 280px bigger), so
-   the strip fits at every size and never goes near the video.
+   DESKTOP: the node is moved into the plinth (.docked) and deck.css sets
+   the controls into its two bottom corners — START · STOP, PREV and NEXT on
+   the left, INFO and the REPEAT selector on the right — styled as the deck's
+   own keys and knob. The corners are where a round record leaves the most
+   room, and that room only grows as the record does, so they fit at every
+   size and never go near the video.
 
    PHONE: it stays in the deck, in the flow, below the record, as the row it
    was — same chrome knobs, same ids.
@@ -76,15 +78,17 @@ var remote = {
 
   placeMenu(){
     var menu = document.getElementById('ctlMenu');
-    if (!menu || menu.hidden || !this.docked) return;
-    var r = this.el.getBoundingClientRect();
+    var knob = document.getElementById('btnCtl');
+    if (!menu || menu.hidden || !this.docked || !knob) return;
+    var base = (menu.offsetParent || knob).getBoundingClientRect();
+    var k = knob.getBoundingClientRect();
     var v = window.ytGuard && ytGuard.rect();
-    var G = 12, w = menu.offsetWidth || 250;
+    var G = 16, w = menu.offsetWidth || 250;
     menu.style.transform = 'none'; menu.style.right = 'auto'; menu.style.bottom = '0';
-    var right = Math.max(r.right, v ? v.right : 0) + G;
-    if (right + w <= window.innerWidth - 8){ menu.style.left = (right - r.left) + 'px'; return; }
-    var left = Math.min(r.left, v ? v.left : r.left) - G - w;
-    menu.style.left = (Math.max(8, left) - r.left) + 'px';
+    var right = Math.max(k.right, v ? v.right : 0) + G;
+    if (right + w <= window.innerWidth - 8){ menu.style.left = (right - base.left) + 'px'; return; }
+    var left = Math.min(k.left, v ? v.left : k.left) - G - w;
+    menu.style.left = (Math.max(8, left) - base.left) + 'px';
   },
 
   /** Kept for ytGuard: the strip is outside the video by construction, so there is nothing to move. */

@@ -78,21 +78,23 @@
                     </div>
                 </div>
 
-                <!-- The remote. On a desktop remote.js sets it into the bottom edge of
-                     the record player's plinth as a strip of chrome knobs; on a
-                     phone it stays here, in the flow, as a row. Same buttons,
-                     same ids, either way. -->
+                <!-- The deck's controls. On a desktop remote.js sets them into the
+                     plinth's bottom corners as the turntable's own keys and
+                     knob; on a phone they stay here as a control bar under the
+                     record. Same buttons, same ids, either way. -->
                 <div class="remote" id="remote" data-testid="remote" role="group" aria-label="Player controls">
                 <div class="transport">
-                        <button class="t-btn" id="btnPrev" title="Previous">⏮</button>
-                        <button class="t-btn play" id="btnPlay" title="Play / pause">▶</button>
-                        <button class="t-btn" id="btnNext" title="Next">⏭</button>
+                        <span class="deck-led" aria-hidden="true"></span>
+                        <button class="t-btn deck-key key-skip" id="btnPrev" title="Previous track" aria-label="Previous track" data-label="PREV"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h1.8v9H3.5zM13 3.5v9L6 8z"/></svg></button>
+                        <button class="t-btn deck-key key-start play" id="btnPlay" title="Start / stop" aria-label="Play" data-label="START · STOP"><svg class="ic-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><svg class="ic-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 3.4h2.7v9.2H4.4zM8.9 3.4h2.7v9.2H8.9z"/></svg></button>
+                        <button class="t-btn deck-key key-skip" id="btnNext" title="Next track" aria-label="Next track" data-label="NEXT"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.7 3.5h1.8v9h-1.8zM3 3.5v9L10 8z"/></svg></button>
                         <!-- what happens when a track or the playlist ends.
                              A menu rather than three more buttons on the
                              transport: it is set once and then left alone. -->
                         <div class="t-ctl">
-                            <button class="t-btn t-ctl-btn" id="btnCtl" title="Repeat and replay"
-                                    aria-haspopup="true" aria-expanded="false">⋯</button>
+                            <span class="knob-scale" aria-hidden="true"><i data-m="all">ALL</i><i data-m="one">ONE</i><i data-m="off">OFF</i></span>
+                            <button class="t-btn t-ctl-btn deck-knob" id="btnCtl" title="Repeat and replay" aria-label="Repeat and replay"
+                                    aria-haspopup="true" aria-expanded="false" data-label="REPEAT"></button>
                             <div class="t-menu" id="ctlMenu" hidden role="menu">
                                 <button class="t-mi" data-a="again" role="menuitem">
                                     <span class="t-mi-ico">↻</span>Play this again
@@ -119,7 +121,7 @@
                                 </button>
                             </div>
                         </div>
-                        <button class="t-btn rm-info" id="btnInfo" title="Track info" aria-label="Track info" data-testid="btn-info">ℹ</button>
+                        <button class="t-btn deck-key key-info rm-info" id="btnInfo" title="Track info" aria-label="Track info" data-testid="btn-info" data-label="INFO"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.05 6.6h1.9v6.1h-1.9zM8 3.1a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/></svg></button>
                     </div>
                 </div>
 

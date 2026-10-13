@@ -52,7 +52,7 @@ Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
 only Player, Playlist, Search, DJ AI and ⋯ until they play something),
 `genres.js` (GENERATED from `src/genres.js` — never edit it by hand; the genres test
 rewrites it and fails if the two differ), `artist.js` (artist matching and
-"more of this artist"), `remote.js` (the controls: prev, play, next, repeat and info as chrome knobs set into the bottom edge of the record player — one set of buttons, same ids; a plain row below the record on a phone; nothing floats or drags), `screen.js` (video
+"more of this artist"), `remote.js` (the deck's own controls: a brushed-aluminium START · STOP key with an LED, PREV / NEXT and INFO keys and a REPEAT selector knob, set into the plinth's bottom corners with their names printed beneath — styled in `deck.css`; one set of buttons, same ids; a control bar under the record on a phone; nothing floats or drags), `screen.js` (video
 resizing — the one number is `--vid`, never below 200px) and `deck-title.js` (rename
 the playing track from the deck; local to this device, written through
 `trackInfo.saveFor`).

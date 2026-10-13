@@ -212,7 +212,11 @@ var player = {
     this.isPlaying = on;
     this.el.platter.classList.toggle('playing', on && this.spinEnabled);
     this.el.arm.classList.toggle('playing', on);
-    this.el.play.textContent = on ? '⏸' : '▶';
+    // the start/stop key carries both icons; the class picks one (no glyphs to
+    // fall back to colour emoji on Windows), and the deck's LED lights while it plays
+    this.el.play.classList.toggle('is-playing', on);
+    this.el.play.setAttribute('aria-label', on ? 'Pause' : 'Play');
+    var rm = document.getElementById('remote'); if (rm) rm.classList.toggle('playing', on);
     if (window.plBoss && plBoss.updateStatus) plBoss.updateStatus();
     if (window.wakeBoss) wakeBoss.update();
   }

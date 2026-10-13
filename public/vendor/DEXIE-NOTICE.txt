@@ -1,0 +1,4 @@
+dexie.min.js is Dexie.js 4.4.3 (https://dexie.org), unmodified, as published to npm.
+Dexie is licensed under the Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+It is kept here, rather than loaded from a CDN, so the page can start without a third party.
+Its sha384 is k6tk9WcOtb4A545U/Jgfo4DoIqdwINOlzrTiSGnj9wq0LEPurSgaYGdDZokPcgLz.

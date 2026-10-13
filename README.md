@@ -95,6 +95,12 @@ dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Tr
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
 
+## How the page loads
+
+Everything the page needs comes from this site: Dexie lives in `public/vendor/` (the exact bytes of dexie@4.4.3), so no CDN can stall startup and the CSP allows no script host except YouTube. Scripts are `defer`red, so they download together and run in order. YouTube's player script is requested only after the page's own `load` event, so a slow YouTube can delay playing a track but never the page.
+
+Panels start closed, and stay invisible (`html:not(.rr-up) .panel`) until `dock.js` has given each its state. `dock.js` also remembers any panel opened or closed before the saved layout finished loading, and the restore leaves those alone. To upgrade Dexie, replace the file in `vendor/` and keep the version in its filename comment.
+
 ## Driving riffrolled from code
 
 There is a small, versioned API on `window.riffrolled` (`public/js/agent.js`).

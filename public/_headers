@@ -17,14 +17,14 @@
 # innerHTML string, or an inline <script> to index.html — don't.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.youtube.com https://s.ytimg.com; style-src 'self'; img-src 'self' data: https://i.ytimg.com https://*.ytimg.com; font-src 'self'; connect-src 'self' https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self'; img-src 'self' data: https://i.ytimg.com https://*.ytimg.com; font-src 'self'; connect-src 'self' https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin-allow-popups
 
 # Why each exception exists, so nobody widens one by guessing:
-#   cdn.jsdelivr.net   Dexie
+#   (Dexie is served from /vendor/, so no CDN is allowed any more)
 #   www.youtube.com    the IFrame API script, the player frame, and oEmbed
 #                      link checks (connect-src)
 #   s.ytimg.com        www-widgetapi.js, which YouTube's own script pulls in

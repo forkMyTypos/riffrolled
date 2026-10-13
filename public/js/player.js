@@ -431,10 +431,24 @@ function ytPlay(id, title) { player.load(id, title); }
 function onYouTubeIframeAPIReady() { player.initApi(); }
 
 // load the IFrame API (reliable onStateChange / auto-advance, unlike raw postMessage)
+//
+// Started once the page's own load event has fired, not before it. A script
+// added while the page is still loading is part of "loading": the browser's
+// tab spinner keeps turning, and everything waiting on the load event (the
+// tour, the first-run hint, the promoted-record card) waits with it — for
+// as long as YouTube's servers take, or forever if something between here
+// and them is slow or blocks it. Nothing about the page itself needs the
+// API until somebody presses play, so it should never be able to hold the
+// page up.
 (function(){
-  var tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(tag);
+  var start = function(){
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    tag.async = true;
+    document.head.appendChild(tag);
+  };
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start);
 })();
 
 // spin on/off switch — persisted, like every other preference, because a

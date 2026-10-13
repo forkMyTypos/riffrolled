@@ -26,6 +26,8 @@ var dock = {
   _data: null,     // last-known layout map (kept fresh on save)
   _t: null,        // debounce timer
   _placed: null,   // Set of labels the user has dragged (their position is respected)
+  _restored: false,// the saved layout has been read and applied (or there was none)
+  _touched: null,  // labels opened/closed by someone BEFORE the saved layout arrived
 
   build(items){ this.items = items; this.render(); },
 
@@ -92,6 +94,7 @@ var dock = {
     if (!el) return;
     el.classList.remove('is-hidden');
     const it = this.items.find(i => i.el === el);
+    this.touch(it);
     if (it && it.btn){ it.btn.classList.add('active'); it.btn.setAttribute('aria-pressed','true'); }
     if (!this.mobile){
       if (this.isPlaced(el)) this.ensureVisible(el);
@@ -102,6 +105,24 @@ var dock = {
       if (it) this.showMobile(it.label);
     }
     this.saveLayoutSoon();
+  },
+
+  /* The saved layout is read from IndexedDB, which answers a moment after
+     the page is up — longer on a first visit, when the database is being
+     created or upgraded. The dock buttons exist before it answers, so a
+     person can (and does) open a panel in that gap. When the answer
+     arrived it used to be applied over the top: the panel they had just
+     opened was closed again, and panels from last time opened instead.
+     That is the "menu pops up and then disappears" bug.
+
+     Anything opened or closed before the layout arrives is therefore
+     remembered here, and the restore leaves that panel's open/closed
+     state alone. What the person did a second ago is newer than what
+     they left behind last week. */
+  touch(it){
+    if (!it || this._restored) return;
+    if (!this._touched) this._touched = new Set();
+    this._touched.add(it.label);
   },
 
   isPlaced(el){
@@ -284,6 +305,7 @@ var dock = {
     if (!el) return;
     el.classList.toggle('is-hidden', hidden);
     const it = this.items.find(i => i.el === el);
+    this.touch(it);
     if (it && it.btn){ it.btn.classList.toggle('active', !hidden); it.btn.setAttribute('aria-pressed', String(!hidden)); }
     this.saveLayoutSoon();
   },
@@ -328,7 +350,9 @@ var dock = {
       if (d.top)    s.top = d.top;
       if (d.width)  s.width = d.width;
       if (d.height) s.height = d.height;
-      if (!this.mobile){                         // visibility only matters on desktop; mobile shows all
+      // visibility only matters on desktop (mobile shows one at a time), and a
+      // panel the person has already acted on this visit keeps what they did
+      if (!this.mobile && !(this._touched && this._touched.has(it.label))){
         it.el.classList.toggle('is-hidden', !!d.hidden);
         if (it.btn) it.btn.classList.toggle('active', !d.hidden);
       }
@@ -344,7 +368,7 @@ var dock = {
         this.items.forEach(it => { if (it.el) ro.observe(it.el); });
       }
     };
-    if (!window.dbBoss){ done(); return; }
+    if (!window.dbBoss){ this._restored = true; done(); return; }
     const LAYOUT_VERSION = '3';   // bump to discard everyone's saved layout once
     Promise.all([ dbBoss.getSetting('panelLayout'), dbBoss.getSetting('placedPanels'),
                   dbBoss.getSetting('layoutVersion') ]).then(arr => {
@@ -363,8 +387,17 @@ var dock = {
       }
       if (!this._data && !this.mobile) this.applyDefaultLayout();
       this.ensureAllVisible();
+      this._restored = true;
+      // sync the dock buttons to what is actually on screen after the merge
+      this.items.forEach(it => {
+        if (!it.el || !it.btn) return;
+        const open = !it.el.classList.contains('is-hidden');
+        it.btn.classList.toggle('active', open);
+        it.btn.setAttribute('aria-pressed', String(open));
+      });
       done();
-    }).catch(done);
+      if (this._touched && this._touched.size) this.saveLayoutSoon();
+    }).catch(() => { this._restored = true; done(); });
   }
 };
 
@@ -407,6 +440,10 @@ dock.build([
   { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', bottom:true, accent:'#8a90a8' }
 ]);
+
+/* Every panel now has its open/closed state, so the stylesheet may stop
+   holding them back (see `html:not(.rr-up) .panel` in panels.css). */
+document.documentElement.classList.add('rr-up');
 
 // each panel wears its dock colour, so a glance says which panel you're in
 dock.items.forEach(it => {

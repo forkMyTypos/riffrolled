@@ -75,3 +75,10 @@
 
 /* panel show/hide used by the desktop dock toggles */
 .is-hidden { display:none !important; }
+
+/* Until dock.js has finished building the panels, none of them is shown.
+   Each panel's open/closed state is decided by script, and script arrives
+   after the first paint — so without this a panel that is meant to start
+   closed is visible for however long the scripts take, then vanishes.
+   dock.js adds .rr-up the moment every panel has been given its state. */
+html:not(.rr-up) .panel { display:none !important; }

@@ -148,7 +148,7 @@
 
 <!-- Current Track panel: a dockable menu like Tracks/Playlists. Kept in the DOM from load
      so the player's existing meta wiring (#npTitle, .np-artist, .react-like, …) keeps working. -->
-<div class='cont flex column panel' id="ctPanel">
+<div class='cont flex column panel is-hidden' id="ctPanel">
     <div class='flex alignMe title panel-header fs1em'>💿 Track info<button class='panel-close' title='Close' aria-label='Close'>✕</button></div>
     <div class='mainC flex1'>
         <div class="ct-body">
@@ -208,30 +208,40 @@
 </div>
 
 
-<!-- Dexie (IndexedDB wrapper) — pinned version + integrity hash -->
-<script src="https://cdn.jsdelivr.net/npm/dexie@4.4.3/dist/dexie.min.js"
-        integrity="sha384-k6tk9WcOtb4A545U/Jgfo4DoIqdwINOlzrTiSGnj9wq0LEPurSgaYGdDZokPcgLz"
-        crossorigin="anonymous"></script>
+<!-- Scripts. All `defer`: the browser fetches every one of them at the same
+     time and runs them in this order once the page has been parsed.
 
-<!-- App code. Order matters: each file uses what the ones above it define,
-     and dock.js boots the panels, so it must come last. -->
-<script src="js/stats.js"></script>
-<script src="js/db.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/player.js"></script>
-<script src="js/track-info.js"></script>
-<script src="js/playlist.js"></script>
-<script src="js/panels-music.js"></script>
-<script src="js/panels-tokens.js"></script>
-<script src="js/dj-data.js"></script>
-<script src="js/aidj.js"></script>
-<script src="js/dj-menu.js"></script>
-<script src="js/info.js"></script>
-<script src="js/promo-popup.js"></script>
-<script src="js/dock.js"></script>
-<script src="js/agent.js"></script>
-<script src="js/tutorial.js"></script>
-<script src="js/selftest.js"></script>
+     They used to be plain <script> tags at the foot of <body>, which is
+     fetched one at a time — nineteen round trips in a row, each waiting for
+     the one before. On a phone that turned the first visit into several
+     seconds of a half-built page. Order still matters (each file uses what
+     the ones above it define, and dock.js boots the panels, so it comes
+     last); `defer` keeps the order and drops the waiting.
+
+     Dexie (IndexedDB wrapper) is served from this site, not a CDN: the
+     page cannot start without it, so a slow or blocked third party was
+     able to stall the whole app, and it cost a DNS lookup and a TLS
+     handshake to another host on every cold load. vendor/ holds the exact
+     bytes of dexie@4.4.3 (sha384-k6tk9WcOtb4A545U/Jgfo4DoIqdwINOlzrTiSGnj9wq0LEPurSgaYGdDZokPcgLz
+     as published), so nothing about what runs has changed. -->
+<script defer src="vendor/dexie.min.js"></script>
+<script defer src="js/stats.js"></script>
+<script defer src="js/db.js"></script>
+<script defer src="js/ui.js"></script>
+<script defer src="js/player.js"></script>
+<script defer src="js/track-info.js"></script>
+<script defer src="js/playlist.js"></script>
+<script defer src="js/panels-music.js"></script>
+<script defer src="js/panels-tokens.js"></script>
+<script defer src="js/dj-data.js"></script>
+<script defer src="js/aidj.js"></script>
+<script defer src="js/dj-menu.js"></script>
+<script defer src="js/info.js"></script>
+<script defer src="js/promo-popup.js"></script>
+<script defer src="js/dock.js"></script>
+<script defer src="js/agent.js"></script>
+<script defer src="js/tutorial.js"></script>
+<script defer src="js/selftest.js"></script>
 
 </body>
 </html>

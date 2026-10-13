@@ -225,6 +225,17 @@ db.version(12).stores({
   promoArchive: 'id, ytId, endedAt, archivedAt'
 });
 
+/* A storage upgrade cannot finish while another riffrolled tab still has
+   the old database open. Dexie asks the other tab to step aside, which
+   works for tabs running recent code but not for one that is frozen,
+   asleep, or an older build — and when it does not work the upgrade
+   simply waits, silently, and the page looks like it never finishes
+   loading. Say so, and say what to do about it. */
+db.on('blocked', function(){
+  if (typeof appNotify === 'function')
+    appNotify('riffrolled is updating its storage, but another riffrolled tab is still open. Close the other tabs and this one will finish by itself.', 'err');
+});
+
 var dbBoss = {
   /* ── finished campaigns, kept locally ──────────────────────────────
      Called whenever the Promote panel sees a campaign with no credits

@@ -48,6 +48,14 @@ Frontend files worth knowing: `public/js/track-info.js` owns the Track info pane
 `public/js/dock.js` places panels, `public/js/promo-popup.js` draws the promoted
 record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
 
+The promoted pop-up is a bare spinning record (no box) with the video's
+picture as the label. The title and the Play / Add / Close buttons appear only
+on hover or keyboard focus; on touch screens they are always shown. The small
+"Promoted" tag on the rim is always visible, because it is the disclosure. It
+sits bottom-right (the deck controls own bottom-left), falls back to the left
+if the right would cover the player, and is skipped if neither fits. Add puts
+the track in the current playlist. A skipped card does not refund its credit.
+
 Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
 only Player, Playlist, Search, DJ AI and ⋯ until they play something),
 `genres.js` (GENERATED from `src/genres.js` — never edit it by hand; the genres test

@@ -388,53 +388,57 @@
 
 .add-track-btn { margin-left:6px; }
 
-/* ── the promotion popup: a record on a shelf ─────────────────────────
-   It used to be a 200x200 gig poster with the artwork edge to edge. It is
-   a 7-inch single now: a grooved black disc with the thumbnail as its
-   centre label, turning slowly. riffrolled is a turntable, so a record is
-   what a recommendation looks like here — and it reads as "here is
-   something you might like" rather than as a banner ad, which is also
-   simply more honest about what it is.
+/* ── the promotion popup: a record, and nothing else ─────────────────
+   Just a 7-inch single lying in the corner: a grooved black disc with the
+   video's picture as its big centre label, turning slowly. No card, no box,
+   no border — the only thing with an outline is the record.
 
-   Bottom-left, so it never covers the deck or the dock rail. ── */
+   The title and the three buttons (play · add · close) stay hidden until the
+   pointer is over the record, so at rest it is simply a record. Two things
+   are NOT hidden, on purpose:
+     · the "Promoted" tag — it is the disclosure, so it is always shown, on the
+       rim, outside the spinning disc where nothing can rotate it out of view
+     · on a touchscreen the buttons are shown, because there is no hover
+   Escape and the 25-second timeout close it too.
+
+   Bottom-right, beside the dock rail: the record player and its controls live
+   on the left, so it never covers them (promo-popup.js steps it to the other
+   corner, or skips it, if it would). ── */
 .promo-pop {
-  position:fixed; left:18px; bottom:18px; z-index:2600;
-  width:190px; border-radius:12px; overflow:hidden;
-  background:linear-gradient(180deg, #14141f 0%, #0b0b12 100%);
-  border:1px solid rgba(224,163,77,0.45);
-  box-shadow:0 14px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.5);
-  opacity:0; transform:translateY(10px) scale(.97);
+  position:fixed; right:78px; bottom:26px; z-index:2600;      /* beside the dock rail; the deck's own controls are bottom-left */
+  width:196px; height:196px; border-radius:50%;       /* hover is the record, not a rectangle around it */
+  opacity:0; transform:translateY(10px) scale(.96);
   transition:opacity .22s ease, transform .22s ease;
-  padding:26px 12px 10px;
 }
 .promo-pop.show { opacity:1; transform:none; }
 .promo-pop[hidden] { display:none; }
 
-.pp-disc { position:relative; width:150px; height:150px; margin:0 auto; }
+.pp-disc { position:absolute; inset:0; border-radius:50%; }
 
-/* The record. The grooves are repeating-conic rings rather than an
-   image, so there is nothing to load and it stays crisp at any size. */
+/* The record. The grooves are gradients rather than an image, so there is
+   nothing to load and it stays crisp at any size. */
 .pp-vinyl {
   position:absolute; inset:0; border-radius:50%;
   background:
-    repeating-radial-gradient(circle at 50% 50%,
-      rgba(255,255,255,0.045) 0 1px, rgba(0,0,0,0) 1px 4px),
-    radial-gradient(circle at 50% 50%, #26262f 0 38%, #121218 38% 100%);
-  box-shadow:0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset;
-  animation:pp-spin 7s linear infinite;
+    conic-gradient(from 25deg, rgba(255,255,255,0.075), transparent 17%, transparent 50%, rgba(255,255,255,0.075) 67%, transparent 85%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.045) 0 1px, rgba(0,0,0,0) 1px 4px),
+    radial-gradient(circle at 50% 50%, #2b2b36 0 40%, #101017 40% 100%);
+  box-shadow:0 8px 22px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  animation:pp-spin 8s linear infinite;
+  transition:filter .2s ease;
 }
 @keyframes pp-spin { to { transform:rotate(360deg); } }
 
-/* the centre label: the artwork, cropped to a circle */
+/* the centre label: the video's picture, big, cropped to a circle */
 .pp-art {
-  position:absolute; left:50%; top:50%; width:72px; height:72px; margin:-36px 0 0 -36px;
+  position:absolute; left:50%; top:50%; width:118px; height:118px; margin:-59px 0 0 -59px;
   border-radius:50%; object-fit:cover; display:block;
-  box-shadow:0 0 0 1px rgba(0,0,0,0.6);
+  box-shadow:0 0 0 2px #0a0a10, 0 0 0 3px rgba(255,255,255,0.1);
 }
 .pp-hole {
-  position:absolute; left:50%; top:50%; width:13px; height:13px; margin:-6.5px 0 0 -6.5px;
-  border-radius:50%; background:#0b0b12; z-index:3;
-  box-shadow:0 0 0 1px rgba(255,255,255,0.1);
+  position:absolute; left:50%; top:50%; width:12px; height:12px; margin:-6px 0 0 -6px;
+  border-radius:50%; background:#0b0b12; z-index:3; transition:opacity .15s;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.16);
 }
 
 /* A record that keeps turning is the point, but it is also the one thing
@@ -444,70 +448,67 @@
   .pp-vinyl { animation:none; }
 }
 
+/* the disclosure: always shown, on the rim, never inside the spinning disc */
 .pp-tag {
-  position:absolute; top:7px; left:10px; z-index:5;
-  font-size:8px; font-weight:800; letter-spacing:1.3px; text-transform:uppercase;
-  color:#ffcc4d; text-shadow:0 1px 3px rgba(0,0,0,0.8);
+  position:absolute; left:50%; bottom:-9px; transform:translateX(-50%); z-index:5;
+  padding:3px 10px; border-radius:20px; white-space:nowrap;
+  background:rgba(10,10,18,0.9); border:1px solid rgba(255,204,77,0.55);
+  font-size:8.5px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; color:#ffcc4d;
 }
-/* the way out has to be obvious, and easy to hit on a phone */
-.pp-close {
-  position:absolute; top:5px; right:5px; z-index:6;
-  display:flex; align-items:center; justify-content:center;
-  width:26px; height:26px; padding:0; border-radius:50%;
-  background:rgba(8,8,16,0.72); border:1px solid rgba(255,255,255,0.35);
-  color:#fff; font-size:13px; line-height:1; cursor:pointer;
-  box-shadow:0 2px 8px rgba(0,0,0,0.5);
-}
-.pp-close:hover { background:#c0392b; border-color:#e8705f; transform:scale(1.08); }
-.pp-close:focus-visible { outline:2px solid #fff; outline-offset:2px; }
-@media (hover: none) { .pp-close { width:30px; height:30px; font-size:15px; } }
 
-/* actions sit over the disc, centred. They do NOT spin with it: a button
-   that rotates away from your cursor is a joke at the user's expense. */
+/* the three buttons sit over the record and do NOT spin with it: a button
+   that rotates away from your cursor is a joke at the user's expense */
 .pp-acts {
-  position:absolute; inset:0; z-index:4; display:flex; gap:14px;
-  align-items:center; justify-content:center;
-  opacity:0; transition:opacity .18s ease;
-  border-radius:50%;
+  position:absolute; inset:0; z-index:4; display:flex; gap:10px;
+  align-items:center; justify-content:center; border-radius:50%;
+  opacity:0; transition:opacity .16s ease; pointer-events:none;
 }
-/* A scrim across the disc behind the buttons. Without it the two circles
-   sat translucent over the centre label and merged into one unreadable
-   blob — the artwork is deliberately colourful, which is exactly what a
-   semi-transparent control cannot survive. */
-.pp-acts::before {
-  content:''; position:absolute; inset:0; border-radius:50%;
-  background:radial-gradient(circle at 50% 50%, rgba(6,6,12,0.86) 0 54%, rgba(6,6,12,0.45) 100%);
-}
-.promo-pop:hover .pp-acts, .promo-pop:focus-within .pp-acts { opacity:1; }
+.promo-pop:hover .pp-acts, .promo-pop:focus-within .pp-acts { opacity:1; pointer-events:auto; }
+.promo-pop:hover .pp-vinyl, .promo-pop:focus-within .pp-vinyl { filter:brightness(.4); animation-play-state:paused; }
+.promo-pop:hover .pp-hole, .promo-pop:focus-within .pp-hole { opacity:0; }
 .pp-acts button {
-  position:relative; z-index:1;
-  width:44px; height:44px; border-radius:50%; padding:0; font-size:16px;
-  background:#1b1b28; border:1px solid rgba(255,255,255,0.45); color:#fff;
-  cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.6);
+  width:42px; height:42px; border-radius:50%; padding:0; font-size:16px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  background:rgba(14,14,24,0.92); border:1px solid rgba(255,255,255,0.55); color:#fff;
   transition:background .14s, border-color .14s, transform .14s;
 }
-.pp-acts button:hover { transform:scale(1.07); }
+.pp-acts button:hover { transform:scale(1.08); }
 .pp-play:hover { background:#6c5ce7; border-color:#c3b6ff; }
 .pp-add:hover  { background:#2f8f63; border-color:#8fdcb2; }
+.pp-close:hover { background:#c0392b; border-color:#e8705f; }
 .pp-acts button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
-.pp-foot { padding:9px 2px 0; text-align:center; }
+/* the title, hidden until hover, floating just above the record */
+.pp-foot {
+  position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); z-index:5;
+  width:230px; padding:7px 12px 6px; text-align:center; border-radius:12px;
+  background:rgba(10,10,18,0.92); border:1px solid rgba(255,255,255,0.14);
+  opacity:0; pointer-events:none; transition:opacity .16s ease;
+}
+.promo-pop:hover .pp-foot, .promo-pop:focus-within .pp-foot { opacity:1; pointer-events:auto; }
 .pp-name {
   font-size:12px; font-weight:700; line-height:1.3; color:#fff;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
 .pp-why {
   margin-top:3px; background:transparent; border:0; padding:0;
-  font-size:9px; color:rgba(255,255,255,0.45); cursor:pointer;
+  font-size:9px; color:rgba(255,255,255,0.5); cursor:pointer;
 }
-.pp-why:hover { color:rgba(255,255,255,0.85); text-decoration:underline; }
+.pp-why:hover { color:rgba(255,255,255,0.9); text-decoration:underline; }
 
-/* touch has no hover, so the buttons are simply always visible */
+/* touch has no hover, so the buttons and the title are simply shown */
 @media (hover: none) {
-  .pp-acts { opacity:1; }
-  .pp-acts button { width:42px; height:42px; }
+  .pp-acts, .pp-foot { opacity:1; pointer-events:auto; }
+  .pp-vinyl { filter:brightness(.55); }
+  .pp-hole { opacity:0; }
 }
-body.mobile .promo-pop { left:12px; bottom:calc(74px + env(safe-area-inset-bottom)); }
+/* phone: smaller, tucked at the right above the tab bar so it stays off the controls under the
+   record; the title goes to its left (it is always shown here — there is no hover) */
+body.mobile .promo-pop { left:auto; right:12px; bottom:calc(76px + env(safe-area-inset-bottom)); width:148px; height:148px; }
+body.mobile .pp-art { width:88px; height:88px; margin:-44px 0 0 -44px; }
+body.mobile .pp-acts { gap:4px; }
+body.mobile .pp-acts button { width:38px; height:38px; font-size:15px; }
+body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; transform:translateY(-50%); width:min(176px, calc(100vw - 180px)); }
 
 /* ── AI DJ ─────────────────────────────────────────────────────────────
    You say what you want, your own AI writes the playlist, riffrolled

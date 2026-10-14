@@ -93,40 +93,49 @@ var promoPopup = {
       this.seen[p.id] = 1;
       this.shown++;
 
-      /* A record on a shelf, not a gig poster.
-         The artwork is the centre label of a 7-inch single: a dark disc
-         with grooves, a spindle hole, and the thumbnail in the middle,
-         turning slowly. It belongs in riffrolled in a way a rectangle of
-         album art does not \u2014 the whole app is a turntable \u2014 and it reads
-         as "here is a record you might like" rather than as a banner.
+      /* Just a record. The video's picture is the big centre label of a
+         7-inch single, turning slowly; there is no card around it. The
+         title and the three buttons appear when the pointer is over it.
 
-         The Promoted chip is not styling. It is the disclosure, so it
-         stays outside the disc where nothing can rotate it out of view. */
+         The Promoted chip is not styling. It is the disclosure, so it is
+         always shown, sits on the rim, and stays outside the spinning
+         disc where nothing can rotate it out of view. */
       this.el.innerHTML =
-        "<span class='pp-tag'>Promoted</span>"
-        + "<button class='pp-close' title='Dismiss'>\u2715</button>"
-        + "<div class='pp-disc'>"
+        "<div class='pp-disc'>"
           + "<div class='pp-vinyl'>"
             + "<img class='pp-art' src='https://i.ytimg.com/vi/" + m[1] + "/mqdefault.jpg'"
-              + " alt='' width='72' height='72'>"
+              + " alt='' width='118' height='118'>"
             + "<span class='pp-hole' aria-hidden='true'></span>"
           + "</div>"
           + "<div class='pp-acts'>"
-            + "<button class='pp-play' title='Play now'>\u25B6</button>"
-            + "<button class='pp-add' title='Add to your playlist'>\uFF0B</button>"
+            + "<button class='pp-play' title='Play now' aria-label='Play now'>\u25B6</button>"
+            + "<button class='pp-add' title='Add to your playlist' aria-label='Add to your playlist'>\uFF0B</button>"
+            + "<button class='pp-close' title='Close' aria-label='Close'>\u2715</button>"
           + "</div>"
         + "</div>"
+        + "<span class='pp-tag'>Promoted</span>"
         + "<div class='pp-foot'>"
           + "<div class='pp-name'>" + escapeHtml(this.cur.name) + "</div>"
-          + "<button class='pp-why' title='Why am I seeing this?'>why?</button>"
+          + "<button class='pp-why' title='Why am I seeing this?'>why am I seeing this?</button>"
         + "</div>";
       this.el.style.left = ''; this.el.style.right = '';
       this.el.hidden = false;
-      // never over the YouTube player: try the other corner, else skip this one
-      if (window.ytGuard && ytGuard.overlaps(this.el)){
-        this.el.style.left = 'auto'; this.el.style.right = '76px';
-        if (ytGuard.overlaps(this.el)){
-          this.el.hidden = true; this.el.style.left = ''; this.el.style.right = '';
+      /* Never over the YouTube player, and never over the record player itself
+         (its controls are on the plinth): try the other corner, else skip this one. */
+      var el = this.el;
+      var blocked = function(){
+        if (window.ytGuard && ytGuard.overlaps(el)) return true;
+        var pl = document.querySelector('#deck .plinth');
+        if (pl && !document.body.classList.contains('mobile')){
+          var a = el.getBoundingClientRect(), b = pl.getBoundingClientRect();
+          return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        }
+        return false;
+      };
+      if (blocked()){
+        el.style.left = '22px'; el.style.right = 'auto';
+        if (blocked()){
+          el.hidden = true; el.style.left = ''; el.style.right = '';
           this.shown--; delete this.seen[p.id];
           this._next = Date.now() + 60000;
           /* The credit is already spent and is NOT refunded. riffrolled sold
@@ -134,7 +143,7 @@ var promoPopup = {
              the YouTube player is riffrolled's problem, not the promoter's —
              but silently keeping the money would be. This is rare enough to
              be worth logging rather than engineering around. */
-          if (window.console) console.warn('riffrolled: a promoted card was suppressed by ytGuard after its credit was spent');
+          if (window.console) console.warn('riffrolled: a promoted card was suppressed (it would have covered the player) after its credit was spent');
           return;
         }
       }

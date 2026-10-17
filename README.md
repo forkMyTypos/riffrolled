@@ -51,14 +51,18 @@ record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
 The DJ AI has two ways to brief an AI. **One-shot prompt** (`DJ_ONESHOT_PROMPT`): one
 prompt; the AI curates the mix, finds and verifies the YouTube links itself and replies
 with a finished `RIFFROLLED-PLAYLIST` (`Artist - Title | link | m:ss | genre` lines under
-NAME / ABOUT / GENRE / TRACKS). **Multi-shot prompts**: prompt 1 is the DJ brief
-(`DJ_MULTI_PROMPT`), whose reply is a `RIFFROLLED-DJ-DRAFT` with no links; pasting that
-draft back shows step 2, **The Track Check** (`DJ_TRACK_CHECK_PROMPT`), which finds the
-links; its reply is imported. In either reply `NOT FOUND` / `SEARCH FAILED` leaves a track
-without a link, and riffrolled looks it up itself. The multi-shot texts are word for word
-the admin tool's `dj_brief_prompt.txt` and `track_check_prompt.txt` (its tests check), and
-`THE BRIEF` is filled in from the listener's choices. Internally the modes are still
-called `speed` (one-shot) and `details` (multi-shot), so saved settings carry over.
+NAME / ABOUT / GENRE / TRACKS). **Multi-shot prompts** is a wizard: choose, copy prompt 1
+(the DJ brief, `DJ_MULTI_PROMPT`), and a pop-up takes over — step 2 pastes the AI's track
+list (a `RIFFROLLED-DJ-DRAFT`, no links), step 3 copies **Link Hunter**
+(`DJ_LINK_HUNTER_PROMPT`) and imports its reply. Whatever the mode, a reply that isn't a
+full playlist opens a pop-up: no links at all → Link Hunter for every track (nothing is
+imported yet); some missing (NOT FOUND, SEARCH FAILED, dead or reused links) → the rest is
+imported and Link Hunter is offered for just the missing ones, which go back into their
+own places. The wizard lives inside the DJ panel, so it can never cover the player. The
+multi-shot texts are word for word the admin tool's `dj_brief_prompt.txt` and
+`track_check_prompt.txt` (its tests check), and `THE BRIEF` is filled in from the
+listener's choices. Internally the modes are still called `speed` (one-shot) and
+`details` (multi-shot), so saved settings carry over.
 
 The promoted pop-up is a bare spinning record (no box) with the video's
 picture as the label. The title and the Play / Add / Close buttons appear only

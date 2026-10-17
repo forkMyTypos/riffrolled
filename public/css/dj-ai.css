@@ -463,10 +463,35 @@ body.mobile .dj-open { padding:7px 11px; font-size:12px; }
    rather than a control */
 .dj-check-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.33); padding:4px 2px 6px; }
 
-/* multi-shot, step 2: the DJ's draft came back — now The Track Check */
-.dj-step2 { margin:6px 0 8px; padding:8px 10px; border-radius:8px; background:rgba(138,123,255,0.10); border:1px solid rgba(138,123,255,0.35); display:flex; flex-direction:column; gap:6px; }
-.dj-step2[hidden] { display:none; }
-.dj-step2-head { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#cfc7ff; }
-.dj-step2-what { font-size:12px; color:rgba(255,255,255,0.8); }
-.dj-trackcheck { align-self:flex-start; background:rgba(138,123,255,0.35); border:1px solid rgba(138,123,255,0.7); color:#fff; border-radius:7px; padding:6px 12px; font-weight:700; font-size:12px; cursor:pointer; }
-.dj-trackcheck:hover { background:rgba(138,123,255,0.5); }
+/* the wizard: a pop-up card over the DJ panel (multi-shot steps 2–3, and
+   "still missing" after any import). It lives inside the panel, so it can
+   never cover the YouTube player — the panel itself sits below the video. */
+.dj-wiz { position:absolute; left:0; right:0; bottom:0; top:41px; z-index:30; display:flex; align-items:flex-start; justify-content:center;
+  padding:14px 10px; background:rgba(8,8,16,0.72); backdrop-filter:blur(2px); overflow-y:auto; }
+.dj-wiz[hidden] { display:none; }
+.dj-wiz-card { width:100%; max-width:420px; background:#1d1d36; border:1px solid rgba(138,123,255,0.45); border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,0.6); padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px; }
+.dj-wiz-head { display:flex; align-items:center; justify-content:space-between; }
+.dj-wiz-step { font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#b9afff; }
+.dj-wiz-x { background:transparent; border:0; color:rgba(255,255,255,0.55); font-size:14px; cursor:pointer; padding:2px 6px; border-radius:6px; }
+.dj-wiz-x:hover { background:rgba(255,255,255,0.1); color:#fff; }
+.dj-wiz-title { font-size:15px; font-weight:700; color:#fff; }
+.dj-wiz-card p { margin:0; font-size:12px; line-height:1.5; color:rgba(255,255,255,0.75); }
+.dj-wiz-what { color:#fff !important; }
+.dj-wiz-card textarea { width:100%; box-sizing:border-box; font:12px/1.4 ui-monospace,Consolas,monospace; background:rgba(0,0,0,0.35);
+  color:#eee; border:1px solid rgba(255,255,255,0.16); border-radius:8px; padding:7px 8px; resize:vertical; }
+.dj-wiz-prompt[hidden] { display:none; }
+.dj-wiz-sites { display:flex; gap:6px; flex-wrap:wrap; }
+.dj-wiz-sites a { font-size:11.5px; color:#cfc7ff; text-decoration:none; border:1px solid rgba(138,123,255,0.4); border-radius:6px; padding:3px 9px; }
+.dj-wiz-sites a:hover { background:rgba(138,123,255,0.18); }
+.dj-wiz-row { display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap; }
+.dj-wiz-paste, .dj-wiz-alt { background:transparent; border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.8); border-radius:7px; padding:6px 10px; font-size:12px; cursor:pointer; }
+.dj-wiz-alt { border:0; padding:2px 0; font-size:11px; color:rgba(255,255,255,0.5); text-decoration:underline; align-self:flex-start; }
+.dj-wiz-go, .dj-wiz-copy { background:rgba(138,123,255,0.4); border:1px solid rgba(138,123,255,0.8); color:#fff; border-radius:7px; padding:7px 14px; font-weight:700; font-size:12px; cursor:pointer; }
+.dj-wiz-copy { align-self:flex-start; background:linear-gradient(135deg, rgba(255,204,77,0.28), rgba(255,138,61,0.28)); border-color:rgba(255,184,107,0.8); }
+.dj-wiz-go:hover, .dj-wiz-copy:hover { filter:brightness(1.15); }
+.dj-wiz-go:disabled { opacity:.5; cursor:wait; }
+.dj-wiz-list { max-height:130px; overflow-y:auto; font-size:12px; color:rgba(255,255,255,0.8); background:rgba(0,0,0,0.25); border-radius:8px; padding:6px 8px; line-height:1.55; }
+.dj-wiz-msg { font-size:11.5px; color:rgba(255,255,255,0.6); min-height:1em; }
+.dj-wiz-msg.ok { color:#7bd88f; } .dj-wiz-msg.err { color:#ff9a9a; }
+body.mobile .dj-wiz { top:48px; }

@@ -286,7 +286,7 @@ var DJ_CATEGORIES = [
      1. DJ_MULTI_PROMPT — the DJ brief ("Version 3: Where did this come
         from?"). The AI only curates, and replies with a RIFFROLLED-DJ-DRAFT:
         no links, a reason for every track.
-     2. DJ_TRACK_CHECK_PROMPT — The Track Check. riffrolled builds it from the
+     2. DJ_LINK_HUNTER_PROMPT — Link Hunter. riffrolled builds it from the
         pasted draft; an AI that can search the web finds and verifies each
         YouTube link and replies with the RIFFROLLED-PLAYLIST to import.
 
@@ -838,7 +838,7 @@ Now read the listener's brief, do the work, and build the journey.
 {{brief}}
 `;
 
-var DJ_TRACK_CHECK_PROMPT = `THE TRACK CHECK
+var DJ_LINK_HUNTER_PROMPT = `LINK HUNTER
 
 SEARCH ENGINES — DUCKDUCKGO, BRAVE, BANDCAMP & YOUTUBE SEARCH
 

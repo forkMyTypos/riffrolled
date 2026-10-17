@@ -470,7 +470,7 @@ var djAi = {
   /* ── the prompt ──────────────────────────────────────────────────────
      One-shot (internally still "speed") asks for the finished playlist in
      one go. Multi-shot (internally "details") asks for a DJ draft first;
-     The Track Check, built from that draft, is the second prompt. Same
+     Link Hunter, built from that draft, is the second prompt. Same
      brief underneath. ── */
   async buildPrompt(){
     return this.state.textMode === 'speed'
@@ -676,8 +676,8 @@ var djAi = {
 
   /* MULTI-SHOT, prompt 1: the DJ brief (DJ_MULTI_PROMPT). The AI only
      curates here and replies with a RIFFROLLED-DJ-DRAFT — no links, a
-     reason for every track. Pasting that draft back builds prompt 2, The
-     Track Check (buildTrackCheck). Same wording as the admin tool's
+     reason for every track. Pasting that draft back builds prompt 2, Link
+     Hunter (buildLinkHunter). Same wording as the admin tool's
      dj_brief_prompt.txt; same brief sections as its djbrief.py. */
   DEFAULT_IDENTITY: ['Where Did This Come From?', 'You are Where Did This Come From?: every track makes the listener ask exactly that.'],
 
@@ -739,7 +739,7 @@ var djAi = {
       .replace('{{brief}}', B.join('\n').trim() + '\n');
   },
 
-  /* ── MULTI-SHOT, step 2: The Track Check ──────────────────────────────
+  /* ── MULTI-SHOT, step 2: Link Hunter ──────────────────────────────
      A RIFFROLLED-DJ-DRAFT has artists, titles, durations, genres and a
      reason per track, but no links. It is not a playlist yet, so pasting
      one does not import anything: it is read, and turned into prompt 2. */
@@ -773,16 +773,81 @@ var djAi = {
     return out;
   },
 
-  /** prompt 2, with the draft set into it and every link UNCHECKED; null if no tracks were read */
-  buildTrackCheck(draftText){
-    var d = this.readDraft(draftText);
-    if (!d.tracks.length) return null;
-    var L = ['RIFFROLLED-PLAYLIST', 'NAME: ' + (d.name || 'Untitled mix')];
-    d.tracks.forEach(function(t){
-      L.push((t.n + ' | ' + t.artist + ' | ' + t.title + ' | UNCHECKED | ' + t.duration + ' | ' + t.genre + ' | ' + t.why).replace(/[\s|]+$/, ''));
+  /* ── LINK HUNTER ───────────────────────────────────────────────────────
+     The prompt that finds the YouTube links (DJ_LINK_HUNTER_PROMPT). Used
+     for multi-shot step 3, and for any reply — one-shot or multi-shot —
+     that came back without a link for every track: it is then built for
+     just the tracks that are missing, so the AI isn't asked twice. */
+  _mss(secs){
+    secs = Math.round(secs || 0);
+    return secs ? Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') : 'UNKNOWN';
+  },
+
+  /** tracks → the Link Hunter prompt, every link UNCHECKED */
+  buildLinkHunterFor(tracks, name){
+    var self = this;
+    var L = ['RIFFROLLED-PLAYLIST', 'NAME: ' + (name || 'Untitled mix')];
+    tracks.forEach(function(t, i){
+      var dur = t.duration || self._mss(t.secs);
+      L.push(((i + 1) + ' | ' + (t.artist || '') + ' | ' + (t.title || '') + ' | UNCHECKED | ' + dur + ' | ' +
+              (t.genre || '') + ' | ' + (t.why || '')).replace(/[\s|]+$/, ''));
     });
     L.push('END');
-    return { prompt: DJ_TRACK_CHECK_PROMPT.replace('{{playlist}}', L.join('\n')), draft: d };
+    return DJ_LINK_HUNTER_PROMPT.replace('{{playlist}}', L.join('\n'));
+  },
+
+  /** a DJ draft (or any track list without links) → { prompt, draft:{name, tracks} }, or null */
+  buildLinkHunter(text){
+    var d = this.readDraft(text);
+    if (!d.tracks.length){
+      // not a draft: any list of tracks will do — a one-shot reply from an AI that couldn't search
+      var p = this.parseReply(text);
+      if (!p.items.length) return null;
+      d = { name: p.name, mood: p.about || '', tracks: p.items.map(function(it, i){
+        return { n: i + 1, artist: it.artist, title: it.title, secs: it.secs, genre: it.genre, why: it.why };
+      }) };
+    }
+    return { prompt: this.buildLinkHunterFor(d.tracks, d.name), draft: d };
+  },
+  buildTrackCheck(text){ return this.buildLinkHunter(text); },   // the old name
+
+  /* Fold a Link Hunter reply back into a set: `want` are the tracks that
+     were missing (in their original order). A reply row is matched to a
+     wanted track by artist + title, falling back to its number. Returns
+     the wanted tracks that now have a link. */
+  matchFound(want, replyText){
+    var self = this, got = this.parseReply(replyText).items;
+    var key = function(it){ return self._matchNorm((it.artist || '') + ' ' + (it.title || '')); };
+    var byKey = {};
+    got.forEach(function(g){ if (g.url) byKey[key(g)] = g; });
+    var found = [];
+    want.forEach(function(w, i){
+      var g = byKey[key(w)] || (got[i] && got[i].url && !byKey[key(got[i])] ? got[i] : null);
+      if (g && g.url){ w.url = g.url; w.dead = false; if (!w.secs && g.secs) w.secs = g.secs; found.push(w); }
+    });
+    return found;
+  },
+
+  /* Add found tracks to an imported playlist and put the whole set back in
+     the order the DJ intended — a found track goes back to its own place,
+     not to the end. `all` is every track of the set, in order. */
+  async addFound(playlistId, found, all){
+    for (var i = 0; i < found.length; i++){
+      var tid = await this.storeItem(found[i]);
+      await dbBoss.addToPlaylist(playlistId, tid);
+    }
+    var joins = await db.playlistTracks.where('playlistId').equals(playlistId).sortBy('order');
+    var pos = {};
+    all.forEach(function(it, i){ if (it.url && pos[it.url] === undefined) pos[it.url] = i; });
+    var rows = [];
+    for (var k = 0; k < joins.length; k++){
+      var tr = await db.tracks.get(joins[k].trackId);
+      var p = tr && pos[tr.ytId] !== undefined ? pos[tr.ytId] : 1000 + k;
+      rows.push({ id: joins[k].id, p: p });
+    }
+    rows.sort(function(a, b){ return a.p - b.p; });
+    for (var r = 0; r < rows.length; r++) await db.playlistTracks.update(rows[r].id, { order: r });
+    return found.length;
   },
 
   avgMinutes(){
@@ -1438,6 +1503,42 @@ var djAi = {
     }
   },
 
+  /** one parsed track into the local library (with its metadata); returns the track id */
+  async storeItem(it){
+    // the AI's clean artist and title are what get stored and shown;
+    // YouTube's video title is kept beside them, not instead of them
+    var title = it.title || it.ytTitle || it.url;
+    var artist = it.artist || it.ytChannel || '';
+    var tid = await dbBoss.createTrack(it.url, title);
+    var meta = {};
+    try {
+      var row = await dbBoss.getTrack(it.url);
+      if (row){
+        if (!row.artist && artist) meta.artist = artist;
+        if (it.secs) meta.durSec = it.secs;
+        if (it.ytTitle && !row.ytTitle) meta.ytTitle = it.ytTitle;   // what the video calls itself
+        if (it.genre){
+          /* The genre field is the closed list (genres.js); what the AI
+             actually said is kept as a tag, so nothing it told us is
+             lost and Random Mix and search still see its own word. A
+             word that matches nothing leaves genre blank rather than
+             adding a one-off to a list that exists to stay short. */
+          var g = window.riffGenres ? riffGenres.normalize(it.genre) : { genre: it.genre, raw: it.genre };
+          if (g.genre) meta.genre = g.genre;
+          meta.genreRaw = g.raw;
+          var tags = (row.tags || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+          [g.raw, g.genre].forEach(function(w){
+            w = String(w || '').toLowerCase();
+            if (w && tags.indexOf(w) === -1) tags.push(w);
+          });
+          meta.tags = tags.join(', ');
+        }
+        if (Object.keys(meta).length) await dbBoss.updateTrackMeta(it.url, meta);
+      }
+    } catch(e){ /* meta is best effort */ }
+    return tid;
+  },
+
   async importPlaylist(parsed, rawReply){
     /* A link checked and found missing is not playable, and a video id
        already used by an earlier track in the same reply is not a second
@@ -1469,38 +1570,7 @@ var djAi = {
     });
 
     for (var i = 0; i < playable.length; i++){
-      var it = playable[i];
-      // the AI's clean artist and title are what get stored and shown;
-      // YouTube's video title is kept beside them, not instead of them
-      var title = it.title || it.ytTitle || it.url;
-      var artist = it.artist || it.ytChannel || '';
-      var tid = await dbBoss.createTrack(it.url, title);
-      var meta = {};
-      try {
-        var row = await dbBoss.getTrack(it.url);
-        if (row){
-          if (!row.artist && artist) meta.artist = artist;
-          if (it.secs) meta.durSec = it.secs;
-          if (it.ytTitle && !row.ytTitle) meta.ytTitle = it.ytTitle;   // what the video calls itself
-          if (it.genre){
-            /* The genre field is the closed list (genres.js); what the AI
-               actually said is kept as a tag, so nothing it told us is
-               lost and Random Mix and search still see its own word. A
-               word that matches nothing leaves genre blank rather than
-               adding a one-off to a list that exists to stay short. */
-            var g = window.riffGenres ? riffGenres.normalize(it.genre) : { genre: it.genre, raw: it.genre };
-            if (g.genre) meta.genre = g.genre;
-            meta.genreRaw = g.raw;
-            var tags = (row.tags || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-            [g.raw, g.genre].forEach(function(w){
-              w = String(w || '').toLowerCase();
-              if (w && tags.indexOf(w) === -1) tags.push(w);
-            });
-            meta.tags = tags.join(', ');
-          }
-          if (Object.keys(meta).length) await dbBoss.updateTrackMeta(it.url, meta);
-        }
-      } catch(e){ /* meta is best effort */ }
+      var tid = await this.storeItem(playable[i]);
       await dbBoss.addToPlaylist(plId, tid);
     }
 

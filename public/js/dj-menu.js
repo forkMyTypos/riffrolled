@@ -146,14 +146,6 @@ var djMenuBoss = {
         // clipboard directly (the click is the gesture that permits it), so a
         // reply never has to be found, selected and pasted into a box.
         "<button class='dj-pasteback' hidden>📋 Paste your reply</button>" +
-        /* Multi-shot, step 2. Appears when the pasted reply is the DJ's
-           draft (no links yet) rather than a playlist. */
-        "<div class='dj-step2' data-testid='dj-step2' hidden>" +
-          "<div class='dj-step2-head'>Step 2 of 2 · The Track Check</div>" +
-          "<div class='dj-step2-what'></div>" +
-          "<button class='dj-trackcheck' data-testid='dj-trackcheck-btn'>⧉ COPY THE TRACK CHECK</button>" +
-          "<div class='dj-note'>Paste it into an AI that can search the web — the same chat is fine. It finds a real YouTube link for every song. Then paste its reply here and import.</div>" +
-        "</div>" +
         "<textarea class='dj-reply' data-testid='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
         /* Link checking used to be a toggle. It is keyless, costs no API
            quota and takes a second — so offering it as a choice only
@@ -170,6 +162,14 @@ var djMenuBoss = {
 
     this.el = menuB.createMenu(DJAI_SVG.replace(/adg/g, 'adgT') + ' DJ AI', main);
     this.el.classList.add('dj-panel');          // this one menu gets a scrollbar
+    /* the wizard: a pop-up card over this panel (never over the player —
+       the panel itself sits below the video) for the steps after "copy" */
+    var wiz = document.createElement('div');
+    wiz.className = 'dj-wiz'; wiz.hidden = true;
+    wiz.setAttribute('data-testid', 'dj-wiz');
+    wiz.setAttribute('role', 'dialog'); wiz.setAttribute('aria-modal', 'true');
+    wiz.innerHTML = "<div class='dj-wiz-card'></div>";
+    this.el.appendChild(wiz);
     menuB.place(this.el, { right:'800px', top:'80px', width:'360px', height:'640px' });
 
     await djAi.ready();
@@ -201,14 +201,15 @@ var djMenuBoss = {
 
   /* ── the two ways to brief ──
      One-shot (state 'speed'): one prompt, the finished playlist comes back.
-     Multi-shot (state 'details'): the DJ brief, then The Track Check. */
+     Multi-shot (state 'details'): a wizard — the DJ brief, the track list,
+     then Link Hunter. */
   renderSubModes(){
     var speed = this.speed();
     this.el.querySelector('.dj-submodes').innerHTML =
       "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed' data-testid='dj-oneshot' " +
         "title='One prompt: the AI picks the songs, finds the YouTube links and sends back the finished playlist'>🎯 One-shot prompt</button>" +
       "<button class='dj-sub" + (speed ? '' : ' on') + "' data-s='details' data-testid='dj-multishot' " +
-        "title='Two prompts: the DJ brief first, then The Track Check finds and verifies the links'>🔁 Multi-shot prompts</button>";
+        "title='Step by step: the DJ brief first, then Link Hunter finds and verifies the links'>🔁 Multi-shot prompts</button>";
   },
 
   /* ── modes ── */
@@ -477,7 +478,7 @@ var djMenuBoss = {
     });
 
     root.querySelector('.dj-pasteback').onclick = function(){ self.pasteBack(this); };
-    root.querySelector('.dj-trackcheck').onclick = function(){ self.copyTrackCheck(); };
+    root.querySelector('.dj-wiz').addEventListener('click', function(e){ self.onWiz(e); });
 
     /* Coming back to the tab is the signal that you have been to an AI.
        Both events are needed: switching tabs fires visibilitychange, while
@@ -492,8 +493,7 @@ var djMenuBoss = {
         var dr = djAi.readDraft(reply.value);
         var pe = root.querySelector('.dj-parsed');
         pe.className = 'dj-parsed';
-        pe.textContent = dr.tracks.length ? 'The DJ’s draft: ' + dr.tracks.length + ' tracks, no links yet — step 2 below' : '';
-        if (dr.tracks.length) self.showStep2(reply.value, true);
+        pe.textContent = dr.tracks.length ? 'A track list: ' + dr.tracks.length + ' tracks, no links yet — press Import to hunt them' : '';
         return;
       }
       var parsed = djAi.parseReply(reply.value);
@@ -577,8 +577,9 @@ var djMenuBoss = {
     /* A follow-up is worth offering for any of the three failures, not
        just dead links — a reply full of Bandcamp urls is the AI ignoring
        the brief, and it can fix that if it is told. */
-    var fixable = dead.length || (rep && (rep.noLink.length || rep.repeated.length));
-    if (fixable) html += "<button class='dj-fix'>⧉ Copy a note asking your AI to fix these</button>";
+    // the "still missing" pop-up (Link Hunter for just these tracks) replaced
+    // the old "copy a note asking your AI to fix these" button
+    var fixable = false;
     box.innerHTML = html;
     if (!fixable) return;
 
@@ -758,7 +759,7 @@ var djMenuBoss = {
     root.querySelector('.dj-copy').textContent = this.speed() ? '⧉ COPY DJ BRIEF' : '⧉ COPY PROMPT 1 · DJ BRIEF';
     root.querySelector('.dj-reply').placeholder = this.speed()
       ? 'Paste AI response here…'
-      : 'Paste the DJ’s draft here (step 1), then The Track Check’s reply (step 2)…';
+      : 'Copy prompt 1 — the steps after it open in a pop-up…';
     root.querySelector('.dj-est').textContent = 'DJ thinking time ' + djAi.estimateLabel();
     // only count what's actually on screen — a section hidden behind More
     // settings isn't something the listener has left blank
@@ -920,28 +921,14 @@ var djMenuBoss = {
         this.bstatus('That’s still the brief — copy what the AI sent back.', 'err');
         return;
       }
-      if (djAi.isDraft(text)){
-        var rb = this.el.querySelector('.dj-reply');
-        rb.value = text;
-        this._armed = false;
-        btn.hidden = true;
-        this.showStep2(text);
-        return;
-      }
-      var items = djAi.parseReply(text).items;
+      var items = djAi.isDraft(text) ? djAi.readDraft(text).tracks : djAi.parseReply(text).items;
       if (!items.length){
         this.bstatus('No playlist in that. Copy the whole reply, including the RIFFROLLED-PLAYLIST block.', 'err');
         return;
       }
-      // Belt and braces for the same trap, and for the commoner one: an AI
-      // with no web search writes the word "YouTube" where the link should
-      // go. The tracks are usually fine — it is only the links that are
-      // missing — so say what to ask for rather than just refusing.
-      if (!items.some(function(i){ return i.ytId || i.url; })){
-        this.bstatus('No YouTube links in that — the tracks are there but the links aren’t. ' +
-                     'Ask your AI to search YouTube for each one and give the real watch URLs.', 'err');
-        return;
-      }
+      /* A track list with no links (a multi-shot draft, or an AI that
+         couldn't search) is not refused any more: importText opens the
+         Link Hunter pop-up for it. */
 
       var box = this.el.querySelector('.dj-reply');
       box.value = text;
@@ -974,6 +961,7 @@ var djMenuBoss = {
         if (!opts.silent) this.status('Brief copied ✓', 'ok');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         this.arm(text);             // offer the one-click paste on the way back
+        if (!this.speed()) this.wizOpen('list', {});      // multi-shot: on to step 2
         return true;
       } catch(e){
         var box = this.el.querySelector('.dj-promptbox') || (function(sec){
@@ -982,6 +970,7 @@ var djMenuBoss = {
         })(this.el.querySelector('.dj-brief-sec'));
         box.value = text; box.select();
         this.status('Select the text below and copy it');
+        if (!this.speed()) this.wizOpen('list', { prompt1: text });
         if (window.appToast) appToast('Clipboard blocked — the prompt is in the box below', 'warn');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         return false;
@@ -992,55 +981,209 @@ var djMenuBoss = {
     } finally { btn.disabled = false; }
   },
 
-  /* Multi-shot step 2: the pasted reply is the DJ's draft. Nothing is
-     imported — there are no links yet. Offer The Track Check instead. */
-  showStep2(text, quiet){
-    var tc = djAi.buildTrackCheck(text);
-    var box = this.el.querySelector('.dj-step2');
-    if (!tc){
-      box.hidden = true;
-      this.bstatus('That looks like the DJ’s draft, but no track lines were readable. They should look like:  1 | Artist | Title | 3:42 | Genre | why', 'err');
-      return false;
-    }
-    this._draftText = text;
-    box.hidden = false;
-    this.el.querySelector('.dj-step2-what').textContent =
-      'The DJ picked ' + tc.draft.tracks.length + ' track' + (tc.draft.tracks.length === 1 ? '' : 's') +
-      (tc.draft.name ? ' for “' + tc.draft.name + '”' : '') + '. They have no links yet.';
-    if (!quiet) this.bstatus('Draft read — copy The Track Check below (step 2).', 'ok');
-    return true;
+  /* ── THE WIZARD ────────────────────────────────────────────────────────
+     A pop-up card over the DJ panel for the steps after "copy":
+
+       multi-shot   1 choose + copy prompt 1   (the panel itself)
+                    2 'list'    paste the AI's track list (no links yet)
+                    3 'hunt'    copy Link Hunter, paste its reply, import
+       either mode  'missing'   the reply was not a full playlist: a Link
+                                Hunter prompt for just the missing tracks,
+                                and what it finds goes back in its place
+
+     Every step says what to do next, and every step can be closed. */
+  wizOpen(step, data){
+    this._wiz = Object.assign(this._wiz && step !== 'list' ? this._wiz : {}, data || {}, { step: step });
+    this.el.querySelector('.dj-wiz').hidden = false;
+    this.wizRender();
+    var t = this.el.querySelector('.dj-wiz textarea:not([readonly])');
+    if (t) setTimeout(function(){ try { t.focus(); } catch(e){} }, 30);
   },
 
-  async copyTrackCheck(){
-    var text = this._draftText || this.el.querySelector('.dj-reply').value;
-    var tc = djAi.buildTrackCheck(text);
-    if (!tc){ this.bstatus('Paste the DJ’s draft first (it starts with RIFFROLLED-DJ-DRAFT).', 'err'); return; }
-    var reply = this.el.querySelector('.dj-reply');
-    try {
-      await navigator.clipboard.writeText(tc.prompt);
-      if (window.appToast) appToast('The Track Check copied — paste it into your AI', 'ok');
-      this.bstatus('The Track Check copied ✓ — paste the AI’s reply here when it comes back.', 'ok');
-      reply.value = '';
-      this.el.querySelector('.dj-parsed').textContent = '';
-      this.arm(tc.prompt);          // the one-click paste on the way back, and "that's still the prompt" if it comes back unchanged
-    } catch(e){
-      var box = this.el.querySelector('.dj-step2 .dj-promptbox') || (function(sec){
-        var t = document.createElement('textarea');
-        t.className = 'dj-promptbox'; t.rows = 6; sec.appendChild(t); return t;
-      })(this.el.querySelector('.dj-step2'));
-      box.value = tc.prompt; box.select();
-      this.bstatus('Clipboard blocked — select the text in the box and copy it.', 'err');
+  wizClose(){
+    this.el.querySelector('.dj-wiz').hidden = true;
+    this._wiz = null;
+  },
+
+  wizMsg(msg, kind){
+    var el = this.el.querySelector('.dj-wiz-msg');
+    if (el){ el.textContent = msg || ''; el.className = 'dj-wiz-msg' + (kind ? ' ' + kind : ''); }
+  },
+
+  wizRender(){
+    var w = this._wiz || {}, html = '';
+    var e = escapeHtml;
+    var head = function(step, title){
+      return "<div class='dj-wiz-head'><span class='dj-wiz-step'>" + e(step) + "</span>" +
+        "<button class='dj-wiz-x' data-a='close' title='Close' aria-label='Close'>✕</button></div>" +
+        "<div class='dj-wiz-title'>" + e(title) + "</div>";
+    };
+    var pasteRow = function(go, goLabel, testid){
+      return "<div class='dj-wiz-row'><button class='dj-wiz-paste' data-a='paste'>📋 Paste from clipboard</button>" +
+        "<button class='dj-wiz-go' data-a='" + go + "' data-testid='" + testid + "'>" + e(goLabel) + "</button></div>";
+    };
+    var sites = "<div class='dj-wiz-sites'>" + DJ_SITES.map(function(s){
+      return "<a href='" + e(s.url) + "' target='_blank' rel='noopener'>" + e(s.label) + " ↗</a>";
+    }).join('') + "</div>";
+
+    if (w.step === 'list'){
+      html = head('Step 2 of 3', 'Get the track list') +
+        "<p>" + (w.prompt1 ? 'Copy prompt 1 from the box below, then paste it into your AI.' : 'Prompt 1 is copied. Paste it into your AI:') + "</p>" +
+        (w.prompt1 ? "<textarea class='dj-wiz-prompt' readonly rows='4'>" + e(w.prompt1) + "</textarea>" : '') + sites +
+        "<p>It answers with a <b>track list</b>: artists and titles, no links yet. Copy its whole reply and paste it here.</p>" +
+        "<textarea class='dj-wiz-in' data-testid='dj-wiz-in' rows='6' placeholder='RIFFROLLED-DJ-DRAFT …'></textarea>" +
+        pasteRow('list-next', 'Next: Link Hunter →', 'dj-wiz-next');
+    } else if (w.step === 'hunt'){
+      var n = (w.list && w.list.tracks.length) || 0;
+      html = head(w.fromOneShot ? 'Links missing' : 'Step 3 of 3', 'Hunt the links') +
+        "<p class='dj-wiz-what'>" + n + ' track' + (n === 1 ? '' : 's') +
+          (w.list && w.list.name ? ' for “' + e(w.list.name) + '”' : '') + (w.fromOneShot ? ' came back without YouTube links.' : ', no links yet.') + "</p>" +
+        "<button class='dj-wiz-copy' data-a='copy-lh' data-testid='dj-wiz-copy'>⧉ COPY LINK HUNTER</button>" +
+        "<textarea class='dj-wiz-prompt' readonly rows='4' hidden></textarea>" +
+        "<p>Paste it into an AI that can <b>search the web</b> — the same chat is fine. It finds a real YouTube link for every track. Then paste its reply here.</p>" +
+        "<textarea class='dj-wiz-in' data-testid='dj-wiz-in' rows='6' placeholder='RIFFROLLED-PLAYLIST …'></textarea>" +
+        pasteRow('hunt-import', '▶ Import playlist', 'dj-wiz-import') +
+        (w.fromOneShot ? "<button class='dj-wiz-alt' data-a='hunt-anyway'>Import anyway — riffrolled will try to find them itself</button>" : '');
+    } else if (w.step === 'missing'){
+      var miss = w.missing || [];
+      html = head('Almost there', miss.length + ' of ' + (w.all ? w.all.length : miss.length) + ' tracks still need a link') +
+        "<p class='dj-wiz-what'>“" + e(w.name || 'Your playlist') + "” is in your playlists with the rest. These are missing:</p>" +
+        "<div class='dj-wiz-list'>" + miss.slice(0, 30).map(function(it){
+          return "<div>" + e((it.artist ? it.artist + ' — ' : '') + (it.title || '')) + "</div>";
+        }).join('') + (miss.length > 30 ? "<div>…and " + (miss.length - 30) + " more</div>" : '') + "</div>" +
+        "<button class='dj-wiz-copy' data-a='copy-lh' data-testid='dj-wiz-copy'>⧉ COPY LINK HUNTER FOR THESE " + miss.length + "</button>" +
+        "<textarea class='dj-wiz-prompt' readonly rows='4' hidden></textarea>" +
+        "<p>Paste it into an AI that can search the web, then paste its reply here. What it finds goes back into the playlist in its own place.</p>" +
+        "<textarea class='dj-wiz-in' data-testid='dj-wiz-in' rows='5' placeholder='RIFFROLLED-PLAYLIST …'></textarea>" +
+        pasteRow('missing-add', '＋ Add them to the playlist', 'dj-wiz-add') +
+        "<button class='dj-wiz-alt' data-a='close'>Done — keep the playlist as it is</button>";
+    }
+    html += "<div class='dj-wiz-msg' role='status' aria-live='polite'></div>";
+    this.el.querySelector('.dj-wiz-card').innerHTML = html;
+  },
+
+  /** the Link Hunter prompt for the step on screen */
+  wizHunterPrompt(){
+    var w = this._wiz || {};
+    if (w.step === 'missing') return djAi.buildLinkHunterFor(w.missing || [], w.name);
+    return w.lhPrompt || '';
+  },
+
+  async onWiz(e){
+    var b = e.target.closest('[data-a]');
+    if (!b || !this._wiz) return;
+    var a = b.dataset.a, self = this, w = this._wiz;
+    var input = this.el.querySelector('.dj-wiz-in');
+    var text = input ? input.value.trim() : '';
+
+    if (a === 'close'){ this.wizClose(); return; }
+
+    if (a === 'paste'){
+      try {
+        var clip = await navigator.clipboard.readText();
+        if (input) input.value = String(clip || '').trim();
+        this.wizMsg(clip ? '' : 'The clipboard is empty — copy the AI’s reply first.', clip ? '' : 'err');
+      } catch(err){ this.wizMsg('Your browser wouldn’t let riffrolled read the clipboard — paste into the box instead.', 'err'); if (input) input.focus(); }
+      return;
+    }
+
+    if (a === 'copy-lh'){
+      var p = this.wizHunterPrompt();
+      try {
+        await navigator.clipboard.writeText(p);
+        this.arm(p);
+        this.wizMsg('Link Hunter copied ✓ — paste it into your AI, then paste its reply below.', 'ok');
+        if (window.appToast) appToast('Link Hunter copied — paste it into your AI', 'ok');
+      } catch(err){
+        var box = this.el.querySelector('.dj-wiz-prompt[hidden]') || this.el.querySelector('.dj-wiz-prompt');
+        if (box){ box.hidden = false; box.value = p; box.select(); }
+        this.wizMsg('Clipboard blocked — select the text in the box and copy it.', 'err');
+      }
+      return;
+    }
+
+    if (a === 'list-next'){
+      if (!text){ this.wizMsg('Paste the AI’s reply first.', 'err'); return; }
+      if (this._sent && text.slice(0, 120) === String(this._sent).slice(0, 120)){ this.wizMsg('That’s still prompt 1 — paste what the AI sent back.', 'err'); return; }
+      var parsed = djAi.parseReply(text);
+      // already a full playlist? then there is nothing to hunt
+      if (!djAi.isDraft(text) && parsed.items.length && parsed.items.every(function(it){ return it.url; })){
+        this.wizClose();
+        this.el.querySelector('.dj-reply').value = text;
+        await this.importReply();
+        return;
+      }
+      var lh = djAi.buildLinkHunter(text);
+      if (!lh){ this.wizMsg('No track list in that. The lines should look like:  1 | Artist | Title | 3:42 | Genre | why', 'err'); return; }
+      this.wizOpen('hunt', { list: lh.draft, lhPrompt: lh.prompt, fromOneShot: false });
+      return;
+    }
+
+    if (a === 'hunt-import' || a === 'hunt-anyway'){
+      if (a === 'hunt-anyway') text = w.raw || '';
+      if (!text){ this.wizMsg('Paste Link Hunter’s reply first.', 'err'); return; }
+      if (a === 'hunt-import' && (djAi.isDraft(text) || (this._sent && text.slice(0, 120) === String(this._sent).slice(0, 120)))){
+        this.wizMsg('That’s still the track list (or the prompt) — paste Link Hunter’s reply, the one with the links.', 'err'); return;
+      }
+      b.disabled = true;
+      this.wizMsg('Checking links…');
+      try { await this.importText(text, { force: a === 'hunt-anyway', wizard: true }); }
+      finally { b.disabled = false; }
+      return;
+    }
+
+    if (a === 'missing-add'){
+      if (!text){ this.wizMsg('Paste Link Hunter’s reply first.', 'err'); return; }
+      var found = djAi.matchFound(w.missing, text);
+      if (!found.length){ this.wizMsg('No links for these tracks in that reply. Paste Link Hunter’s whole reply.', 'err'); return; }
+      b.disabled = true;
+      try {
+        this.wizMsg('Checking ' + found.length + ' link' + (found.length > 1 ? 's' : '') + '…');
+        await djAi.checkLinks(found, function(){});
+        var live = found.filter(function(it){ return !it.dead; });
+        live.forEach(function(it){ it.url = it.url; });
+        if (live.length) await djAi.addFound(w.playlistId, live, w.all);
+        w.missing = w.missing.filter(function(it){ return live.indexOf(it) < 0; });
+        if (window.plBoss && plBoss.activeId === w.playlistId){ await plBoss.renderTracks(); }
+        var dead = found.length - live.length;
+        if (!w.missing.length){
+          this.wizClose();
+          this.bstatus('All tracks found ✓ · ' + live.length + ' added to “' + (w.name || 'your playlist') + '”', 'ok');
+          return;
+        }
+        this.wizRender();
+        this.wizMsg('Added ' + live.length + (dead ? ' · ' + dead + ' of those links don’t exist' : '') + '. ' + w.missing.length + ' still missing — copy Link Hunter again for these, or press Done.', live.length ? 'ok' : 'err');
+      } finally { b.disabled = false; }
     }
   },
 
   async importReply(){
+    return this.importText(this.el.querySelector('.dj-reply').value, {});
+  },
+
+  /* Import a reply. A track list without links (a multi-shot draft, or a
+     one-shot reply from an AI that couldn't search) is not imported: it
+     opens Link Hunter. After an import, anything still without a link
+     opens the "still missing" pop-up. */
+  async importText(raw, opts){
+    opts = opts || {};
     var root = this.el, self = this;
-    var raw = root.querySelector('.dj-reply').value;
-    if (djAi.isDraft(raw)){ this.showStep2(raw); return; }
+    var say = function(msg, kind){ self.bstatus(msg, kind); if (opts.wizard) self.wizMsg(msg, kind); };
+    if (djAi.isDraft(raw)){
+      var lhD = djAi.buildLinkHunter(raw);
+      if (!lhD){ say('That looks like a track list, but no lines were readable. They should look like:  1 | Artist | Title | 3:42 | Genre | why', 'err'); return; }
+      this.wizOpen('hunt', { list: lhD.draft, lhPrompt: lhD.prompt, fromOneShot: false });
+      return;
+    }
     var parsed = djAi.parseReply(raw);
+    if (parsed.items.length && !opts.force && !parsed.items.some(function(it){ return it.url; })){
+      var lh = djAi.buildLinkHunter(raw);
+      this.wizOpen('hunt', { list: lh.draft, lhPrompt: lh.prompt, fromOneShot: true, raw: raw });
+      return;
+    }
 
     if (!parsed.items.length){
-      this.bstatus('Could not read a playlist in that. Paste the whole reply, or ask for the RIFFROLLED-PLAYLIST block again.', 'err');
+      say('Could not read a playlist in that. Paste the whole reply, or ask for the RIFFROLLED-PLAYLIST block again.', 'err');
       return;
     }
     var go = root.querySelector('.dj-go');
@@ -1074,6 +1217,7 @@ var djMenuBoss = {
       this.bstatus('Importing…');
       var saved = await djAi.importPlaylist(parsed, raw);
       if (!saved){
+        if (opts.wizard) this.wizMsg('Nothing playable in that reply — ' + (dead.length ? 'every link was fake.' : 'no track had a YouTube link.'), 'err');
         this.bstatus(dead.length
           ? ('Every link in that reply was fake — ' + dead.length + ' of ' + parsed.items.length +
              ' point at videos that do not exist. The tracks are probably fine; the links are not.')
@@ -1116,9 +1260,19 @@ var djMenuBoss = {
 
       root.querySelector('.dj-reply').value = '';
       root.querySelector('.dj-parsed').textContent = '';
-      root.querySelector('.dj-step2').hidden = true;
-      this._draftText = '';
       if (window.djHistoryBoss) djHistoryBoss.render();
+
+      /* Not a full playlist? Everything that didn't make it — no link,
+         a dead link, a link reused from another track — goes to Link
+         Hunter in one pop-up, and comes back into its own place. */
+      var missing = (R.noLink || []).concat(R.dead || [], R.repeated || []);
+      missing.sort(function(a, b){ return parsed.items.indexOf(a) - parsed.items.indexOf(b); });
+      missing.forEach(function(it){ it.url = ''; });
+      if (missing.length){
+        this.wizOpen('missing', { playlistId: saved.playlistId, all: parsed.items, missing: missing, name: saved.name });
+      } else if (opts.wizard){
+        this.wizClose();
+      }
     } catch(e){
       this.bstatus('Import failed: ' + e.message, 'err');
     } finally {

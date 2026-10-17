@@ -29,7 +29,8 @@ Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 
 ## DJ AI
 - [x] Admin has the two paste prompts (DJ brief, then The Track Check).
-- [x] DJ AI modes are now One-shot prompt (Dan's one-shot prompt) and Multi-shot prompts (DJ brief → The Track Check), the same prompts as the admin.
+- [x] DJ AI modes are now One-shot prompt (Dan's one-shot prompt) and Multi-shot prompts, a pop-up wizard (DJ brief → track list → Link Hunter → import), the same prompts as the admin.
+- [x] Any reply that isn't a full playlist pops up Link Hunter for the missing tracks; found tracks go back in their own places.
 
 ## Icons
 - [ ] New History icon.

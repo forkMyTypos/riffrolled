@@ -201,15 +201,22 @@ var djMenuBoss = {
 
   /* ── the two ways to brief ──
      One-shot (state 'speed'): one prompt, the finished playlist comes back.
-     Multi-shot (state 'details'): a wizard — the DJ brief, the track list,
-     then Link Hunter. */
+     The Riffenator (state 'details', once "multi-shot"): a wizard — the DJ
+     brief, the track list, then Link Hunter. It gives better mixes, and
+     the panel says so. */
   renderSubModes(){
     var speed = this.speed();
     this.el.querySelector('.dj-submodes').innerHTML =
       "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed' data-testid='dj-oneshot' " +
         "title='One prompt: the AI picks the songs, finds the YouTube links and sends back the finished playlist'>🎯 One-shot prompt</button>" +
-      "<button class='dj-sub" + (speed ? '' : ' on') + "' data-s='details' data-testid='dj-multishot' " +
-        "title='Step by step: the DJ brief first, then Link Hunter finds and verifies the links'>🔁 Multi-shot prompts</button>";
+      "<button class='dj-sub dj-sub-riff" + (speed ? '' : ' on') + "' data-s='details' data-testid='dj-multishot' " +
+        "title='Better mixes: a DJ picks the songs, then Link Hunter finds real YouTube links — guided, step by step'>" +
+        "🤖🎸 The Riffenator<span class='dj-better'>BETTER</span></button>" +
+      /* say it, don't just badge it: why the Riffenator is the better choice */
+      "<div class='dj-sub-why' data-testid='dj-sub-why'>" + (speed
+        ? "Quick, but one AI doing everything often makes up links. <b>The Riffenator</b> gets better mixes: a DJ picks the songs, then Link Hunter finds the real YouTube links."
+        : "🤖🎸 <b>The Riffenator</b> — our best mixes. A DJ picks the songs first, then Link Hunter finds the real YouTube links. A pop-up walks you through it.") +
+      "</div>";
   },
 
   /* ── modes ── */
@@ -326,7 +333,9 @@ var djMenuBoss = {
     var opts = (cat.options || []).filter(function(o){ return !o.hidden; });
     if (q) opts = opts.filter(function(o){
       return o.label.toLowerCase().indexOf(q) >= 0 ||
-             (o.tags || []).some(function(t){ return t.indexOf(q) >= 0; });
+             (o.tags || []).some(function(t){ return t.indexOf(q) >= 0; }) ||
+             (o.vibe || []).some(function(t){ return t.indexOf(q) >= 0; }) ||
+             String(o.blurb || '').toLowerCase().indexOf(q) >= 0;
     });
     // favourites first, then what gets used, then the rest alphabetically
     opts.sort(function(a, b){
@@ -339,8 +348,11 @@ var djMenuBoss = {
     box.innerHTML = opts.map(function(o){
       return "<div class='dj-opt" + (o.id === pickedId ? ' on' : '') + "' data-id='" + o.id + "'>" +
         "<button class='dj-fav" + (o.favourite ? ' on' : '') + "' title='Favourite'>" + (o.favourite ? '★' : '☆') + "</button>" +
-        "<span class='dj-opt-label'>" + escapeHtml(o.label) + "</span>" +
-        (o.tags && o.tags.length ? "<span class='dj-opt-tags'>" + escapeHtml(o.tags.slice(0, 3).join(' · ')) + "</span>" : '') +
+        "<span class='dj-opt-label'>" + escapeHtml(o.label) +
+          (o.blurb ? "<span class='dj-opt-blurb'>" + escapeHtml(o.blurb) + "</span>" : '') + "</span>" +
+        // the describing words (Dan's three) where an option has them, else its mood tags
+        ((o.vibe && o.vibe.length) || (o.tags && o.tags.length)
+          ? "<span class='dj-opt-tags'>" + escapeHtml(((o.vibe && o.vibe.length) ? o.vibe : o.tags).slice(0, 3).join(' · ')) + "</span>" : '') +
         "<button class='dj-opt-x' title='" + (o.builtin ? 'Hide this one' : 'Delete') + "'>✕</button>" +
       "</div>";
     }).join('');
@@ -1027,7 +1039,7 @@ var djMenuBoss = {
     }).join('') + "</div>";
 
     if (w.step === 'list'){
-      html = head('Step 2 of 3', 'Get the track list') +
+      html = head('🤖🎸 The Riffenator · Step 2 of 3', 'Get the track list') +
         "<p>" + (w.prompt1 ? 'Copy prompt 1 from the box below, then paste it into your AI.' : 'Prompt 1 is copied. Paste it into your AI:') + "</p>" +
         (w.prompt1 ? "<textarea class='dj-wiz-prompt' readonly rows='4'>" + e(w.prompt1) + "</textarea>" : '') + sites +
         "<p>It answers with a <b>track list</b>: artists and titles, no links yet. Copy its whole reply and paste it here.</p>" +
@@ -1035,23 +1047,24 @@ var djMenuBoss = {
         pasteRow('list-next', 'Next: Link Hunter →', 'dj-wiz-next');
     } else if (w.step === 'hunt'){
       var n = (w.list && w.list.tracks.length) || 0;
-      html = head(w.fromOneShot ? 'Links missing' : 'Step 3 of 3', 'Hunt the links') +
+      html = head(w.noneWorked ? 'No playable links' : (w.fromOneShot ? 'Links missing' : '🤖🎸 The Riffenator · Step 3 of 3'), 'Hunt the links') +
         "<p class='dj-wiz-what'>" + n + ' track' + (n === 1 ? '' : 's') +
-          (w.list && w.list.name ? ' for “' + e(w.list.name) + '”' : '') + (w.fromOneShot ? ' came back without YouTube links.' : ', no links yet.') + "</p>" +
+          (w.list && w.list.name ? ' for “' + e(w.list.name) + '”' : '') +
+          (w.noneWorked ? ' — none of the links could be played, so nothing was imported.' : (w.fromOneShot ? ' came back without YouTube links.' : ', no links yet.')) + "</p>" +
+        this.wizReasonsHtml() +
         "<button class='dj-wiz-copy' data-a='copy-lh' data-testid='dj-wiz-copy'>⧉ COPY LINK HUNTER</button>" +
         "<textarea class='dj-wiz-prompt' readonly rows='4' hidden></textarea>" +
         "<p>Paste it into an AI that can <b>search the web</b> — the same chat is fine. It finds a real YouTube link for every track. Then paste its reply here.</p>" +
         "<textarea class='dj-wiz-in' data-testid='dj-wiz-in' rows='6' placeholder='RIFFROLLED-PLAYLIST …'></textarea>" +
         pasteRow('hunt-import', '▶ Import playlist', 'dj-wiz-import') +
-        (w.fromOneShot ? "<button class='dj-wiz-alt' data-a='hunt-anyway'>Import anyway — riffrolled will try to find them itself</button>" : '');
+        (w.fromOneShot && !w.noneWorked ? "<button class='dj-wiz-alt' data-a='hunt-anyway'>Import anyway — riffrolled will try to find them itself</button>" : '');
     } else if (w.step === 'missing'){
       var miss = w.missing || [];
-      html = head('Almost there', miss.length + ' of ' + (w.all ? w.all.length : miss.length) + ' tracks still need a link') +
-        "<p class='dj-wiz-what'>“" + e(w.name || 'Your playlist') + "” is in your playlists with the rest. These are missing:</p>" +
-        "<div class='dj-wiz-list'>" + miss.slice(0, 30).map(function(it){
-          return "<div>" + e((it.artist ? it.artist + ' — ' : '') + (it.title || '')) + "</div>";
-        }).join('') + (miss.length > 30 ? "<div>…and " + (miss.length - 30) + " more</div>" : '') + "</div>" +
-        "<button class='dj-wiz-copy' data-a='copy-lh' data-testid='dj-wiz-copy'>⧉ COPY LINK HUNTER FOR THESE " + miss.length + "</button>" +
+      html = head('Almost there', miss.length ? miss.length + ' of ' + (w.all ? w.all.length : miss.length) + ' tracks still need a link' : 'Imported — but check these links') +
+        "<p class='dj-wiz-what'>Imported " + (w.imported || 0) + ' of ' + (w.total || 0) + ' into “' + e(w.name || 'your playlist') + '”' +
+          (w.found ? ' · ' + w.found + ' found by riffrolled' : '') + ".</p>" +
+        this.wizReasonsHtml() +
+        (miss.length ? "<button class='dj-wiz-copy' data-a='copy-lh' data-testid='dj-wiz-copy'>⧉ COPY LINK HUNTER FOR THESE " + miss.length + "</button>" : '') +
         "<textarea class='dj-wiz-prompt' readonly rows='4' hidden></textarea>" +
         "<p>Paste it into an AI that can search the web, then paste its reply here. What it finds goes back into the playlist in its own place.</p>" +
         "<textarea class='dj-wiz-in' data-testid='dj-wiz-in' rows='5' placeholder='RIFFROLLED-PLAYLIST …'></textarea>" +
@@ -1060,6 +1073,48 @@ var djMenuBoss = {
     }
     html += "<div class='dj-wiz-msg' role='status' aria-live='polite'></div>";
     this.el.querySelector('.dj-wiz-card').innerHTML = html;
+  },
+
+  /* Why each track didn't make it, grouped the way the old list was — the
+     listener can act on each group differently. Items keep their flags
+     (fake, dead, repeatOf, noLink, mismatch), so this works on any list. */
+  wizReasons(missing, rep, odd){
+    // a track that didn't make it isn't "imported but check it" as well
+    var r = { repeated: [], fake: [], dead: [], noLink: [], odd: (odd || []).filter(function(it){ return (missing || []).indexOf(it) < 0; }) };
+    (missing || []).forEach(function(it){
+      if (it.repeatOf) r.repeated.push(it);
+      else if (it.fake) r.fake.push(it);
+      else if (it.dead) r.dead.push(it);
+      else r.noLink.push(it);
+    });
+    return r;
+  },
+
+  wizReasonsHtml(){
+    var w = this._wiz || {}, R = w.reasons, e = escapeHtml;
+    if (!R) return '';
+    var still = function(list){ return w.step === 'missing' && w.missing ? list.filter(function(it){ return w.missing.indexOf(it) >= 0; }) : list; };
+    var name = function(it){ return (it.artist ? it.artist + ' — ' : '') + (it.title || ''); };
+    var block = function(cls, head, list, extra){
+      if (!list.length) return '';
+      return "<div class='dj-why " + cls + "'><div class='dj-why-head'>" + e(head) + "</div>" +
+        list.slice(0, 20).map(function(it){
+          return "<div class='dj-why-row'>" + e(name(it)) + (extra ? " <span class='dj-why-x'>" + e(extra(it)) + "</span>" : '') + "</div>";
+        }).join('') + (list.length > 20 ? "<div class='dj-why-row'>…and " + (list.length - 20) + " more</div>" : '') + "</div>";
+    };
+    var total = w.total || 0, rep = still(R.repeated), fake = still(R.fake), dead = still(R.dead), nol = still(R.noLink);
+    var plural = function(n, one, many){ return n + ' ' + (n === 1 ? one : many); };
+    return "<div class='dj-wiz-why' data-testid='dj-wiz-why'>" +
+      block('bad', plural(rep.length, 'reuses a link already used for another track', 'reuse a link already used for another track'), rep,
+        function(it){ return '→ same video as ' + it.repeatOf; }) +
+      block('bad', plural(fake.length, 'link looks made up', 'links look made up') + ' — the same pattern repeated across different videos', fake,
+        function(it){ return it.fakeId ? '(' + it.fakeId + ')' : ''; }) +
+      block('bad', dead.length + ' of ' + total + ' links point at videos that don’t exist', dead) +
+      block('bad', plural(nol.length, 'track', 'tracks') + ' had no YouTube link and riffrolled couldn’t find one', nol,
+        function(it){ return it.noLink ? '(' + it.noLink + ')' : ''; }) +
+      block('odd', plural(R.odd.length, 'link', 'links') + ' may play something else — they were imported, check them', R.odd,
+        function(it){ return '→ ' + (it.mismatch || ''); }) +
+    "</div>";
   },
 
   /** the Link Hunter prompt for the step on screen */
@@ -1193,6 +1248,7 @@ var djMenuBoss = {
       /* Check the links before anything is imported. An AI will claim it
          searched YouTube and hand back invented ids — this is free to
          verify, so there is no reason to find out on the deck. */
+      djAi.flagInvented(parsed.items);
       this.bstatus('Checking links…');
       var report = await djAi.checkLinks(parsed.items, function(done, total, label){
         self.bstatus('Checking link ' + done + '/' + total + (label ? ' · ' + label : '') + '…');
@@ -1210,14 +1266,18 @@ var djMenuBoss = {
       var dead = parsed.items.filter(function(it){ return it.dead; });
       var odd = parsed.items.filter(function(it){ return it.mismatch; });
       var rep = djAi.importReport(parsed.items);
-      if (dead.length || odd.length || rep.noLink.length || rep.repeated.length){
-        this.renderDead(dead, odd, parsed.items.length, rep);
-      }
+      // the breakdown now lives in the pop-up (see wizReasons), not under the box
+      root.querySelector('.dj-deadlist').innerHTML = '';
 
       this.bstatus('Importing…');
       var saved = await djAi.importPlaylist(parsed, raw);
       if (!saved){
-        if (opts.wizard) this.wizMsg('Nothing playable in that reply — ' + (dead.length ? 'every link was fake.' : 'no track had a YouTube link.'), 'err');
+        /* Nothing playable at all: say why, track by track, and hand over
+           Link Hunter for the whole set rather than a one-line error. */
+        var allBad = parsed.items.slice();
+        allBad.forEach(function(it){ it.url = ''; });
+        this.wizOpen('hunt', { list: { name: parsed.name, tracks: allBad }, lhPrompt: djAi.buildLinkHunterFor(allBad, parsed.name),
+          fromOneShot: true, noneWorked: true, raw: '', reasons: this.wizReasons(allBad, rep, odd), total: allBad.length, imported: 0 });
         this.bstatus(dead.length
           ? ('Every link in that reply was fake — ' + dead.length + ' of ' + parsed.items.length +
              ' point at videos that do not exist. The tracks are probably fine; the links are not.')
@@ -1268,8 +1328,9 @@ var djMenuBoss = {
       var missing = (R.noLink || []).concat(R.dead || [], R.repeated || []);
       missing.sort(function(a, b){ return parsed.items.indexOf(a) - parsed.items.indexOf(b); });
       missing.forEach(function(it){ it.url = ''; });
-      if (missing.length){
-        this.wizOpen('missing', { playlistId: saved.playlistId, all: parsed.items, missing: missing, name: saved.name });
+      if (missing.length || odd.length){
+        this.wizOpen('missing', { playlistId: saved.playlistId, all: parsed.items, missing: missing, name: saved.name,
+          reasons: this.wizReasons(missing, R, odd), total: R.total, imported: saved.count, found: (found && found.found) || 0 });
       } else if (opts.wizard){
         this.wizClose();
       }

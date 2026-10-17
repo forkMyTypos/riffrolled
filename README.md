@@ -51,18 +51,31 @@ record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
 The DJ AI has two ways to brief an AI. **One-shot prompt** (`DJ_ONESHOT_PROMPT`): one
 prompt; the AI curates the mix, finds and verifies the YouTube links itself and replies
 with a finished `RIFFROLLED-PLAYLIST` (`Artist - Title | link | m:ss | genre` lines under
-NAME / ABOUT / GENRE / TRACKS). **Multi-shot prompts** is a wizard: choose, copy prompt 1
+NAME / ABOUT / GENRE / TRACKS). **The Riffenator 🤖🎸** (once "multi-shot"; marked BETTER in the panel, which says why) is a wizard: choose, copy prompt 1
 (the DJ brief, `DJ_MULTI_PROMPT`), and a pop-up takes over — step 2 pastes the AI's track
 list (a `RIFFROLLED-DJ-DRAFT`, no links), step 3 copies **Link Hunter**
 (`DJ_LINK_HUNTER_PROMPT`) and imports its reply. Whatever the mode, a reply that isn't a
 full playlist opens a pop-up: no links at all → Link Hunter for every track (nothing is
 imported yet); some missing (NOT FOUND, SEARCH FAILED, dead or reused links) → the rest is
 imported and Link Hunter is offered for just the missing ones, which go back into their
-own places. The wizard lives inside the DJ panel, so it can never cover the player. The
+own places. The pop-up also says why each track didn't make it, grouped: reused links
+("→ same video as …"), links that look made up (`djAi.flagInvented`: two different ids
+sharing a run of five characters is a fabrication tell — a real reply had 13 of 15 like
+"…h1x2jZ0"), dead links, NOT FOUND / SEARCH FAILED, and links that play something else
+(imported, but flagged to check). The wizard lives inside the DJ panel, so it can never
+cover the player. The
 multi-shot texts are word for word the admin tool's `dj_brief_prompt.txt` and
 `track_check_prompt.txt` (its tests check), and `THE BRIEF` is filled in from the
 listener's choices. Internally the modes are still called `speed` (one-shot) and
-`details` (multi-shot), so saved settings carry over.
+`details` (the Riffenator), so saved settings carry over.
+
+The DJ's choices (`DJ_CATEGORIES` in dj-data.js) are the Riffenator vocabulary: each option
+has `vibe` (its three describing words, shown in the menu and handed to the AI), `tags`
+(those words mapped onto the 29 mood words in src/tags.js — what Riff Roll weights by and
+promotions match on; the lint suite checks they stay in that set), and personalities a
+`blurb`. `djAi.seed()` brings existing listeners up to date: new options are added, kept
+built-ins take the new wording but keep favourites, built-ins that left the list are hidden
+(`retired`), and a listener's own options are never touched. DJ AI is first in the dock.
 
 The promoted pop-up is a bare spinning record (no box) with the video's
 picture as the label. The title and the Play / Add / Close buttons appear only

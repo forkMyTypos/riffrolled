@@ -273,7 +273,7 @@ var dock = {
 
   /* Panels a newcomer on a phone gets in the tab bar. Everything else is
      things you go looking for, behind ⋯. */
-  FIRST_MINUTE: ['Playlist', 'Search', 'DJ AI'],
+  FIRST_MINUTE: ['DJ AI', 'Playlist', 'Search'],
   _moreOpen: false,
 
   // is the phone tab bar currently the short, new-here one?
@@ -475,13 +475,14 @@ dock.build([
   // every panel starts closed: the deck is the first thing you should see, and a
   // panel that is visible before the saved layout has loaded flashes at the left
   // edge and then jumps. Nothing open means nothing to jump.
+  // DJ AI first: it is riffrolled's best feature
+  { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
   { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, startHidden:true, group:'music', accent:'#9d8cff' },
   { iconSvg: MIXES_SVG, label:'Mixes', el: mixesBoss.el, startHidden:true, group:'music', accent:'#ffb86b' },
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
   { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
-  { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
   { icon:'🕘', label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
   // Track info has no dock button: it is one tap from the ℹ on any
   // playlist row or the deck, and it pops up by itself when a track

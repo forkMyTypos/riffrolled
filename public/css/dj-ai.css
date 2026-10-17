@@ -294,7 +294,7 @@ body.mobile .dj-sec-value { max-width:45%; }
 /* ── speed / details ──────────────────────────────────────────────────
    Two ways to brief the same DJ. Speed asks four things and gets out of
    the way; details is the full desk. */
-.dj-submodes { display:flex; gap:5px; padding:4px 8px 2px; }
+.dj-submodes { display:flex; flex-wrap:wrap; gap:5px; padding:4px 8px 2px; }
 
 .dj-sub {
   flex:1; font-size:11.5px; font-weight:600; padding:7px 6px; border-radius:7px;
@@ -495,3 +495,21 @@ body.mobile .dj-open { padding:7px 11px; font-size:12px; }
 .dj-wiz-msg { font-size:11.5px; color:rgba(255,255,255,0.6); min-height:1em; }
 .dj-wiz-msg.ok { color:#7bd88f; } .dj-wiz-msg.err { color:#ff9a9a; }
 body.mobile .dj-wiz { top:48px; }
+.dj-wiz-why { display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto; }
+.dj-why { background:rgba(0,0,0,0.25); border-radius:8px; padding:6px 8px; border-left:3px solid #d46060; }
+.dj-why.odd { border-left-color:#e0a34d; }
+.dj-why-head { font-size:11.5px; font-weight:700; color:#ff9a9a; margin-bottom:2px; }
+.dj-why.odd .dj-why-head { color:#ffcf8a; }
+.dj-why-row { font-size:12px; color:rgba(255,255,255,0.85); line-height:1.5; }
+.dj-why-x { color:rgba(255,255,255,0.45); font-size:11px; }
+
+/* The Riffenator: say it's the better way, not just badge it */
+.dj-sub-riff { position:relative; }
+.dj-better { margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.08em; padding:1px 5px; border-radius:6px;
+  background:linear-gradient(135deg,#ffcc4d,#ff8a3d); color:#1a1020; vertical-align:middle; }
+.dj-sub-why { flex-basis:100%; font-size:11px; line-height:1.45; color:rgba(255,255,255,0.65); padding:4px 2px 0; }
+.dj-sub-why b { color:#ffd27a; }
+.dj-opt-blurb { display:block; font-size:10.5px; font-weight:400; color:rgba(255,255,255,0.5); line-height:1.35; margin-top:1px; }
+.dj-opt-label { min-width:0; }
+.dj-opt-blurb { white-space:normal; overflow:visible; }
+.dj-opt-tags { color:rgba(255,255,255,0.38); flex-shrink:1; min-width:0; overflow:hidden; text-overflow:ellipsis; max-width:42%; }

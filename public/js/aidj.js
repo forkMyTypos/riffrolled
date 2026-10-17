@@ -81,7 +81,8 @@ var djAi = {
     // anything picked that has since been deleted quietly clears
     var self = this;
     Object.keys(this.state.picks).forEach(function(k){
-      if (!self.optionById(self.state.picks[k])) delete self.state.picks[k];
+      var o = self.optionById(self.state.picks[k]);
+      if (!o || o.retired) delete self.state.picks[k];
     });
     return this.cats;
   },
@@ -126,16 +127,40 @@ var djAi = {
           note: c.note || '', placeholder: c.placeholder || 'Pick one…'
         });
         var had = await db.djOptions.where('categoryId').equals(catId).toArray();
-        var have = {};
-        had.forEach(function(o){ have[o.label] = true; });
+        var have = {}, inList = {};
+        had.forEach(function(o){ have[o.label] = o; });
         for (var j = 0; j < c.options.length; j++){
           var o = c.options[j];
-          if (have[o.label]) continue;
+          inList[o.label] = true;
+          var row = have[o.label];
+          if (row){
+            /* A built-in the listener already has: keep their favourite,
+               use count and hidden choice, but take the current wording —
+               the vocabulary is refined over time (vibe words, one-liners,
+               the sentence handed to the AI). A retired built-in that is
+               back in the list comes back. */
+            if (row.builtin && !row.any){
+              var upd = { tags: o.tags || [], line: o.line || '', vibe: o.vibe || [], blurb: o.blurb || '' };
+              if (row.retired){ upd.retired = false; upd.hidden = false; }
+              await db.djOptions.update(row.id, upd);
+            }
+            continue;
+          }
           await db.djOptions.add({
             categoryId: catId, label: o.label, tags: o.tags || [],
-            line: o.line || '', builtin: true, hidden: false,
+            line: o.line || '', vibe: o.vibe || [], blurb: o.blurb || '', builtin: true, hidden: false,
             favourite: 0, useCount: 0, lastTs: 0
           });
+        }
+        /* Built-ins that left the list ("Fucking about" became "Messing
+           about") are retired: hidden, not deleted, so a favourite or a
+           saved brief that names one still reads. The listener's own
+           options are never touched. */
+        for (var k = 0; k < had.length; k++){
+          var h = had[k];
+          if (h.builtin && !h.any && !inList[h.label] && !h.retired){
+            await db.djOptions.update(h.id, { hidden: true, retired: true });
+          }
         }
       }
     });
@@ -597,7 +622,8 @@ var djAi = {
     var o = this.effective(key);
     if (!o) return { label:'', text:'', any:true };
     var any = !!o.any || /^(any era|don[’']t care|don[’']t mind|nothing special)$/i.test(o.label);
-    return { label:o.label, line:o.line || '', any:any, text: any ? (o.line || o.label) : o.label };
+    return { label:o.label, line:o.line || '', any:any, text: any ? (o.line || o.label) : o.label,
+             vibe: (o.vibe && o.vibe.length) ? o.vibe.join(' · ') : '' };
   },
 
   _chaosLine(){
@@ -618,13 +644,13 @@ var djAi = {
     var line = function(label, key, extra){
       var v = self._say(key);
       if (!v) return;
-      L.push(label + ': ' + (v.text || 'your choice') + (extra && !v.any ? extra : ''));
+      L.push(label + ': ' + (v.text || 'your choice') + (!v.any && v.vibe ? ' (' + v.vibe + ')' : '') + (extra && !v.any ? extra : ''));
     };
     line('What are you doing', 'activity');
     line('How it should feel', 'feel');
     line('Where to go', 'direction', ' (a starting coordinate, not a genre fence)');
     var d = this._say('discovery');
-    if (d) L.push('Discovery: ' + (d.label || "Don't care"));
+    if (d) L.push('Discovery: ' + (d.label || "Don't care") + (d.line && !d.any ? ' — ' + d.line : ''));
     var p = this._say('personality');
     if (p) L.push('DJ personality: ' + (p.any ? p.text : p.label + (p.line ? ' — ' + p.line : '')));
     // energy, era, speed and anything the listener added: only when switched on and actually chosen
@@ -695,9 +721,14 @@ var djAi = {
     };
     var say = function(key){ var v = self._say(key); return v ? (v.any ? v.text : (v.line || v.label)) : ''; };
     var dir = this._say('direction');
-    sec('WHAT ARE YOU DOING?', [say('activity')]);
-    sec('HOW DO YOU WANT IT TO FEEL?', [this._say('feel') ? (this._say('feel').any ? this._say('feel').text : this._say('feel').label) : '']);
-    sec('WHERE SHOULD WE GO?', [dir ? (dir.any ? dir.text : dir.label) : '', 'A starting coordinate, not a genre filter. You are allowed to wander.']);
+    var withVibe = function(key){
+      var v = self._say(key);
+      if (!v) return '';
+      return v.any ? v.text : (v.line && v.line !== v.label ? v.line : v.label) + (v.vibe ? ' — ' + v.vibe : '');
+    };
+    sec('WHAT ARE YOU DOING?', [withVibe('activity')]);
+    sec('HOW DO YOU WANT IT TO FEEL?', [withVibe('feel')]);
+    sec('WHERE SHOULD WE GO?', [dir ? withVibe('direction') : '', 'A starting coordinate, not a genre filter. You are allowed to wander.']);
     var d = this._say('discovery');
     sec('DISCOVERY', [d && !d.any ? (d.line || d.label) : 'No particular discovery brief — just make it good.',
       'Do not turn this into an obscure-music exercise. A great song from a known artist is welcome when it improves the journey.']);
@@ -823,7 +854,7 @@ var djAi = {
     var found = [];
     want.forEach(function(w, i){
       var g = byKey[key(w)] || (got[i] && got[i].url && !byKey[key(got[i])] ? got[i] : null);
-      if (g && g.url){ w.url = g.url; w.dead = false; if (!w.secs && g.secs) w.secs = g.secs; found.push(w); }
+      if (g && g.url){ w.url = g.url; w.dead = false; w.fake = false; w.repeatOf = ''; w.noLink = ''; if (!w.secs && g.secs) w.secs = g.secs; found.push(w); }
     });
     return found;
   },
@@ -1268,11 +1299,43 @@ var djAi = {
 
      Runs in the browser, one request per track, and degrades to "assume
      it's fine" if the network is down rather than blocking the import. */
+  /* Invented ids give themselves away. A real YouTube id is 11 random
+     characters, so two different ids in one reply sharing a run of five
+     characters is roughly a one-in-a-hundred-thousand coincidence. An AI
+     making ids up, though, writes "5Vj6h1x2jZ0", "4Jv6h1x2jZ0", "3Jv6h1x2jZ0"…
+     — a real reply did exactly that for 13 of 15 tracks. Flagged tracks are
+     treated like dead links: their url is dropped and riffrolled looks the
+     track up itself. Returns how many were flagged. */
+  flagInvented(items){
+    var ids = {}, grams = {};
+    items.forEach(function(it){ if (it.url && it.url.length === 11) ids[it.url] = 1; });
+    Object.keys(ids).forEach(function(id){
+      var seen = {};
+      for (var i = 0; i + 5 <= id.length; i++){
+        var g = id.slice(i, i + 5);
+        if (seen[g]) continue;
+        seen[g] = 1;
+        (grams[g] = grams[g] || []).push(id);
+      }
+    });
+    var bad = {}, pattern = {};
+    Object.keys(grams).forEach(function(g){
+      if (grams[g].length < 2) return;
+      grams[g].forEach(function(id){ bad[id] = 1; if (!pattern[id] || pattern[id].length < g.length) pattern[id] = g; });
+    });
+    var n = 0;
+    items.forEach(function(it){
+      if (it.url && bad[it.url]){ it.fake = true; it.fakeId = it.url; it.fakePattern = pattern[it.url]; it.dead = true; n++; }
+    });
+    return n;
+  },
+
   async checkLinks(items, onProgress){
     var report = { checked:0, live:0, dead:0, renamed:0, offline:false };
     var progress = onProgress || function(){};
     for (var i = 0; i < items.length; i++){
       var it = items[i];
+      if (it.fake){ it.dead = true; report.fake = (report.fake || 0) + 1; continue; }   // invented — no need to ask YouTube
       it.dead = false;
       if (!it.url) continue;
       progress(i + 1, items.length, it.title || it.artist);
@@ -1488,6 +1551,7 @@ var djAi = {
            flag set would have it reported as dead and then dropped by
            importPlaylist — found and discarded in the same breath. */
         it.dead = false;
+        it.fake = false;
         it.resolvedVia = res.via || 'resolve';
         if (res.name && !it.title) it.title = res.name;
         found++;

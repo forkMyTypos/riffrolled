@@ -30,6 +30,8 @@ Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 ## DJ AI
 - [x] Admin has the two paste prompts (DJ brief, then The Track Check).
 - [x] DJ AI modes are now One-shot prompt (Dan's one-shot prompt) and Multi-shot prompts, a pop-up wizard (DJ brief → track list → Link Hunter → import), the same prompts as the admin.
+- [x] Multi-shot is now **The Riffenator 🤖🎸**, marked BETTER, with the full Riffenator vocabulary (≈230 options with describing words and personality one-liners).
+- [x] DJ AI is first in the dock / tab bar.
 - [x] Any reply that isn't a full playlist pops up Link Hunter for the missing tracks; found tracks go back in their own places.
 
 ## Icons

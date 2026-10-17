@@ -50,6 +50,15 @@
 .mx-tracks[hidden] { display:none; }
 .mx-tl { margin:0; padding-left:20px; font-size:11.5px; color:rgba(255,255,255,0.75); line-height:1.55; max-height:160px; overflow-y:auto; }
 .mx-ta { color:rgba(255,255,255,0.5); }
+.mx-brief { margin:2px 0 8px; padding:7px 8px; border-radius:8px; background:rgba(255,184,107,0.07); border:1px solid rgba(255,184,107,0.18); }
+.mx-bh { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.45); margin-bottom:5px; }
+.mx-bchips { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px; }
+.mx-bchip { font-size:11px; color:#ffe2c2; background:rgba(255,184,107,0.14); border-radius:9px; padding:1px 8px; }
+.mx-bk { color:rgba(255,255,255,0.5); font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-right:2px; }
+.mx-bfacts, .mx-bnote { font-size:11px; color:rgba(255,255,255,0.6); margin-top:5px; line-height:1.45; }
+.mx-why { font-size:10.5px; color:rgba(255,255,255,0.45); line-height:1.4; margin:0 0 3px; }
+.mx-chk { display:flex; gap:8px; align-items:flex-start; font-size:11.5px; color:rgba(255,255,255,0.7); line-height:1.4; }
+.mx-chk[hidden] { display:none; }
 .mx-report { margin-top:6px; background:transparent; border:0; color:rgba(255,255,255,0.4); font-size:11px; cursor:pointer; padding:2px 0; }
 .mx-report:hover { color:#d46060; }
 .mx-loadmore { align-self:center; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:7px; padding:5px 14px; font-size:12px; cursor:pointer; }

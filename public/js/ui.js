@@ -87,7 +87,8 @@ function appToast(msg, kind){
 }
 
 let z=10;
-// panels stay below the deck (z-index:60) so the record player is never covered by a menu
+// panels stay below the VIDEO (z-index:60, see deck.css) so the player is never covered by a menu;
+// they may cover the rest of the record player
 function bringToFront(el){ el.style.zIndex = Math.min(++z, 50); }
 
 function makeDraggableEle(panel,handle){

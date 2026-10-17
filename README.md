@@ -104,7 +104,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":19`).
+the tables are missing (`/api/health` should show `"schema":20`).
 
 ## Endpoints
 
@@ -115,8 +115,8 @@ the tables are missing (`/api/health` should show `"schema":19`).
 | POST   | /api/track              | `{name,url,artist?,genre?}`       | the created/existing track |
 | POST   | /api/resolve            | `{items:[{artist,title,videoId?,verified?}], allowYouTube?}` | `{results:[{i,ok,via,url,name,artist}], lookups_used, lookups_left}` |
 | GET    | /api/mixes?kind=&sort=&genre=&q=&limit=&offset= | — | `{mixes:[{id,name,blurb,genre,tracks,plays,cover,artists}]}` |
-| GET    | /api/mixes/:id          | —                                 | the mix and its `items` |
-| POST   | /api/mixes/share        | `{name,blurb?,genre?,tracks:[{name,artist,genre,url}]}` | `201 {id}` or `{existing:true,id}`; 429 `daily_limit` |
+| GET    | /api/mixes/:id          | —                                 | the mix, its `items` (each with the DJ's one-line `note`) and `brief` (the DJ AI choices that made it, or null) |
+| POST   | /api/mixes/share        | `{name,blurb?,genre?,brief?,tracks:[{name,artist,genre,url}]}` | `201 {id}` or `{existing:true,id}`; 429 `daily_limit` |
 | POST   | /api/mixes/:id/play · /report | —                           | counters; a report is one per person |
 | POST   | /api/playlist/save      | `{name, tracks:[{name,artist,genre,url}]}` | `{id, name, tracks}` — riffrolled's own copy of a set |
 | GET    | /api/config             | —                                 | the handful of settings the UI needs, plus the mood vocabulary |

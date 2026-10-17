@@ -88,6 +88,7 @@ var mixesBoss = {
           "<label class='mx-lbl'>Name<input type='text' class='mx-sh-name' maxlength='80' data-testid='mx-share-name'></label>" +
           "<label class='mx-lbl'>One line about it (optional)<input type='text' class='mx-sh-blurb' maxlength='200'></label>" +
           "<label class='mx-lbl'>Genre (optional)<select class='mx-sh-genre'>" + shareGenre + "</select></label>" +
+          "<label class='mx-chk mx-sh-briefrow' hidden><input type='checkbox' class='mx-sh-brief' checked> <span>Show the DJ AI choices that made this (what you were doing, the feeling, the direction…) next to the mix</span></label>" +
           "<p class='mx-fine mx-sh-what'></p>" +
           "<div class='mx-sh-btns'><button class='mx-sh-go' data-testid='mx-share-go'>Share</button><button class='mx-sh-cancel'>Cancel</button></div>" +
         "</div>" +
@@ -232,6 +233,49 @@ var mixesBoss = {
     if (e.target.closest('.mx-tog') || e.target.closest('.mx-name')) return this.toggle(card, id);
   },
 
+  /* The DJ AI choices that may travel with a shared mix: which options were
+     picked, the familiarity and the length. Never whether the listener let the
+     AI see their library — that is theirs. The server rebuilds it again. */
+  shareableBrief(b){
+    if (!b || typeof b !== 'object' || !b.picks) return null;
+    var out = { picks: {} };
+    Object.keys(b.picks).slice(0, 12).forEach(function(k){ if (b.picks[k]) out.picks[k] = String(b.picks[k]).slice(0, 80); });
+    ['familiarity', 'count', 'minutes', 'maxTrackMin'].forEach(function(k){ if (typeof b[k] === 'number') out[k] = b[k]; });
+    if (b.chaos) out.chaos = true;
+    return Object.keys(out.picks).length || typeof out.familiarity === 'number' ? out : null;
+  },
+
+  BRIEF_ORDER: ['activity', 'feel', 'direction', 'discovery', 'personality', 'energy', 'era', 'speed'],
+  BRIEF_LABEL: { activity: 'Doing', feel: 'Feel', direction: 'Direction', discovery: 'Discovery', personality: 'DJ',
+                 energy: 'Energy', era: 'Era', speed: 'Speed' },
+
+  /** "How it was made": the choices behind a mix, as small labelled chips. Text only. */
+  briefHtml(b){
+    if (!b) return '';
+    var self = this, chips = [];
+    var keys = Object.keys(b.picks || {});
+    keys.sort(function(a, c){
+      var i = self.BRIEF_ORDER.indexOf(a), j = self.BRIEF_ORDER.indexOf(c);
+      return (i < 0 ? 99 : i) - (j < 0 ? 99 : j);
+    });
+    keys.forEach(function(k){
+      var lab = self.BRIEF_LABEL[k] || (k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '));
+      chips.push("<li class='mx-bchip'><span class='mx-bk'>" + escapeHtml(lab) + "</span> " + escapeHtml(b.picks[k]) + "</li>");
+    });
+    var facts = [];
+    if (typeof b.familiarity === 'number') facts.push(b.familiarity + '% familiar, ' + (100 - b.familiarity) + '% discovery');
+    if (b.chaos) facts.push('chaos mode');
+    if (b.count) facts.push(b.count + ' tracks');
+    if (b.minutes) facts.push('about ' + b.minutes + ' min');
+    var more = '';
+    if (b.journey) more += "<div class='mx-bnote'><span class='mx-bk'>The journey</span> " + escapeHtml(b.journey) + "</div>";
+    if (b.avoid) more += "<div class='mx-bnote'><span class='mx-bk'>Avoid</span> " + escapeHtml(b.avoid) + "</div>";
+    if (!chips.length && !facts.length && !more) return '';
+    return "<div class='mx-brief' data-testid='mx-brief'><div class='mx-bh'>How it was made</div>" +
+      (chips.length ? "<ul class='mx-bchips'>" + chips.join('') + "</ul>" : '') +
+      (facts.length ? "<div class='mx-bfacts'>" + escapeHtml(facts.join(' · ')) + "</div>" : '') + more + "</div>";
+  },
+
   async fetchMix(id){
     var r = await fetch('/api/mixes/' + id);
     if (r.status === 404) throw new Error('That mix is no longer there');
@@ -248,8 +292,9 @@ var mixesBoss = {
     try {
       var m = await this.fetchMix(id);
       box.dataset.loaded = '1';
-      box.innerHTML = "<ol class='mx-tl'>" + m.items.map(function(t){
-        return "<li>" + (t.artist ? "<span class='mx-ta'>" + escapeHtml(t.artist) + "</span> — " : '') + escapeHtml(t.name || t.ytId) + "</li>";
+      box.innerHTML = this.briefHtml(m.brief) + "<ol class='mx-tl'>" + m.items.map(function(t){
+        return "<li>" + (t.artist ? "<span class='mx-ta'>" + escapeHtml(t.artist) + "</span> — " : '') + escapeHtml(t.name || t.ytId) +
+          (t.note ? "<div class='mx-why'>" + escapeHtml(t.note) + "</div>" : '') + "</li>";
       }).join('') + "</ol>" +
       (m.kind === 'community' ? "<button class='mx-report' title='Tell riffrolled this mix shouldn’t be here'>⚑ Report this mix</button>" : '');
     } catch(err){ box.innerHTML = "<div class='mx-fine'>" + escapeHtml(err.message) + "</div>"; }
@@ -333,7 +378,7 @@ var mixesBoss = {
     if (rows.length < this.MIN_TRACKS){
       appNotify('A mix needs at least ' + this.MIN_TRACKS + ' tracks that play', 'warn'); return;
     }
-    this._shareFor = { id: id, rows: rows.slice(0, 50) };
+    this._shareFor = { id: id, rows: rows.slice(0, 50), brief: this.shareableBrief(pl.aiBrief) };
     this.open();
     this.choose('share');
     var el = this.el;
@@ -341,6 +386,9 @@ var mixesBoss = {
     el.querySelector('.mx-sh-blurb').value = '';
     var g = rows.map(function(r){ return r.genre; }).filter(Boolean)[0] || '';
     el.querySelector('.mx-sh-genre').value = g;
+    var bRow = el.querySelector('.mx-sh-briefrow');
+    bRow.hidden = !this._shareFor.brief;
+    el.querySelector('.mx-sh-brief').checked = true;
     el.querySelector('.mx-sh-what').textContent =
       this._shareFor.rows.length + ' tracks will be shared: their titles, artists and YouTube links, in this order, with the name above. ' +
       'Nothing about you goes with it — riffrolled doesn’t know who you are. Anyone will be able to play it.';
@@ -361,6 +409,7 @@ var mixesBoss = {
           name: name,
           blurb: el.querySelector('.mx-sh-blurb').value.trim(),
           genre: el.querySelector('.mx-sh-genre').value,
+          brief: (s.brief && el.querySelector('.mx-sh-brief').checked) ? s.brief : undefined,
           tracks: s.rows.map(function(t){
             return { name: t.name || '', artist: t.artist || '', genre: t.genre || '', url: 'https://www.youtube.com/watch?v=' + t.ytId };
           })

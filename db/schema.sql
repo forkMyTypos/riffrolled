@@ -122,12 +122,14 @@ CREATE TABLE IF NOT EXISTS mixes (
   sort INTEGER NOT NULL DEFAULT 0,
   plays INTEGER NOT NULL DEFAULT 0,
   reports INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT ''
+  created_at TEXT NOT NULL DEFAULT '',
+  brief TEXT NOT NULL DEFAULT ''          -- the DJ AI choices, as JSON (migration 20)
 );
 CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != '';
 CREATE TABLE IF NOT EXISTS mix_tracks (
-  mix_id INTEGER NOT NULL, track_id INTEGER NOT NULL, position INTEGER NOT NULL DEFAULT 0
+  mix_id INTEGER NOT NULL, track_id INTEGER NOT NULL, position INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL DEFAULT ''           -- the DJ's one-line reason (migration 20)
 );
 CREATE INDEX IF NOT EXISTS idx_mix_tracks ON mix_tracks(mix_id, position);
 CREATE TABLE IF NOT EXISTS mix_reports (

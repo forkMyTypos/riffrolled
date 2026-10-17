@@ -324,6 +324,18 @@ const MIGRATIONS = [
        day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0,
        PRIMARY KEY (day, who))`,
   ]},
+
+  { id: 20, name: 'mix-brief', sql: [
+    /* What a mix was made from. `brief` is the DJ AI choices as a small JSON
+       object (activity, feel, direction… plus familiarity and length), written
+       by the admin tool for premade mixes and, only when the listener ticks
+       the box, by the Share sheet for community ones. It is read back as data
+       and shown as chips — never as markup. `note` is the one-line "why this
+       track is here" the DJ gave, kept with the track's place in THIS mix
+       (the track itself lives in the shared catalogue). Both are optional. */
+    `ALTER TABLE mixes ADD COLUMN brief TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE mix_tracks ADD COLUMN note TEXT NOT NULL DEFAULT ''`,
+  ]},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

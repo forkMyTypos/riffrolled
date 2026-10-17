@@ -2,7 +2,7 @@
 //
 //   GET  /api/mixes?kind=premade|community&sort=new|popular&genre=&q=&limit=&offset=
 //   GET  /api/mixes/:id                 the mix and its tracks, in order
-//   POST /api/mixes/share               a listener shares a mix (community)
+//   POST /api/mixes/share               a listener shares a mix (community); may carry the DJ AI choices as `brief`
 //   POST /api/mixes/:id/play            a play, for the Popular sort
 //   POST /api/mixes/:id/report          "this shouldn't be here"
 //
@@ -61,6 +61,51 @@ export function cleanName(raw) {
 export function cleanBlurb(raw) {
   const s = String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
   return /https?:|www\./i.test(s) ? '' : s;
+}
+
+/* THE BRIEF — what a mix was made from (the DJ AI choices).
+   It arrives from the page (Share) or from the owner's admin tool, so it is
+   rebuilt here from a whitelist rather than stored as sent: a handful of
+   short plain-text picks, two numbers and a flag. Anything else is dropped.
+   It is shown as chips and never as markup, and it holds no listening
+   history — `sharedContext` (whether the listener let the AI see their
+   library) is deliberately not part of it. */
+const BRIEF_KEY = /^[a-z][a-z0-9_]{0,23}$/;
+export function cleanBrief(raw) {
+  let b = raw;
+  if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { return null; } }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+  const text = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const num = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+  const picks = {};
+  const src = b.picks && typeof b.picks === 'object' && !Array.isArray(b.picks) ? b.picks : {};
+  for (const k of Object.keys(src).slice(0, 12)) {
+    if (!BRIEF_KEY.test(k)) continue;
+    const v = text(src[k], 80);
+    if (v && !/https?:|www\./i.test(v)) picks[k] = v;
+  }
+  const out = { picks };
+  const fam = num(b.familiarity, 0, 100); if (fam !== null) out.familiarity = fam;
+  const cnt = num(b.count, 3, 50);        if (cnt !== null) out.count = cnt;
+  const min = num(b.minutes, 5, 600);     if (min !== null) out.minutes = min;
+  const mx  = num(b.maxTrackMin, 1, 60);  if (mx !== null) out.maxTrackMin = mx;
+  if (b.chaos === true || b.chaos === 1) out.chaos = true;
+  for (const k of ['journey', 'avoid']) {      // free text the owner may add in the admin tool
+    const v = text(b[k], 400);
+    if (v && !/https?:|www\./i.test(v)) out[k] = v;
+  }
+  if (!Object.keys(picks).length && !('familiarity' in out) && !out.journey && !out.avoid) return null;
+  return out;
+}
+
+/** One line of a DJ's reason for a track: plain text, no links, short. */
+export function cleanNote(raw) {
+  const s = String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+  return /https?:|www\./i.test(s) ? '' : s;
+}
+
+function briefOut(raw) {
+  return cleanBrief(raw);          // stored JSON is re-cleaned on the way out too
 }
 
 function ytId(url) {
@@ -131,16 +176,16 @@ export async function handleGetMix(request, env, url) {
   const id = parseInt(url.pathname.split('/')[3], 10);
   if (!id) return errorJson(env, 'No such mix', 404);
   const m = await env.DB.prepare(
-    `SELECT id, kind, name, blurb, genre, tags, plays, created_at FROM mixes WHERE id = ?1 AND hidden = 0`
+    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief FROM mixes WHERE id = ?1 AND hidden = 0`
   ).bind(id).first();
   if (!m) return errorJson(env, 'No such mix', 404);
   const { results } = await env.DB.prepare(
-    `SELECT t.id, t.name, t.artist, t.genre, t.url
+    `SELECT t.id, t.name, t.artist, t.genre, t.url, mt.note
        FROM mix_tracks mt JOIN tracks t ON t.id = mt.track_id
       WHERE mt.mix_id = ?1 ORDER BY mt.position`
   ).bind(id).all();
-  const tracks = (results || []).map((t) => ({ ...t, ytId: ytId(t.url) })).filter((t) => t.ytId);
-  return json(env, { ...shape({ ...m, tracks: tracks.length }), items: tracks }, 200, { 'Cache-Control': 'public, max-age=30' });
+  const tracks = (results || []).map((t) => ({ ...t, note: cleanNote(t.note), ytId: ytId(t.url) })).filter((t) => t.ytId);
+  return json(env, { ...shape({ ...m, tracks: tracks.length }), brief: briefOut(m.brief), items: tracks }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
 // ── POST /api/mixes/share ─────────────────────────────────────────────
@@ -183,10 +228,13 @@ export async function handleShareMix(request, env) {
   if (existing) return json(env, { id: existing.id, name: existing.name, tracks: ids.length, existing: true });
 
   const genre = normalizeGenre(body.genre || '').genre;
+  // the DJ AI choices travel only if the listener ticked the box (page side);
+  // either way they are rebuilt from a whitelist, never stored as sent
+  const brief = cleanBrief(body.brief);
   const res = await env.DB.prepare(
-    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at)
-     VALUES ('community', ?1, ?2, ?3, ?4, ?5)`
-  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso()).run();
+    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief)
+     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6)`
+  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '').run();
   const mixId = res.meta.last_row_id;
   const stmt = env.DB.prepare(`INSERT INTO mix_tracks (mix_id, track_id, position) VALUES (?1, ?2, ?3)`);
   await env.DB.batch(ids.map((tid, i) => stmt.bind(mixId, tid, i)));

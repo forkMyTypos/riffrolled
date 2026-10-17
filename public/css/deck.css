@@ -11,6 +11,16 @@
 #deck { --vid:200px; }
 .deck { display:flex; align-items:center; justify-content:center; position:relative; z-index:60; pointer-events:none; }
 
+/* Desktop: menus and panels may sit on top of the record player's wood, knobs
+   and platter, because only the VIDEO has to stay clear (YouTube's rule).
+   So the deck is not one big layer any more: it stops being a stacking
+   context, and the video alone is lifted above every panel (panels top out at
+   50 — see bringToFront in ui.js). Phones keep the old layering: their
+   panels are full-screen sheets. */
+body:not(.mobile) .deck { z-index:auto; }
+body:not(.mobile) .deck .screen { z-index:60; }
+body:not(.mobile) .panel { z-index:10; }
+
 /* re-enable clicks only on the interactive bits so panels behind the deck's empty areas stay usable */
 .deck .screen, .deck .np-area, .deck .np-area * { pointer-events:auto; }
 

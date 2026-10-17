@@ -7,17 +7,20 @@
    until it has enough leading zero bits; the server verifies with one hash
    and credits the ledger. Wallet = a random bearer key kept in local settings:
    guard it like a password, lose it and the balance is gone. ── */
-/* A signal tower rather than a megaphone: this is about reach, not shouting.
-   Broadcast arcs radiating from a mast — reads clearly at 20px. */
+/* A gig flyer: a crooked, torn-edged poster with a starburst and a music note,
+   the kind pasted to a wall outside a tiny venue. Promoting is "spread the word
+   about good music", not advertising — so, no megaphone. Chunky shapes only:
+   it has to read at 20px. Paper, black ink and one gold accent (the Promote colour). */
 var PROMOTE_SVG =
   "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
     "<defs><linearGradient id='pmg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffcc4d'/><stop offset='1' stop-color='#ff8a3d'/></linearGradient></defs>" +
-    "<circle cx='12' cy='8' r='2.3' fill='url(#pmg)'/>" +
-    "<path d='M12 10.3 L9.6 21 h4.8 Z' fill='url(#pmg)' opacity='0.92'/>" +
-    "<path d='M7.6 4.2a7.2 7.2 0 0 0 0 7.6' fill='none' stroke='url(#pmg)' stroke-width='1.7' stroke-linecap='round'/>" +
-    "<path d='M16.4 4.2a7.2 7.2 0 0 1 0 7.6' fill='none' stroke='url(#pmg)' stroke-width='1.7' stroke-linecap='round'/>" +
-    "<path d='M4.9 1.9a11 11 0 0 0 0 12.2' fill='none' stroke='url(#pmg)' stroke-width='1.5' stroke-linecap='round' opacity='0.55'/>" +
-    "<path d='M19.1 1.9a11 11 0 0 1 0 12.2' fill='none' stroke='url(#pmg)' stroke-width='1.5' stroke-linecap='round' opacity='0.55'/>" +
+    "<g transform='rotate(-10 12 12)'>" +
+      "<path d='M4.6 2.6 H16.6 L18.2 4.1 L17.4 5.4 L19.2 6.6 L18.6 8 L19.4 9.4 V21 H4.6 Z' fill='#f3ecd8' stroke='#0b0b12' stroke-width='1.1' stroke-linejoin='round'/>" +
+      "<polygon points='12.7,4.4 13.6,7.4 16.6,6.6 15.1,9.3 17.8,10.9 14.8,11.8 15.6,14.8 12.9,13.3 11.3,16.0 10.4,13.0 7.4,13.8 8.9,11.1 6.2,9.5 9.2,8.6 8.4,5.6 11.1,7.1' fill='url(#pmg)' stroke='#0b0b12' stroke-width='.8' stroke-linejoin='round'/>" +
+      "<path d='M10.6 11.4 V8.3 L13.6 7.6 V10.6' fill='none' stroke='#0b0b12' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/>" +
+      "<ellipse cx='9.9' cy='11.5' rx='1.1' ry='.85' fill='#0b0b12'/><ellipse cx='12.9' cy='10.7' rx='1.1' ry='.85' fill='#0b0b12'/>" +
+      "<rect x='6.4' y='16' width='10.2' height='1.3' rx='.4' fill='#0b0b12'/><rect x='6.4' y='18.3' width='6.4' height='1.3' rx='.4' fill='#0b0b12'/>" +
+    "</g>" +
   "</svg>";
 
 /* the anonymous wallet key both mining and promoting sit on top of */
@@ -479,7 +482,8 @@ var promoBoss = {
       "</div>" +
       // finished campaigns live here, read from the local archive rather
       // than the API — see renderArchive()
-      "<div class='sec promo-sec promo-archive'></div>";
+      "<div class='sec promo-sec promo-archive'></div>" +
+      "<p class='info-meta promo-contact'>Questions about promoting? <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a></p>";
     this.el = menuB.createMenu('📣 Promote', main);
     menuB.place(this.el, { right:'1120px', top:'120px', width:'320px' });
 

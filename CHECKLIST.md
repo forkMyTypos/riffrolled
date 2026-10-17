@@ -33,7 +33,8 @@ Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 
 ## Icons
 - [ ] New History icon.
-- [ ] New Promote icon.
+- [x] New Promote icon: a tilted, torn gig flyer with a starburst and a music note (gold accent).
+- [x] Contact address hello@riffrolled.com added (About, Terms, Privacy, Promote panel).
 
 ## Promote menu
 - [ ] Decide what to fix first: too long / confusing credits / no results view. Then the wizard + genre targeting.

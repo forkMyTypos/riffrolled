@@ -8,6 +8,7 @@ var ABOUT_HTML =
   "<p><button class='tour-open'>🎓 How riffrolled works</button> <span class='info-meta'>— the seven-step tour, any time you want it.</span></p>" +
   "<p>Your playlists, tracks, reactions, and layout are saved locally on your device — there is no account to create and nothing to sign in to. A shared catalogue of tracks (name, artist, genre, link) lives on riffrolled's own server so searches and imports get faster for everyone.</p>" +
   "<p>riffrolled is an independent project and is <strong>not affiliated with, endorsed by, or sponsored by YouTube or Google LLC</strong>. Playback is provided through YouTube’s embedded player; all videos remain subject to YouTube’s Terms of Service.</p>" +
+  "<p>Questions, feedback, or something not working? Write to <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a>.</p>" +
   "<p class='info-meta'>Beta · riffrolled.com</p>";
 
 var TERMS_HTML =
@@ -21,7 +22,7 @@ var TERMS_HTML =
     "<li>To the maximum extent permitted by law, riffrolled is not liable for any damages arising from use of the Service.</li>" +
   "</ul>" +
   "<h4>Riff tokens</h4>" +"<p>Riff tokens are a play feature of the Service. They are earned by proof-of-work mining in your browser and spent on promoting tracks within the catalogue.</p>" +"<ul>" +"<li>Tokens have <strong>no monetary value</strong>, are not currency, and are not redeemable, transferable, or exchangeable for money, goods, or other assets.</li>" +"<li>Tokens are held against an anonymous wallet key stored in your browser. If you clear your browser data or lose that key, the balance is unrecoverable — there is no account recovery.</li>" +"<li>Mining difficulty is not fixed. It adjusts automatically with how fast the whole site is minting, so the work one token costs can rise or fall at any time without notice. Accounts that joined early mine at a permanently lower difficulty.</li>" +"<li>During beta, balances, prices, mining difficulty, and limits may change, and balances may be reset. Tokens obtained by automated abuse or exploitation of the Service may be voided.</li>" +"<li>Promotion statistics are approximate, are not audited, and are provided for interest only.</li>" +"</ul>" +"<p>riffrolled is not affiliated with YouTube or Google LLC.</p>" +
-  "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: via riffrolled.com. Please review with your own counsel before relying on these terms.</p>";
+  "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a>. Please review with your own counsel before relying on these terms.</p>";
 
 var PRIVACY_HTML =
   "<h4>Privacy Policy</h4>" +
@@ -33,7 +34,7 @@ var PRIVACY_HTML =
     "<li><strong>YouTube embeds and thumbnails:</strong> playing a video, or hovering a track to preview its thumbnail, loads content from Google's servers, which may set cookies and collect data under <a href='https://policies.google.com/privacy' target='_blank' rel='noopener'>Google's Privacy Policy</a>. That happens between you and Google.</li>" +
     "<li><strong>No accounts, no analytics, no ad tracking</strong> are built into this app.</li>" +
   "</ul>" +
-  "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: via riffrolled.com. Please review with your own counsel before publishing.</p>";
+  "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a>. Please review with your own counsel before publishing.</p>";
 
 var DATA_HTML =
   "<h4>Your data</h4>" +

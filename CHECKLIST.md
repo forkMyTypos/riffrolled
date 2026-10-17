@@ -29,7 +29,7 @@ Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 
 ## DJ AI
 - [x] Admin has the two paste prompts (DJ brief, then The Track Check).
-- [ ] Bring the same two-prompt flow into the DJ AI panel on riffrolled.com (it still uses its one-prompt version).
+- [x] DJ AI modes are now One-shot prompt (Dan's one-shot prompt) and Multi-shot prompts (DJ brief → The Track Check), the same prompts as the admin.
 
 ## Icons
 - [ ] New History icon.

@@ -408,11 +408,7 @@ var djAi = {
       var o = self.picked(c.key);
       if (o) bits.push(o.label);
     });
-    // speed mode only sends familiarity when it has been moved off the
-    // default, so the preview must not promise it either
-    if (this.state.textMode !== 'speed' || this.state.familiarity !== 30){
-      bits.push(this.state.familiarity + '% familiar / ' + (100 - this.state.familiarity) + '% discovery');
-    }
+    bits.push(this.state.familiarity + '% familiar / ' + (100 - this.state.familiarity) + '% discovery');
     bits.push(this.state.count + ' tracks · ' + this.state.minutes + ' min');
     if (this.state.chaos) bits.push('CHAOS');
     return bits.join(' | ');
@@ -472,9 +468,10 @@ var djAi = {
   },
 
   /* ── the prompt ──────────────────────────────────────────────────────
-     Two of them, because speed and detail want genuinely different things
-     from an AI. Speed says "decide and move"; details says "take me
-     somewhere". Same brief underneath, same reply format to parse. ── */
+     One-shot (internally still "speed") asks for the finished playlist in
+     one go. Multi-shot (internally "details") asks for a DJ draft first;
+     The Track Check, built from that draft, is the second prompt. Same
+     brief underneath. ── */
   async buildPrompt(){
     return this.state.textMode === 'speed'
       ? await this.buildSpeedPrompt()
@@ -589,70 +586,75 @@ var djAi = {
     return o.any ? (o.line || o.label) : o.label;
   },
 
+  /* ── THE BRIEF, as labelled lines ──────────────────────────────────────
+     What each category is saying: the pick, or the category's "don't mind"
+     sentence when nothing is picked. Categories that are switched off say
+     nothing at all. A pick that means "you choose" (Any era, Don't care) is
+     reported as such rather than as a preference. */
+  _say(key){
+    var c = this.cat(key);
+    if (!c || !c.enabled) return null;
+    var o = this.effective(key);
+    if (!o) return { label:'', text:'', any:true };
+    var any = !!o.any || /^(any era|don[’']t care|don[’']t mind|nothing special)$/i.test(o.label);
+    return { label:o.label, line:o.line || '', any:any, text: any ? (o.line || o.label) : o.label };
+  },
+
+  _chaosLine(){
+    return DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)];
+  },
+
+  _genreList(){
+    return (window.riffGenres && riffGenres.LIST) ? riffGenres.LIST.join(', ') : '';
+  },
+
+  /* ONE-SHOT. The whole job in one prompt: curate, find the links, verify,
+     repair, reply with a finished RIFFROLLED-PLAYLIST. The wording lives in
+     DJ_ONESHOT_PROMPT (dj-data.js); this fills THE BRIEF. */
   async buildSpeedPrompt(){
-    var self = this, s = this.state;
-    var tpl = (typeof DJ_SPEED_PROMPT !== 'undefined') ? DJ_SPEED_PROMPT : '';
-
-    /* Anything opened under More settings joins THE BRIEF as its own
-       question, in the same shape as the four on screen — otherwise those
-       controls would be decoration. Discovery and familiarity are the
-       exception: they get their own section below, because the brief for
-       "how far from home" needs more than a label. */
-    var extras = [];
+    var self = this, s = this.state, L = [];
+    L.push('In short: ' + this.briefLine());
+    L.push('');
+    var line = function(label, key, extra){
+      var v = self._say(key);
+      if (!v) return;
+      L.push(label + ': ' + (v.text || 'your choice') + (extra && !v.any ? extra : ''));
+    };
+    line('What are you doing', 'activity');
+    line('How it should feel', 'feel');
+    line('Where to go', 'direction', ' (a starting coordinate, not a genre fence)');
+    var d = this._say('discovery');
+    if (d) L.push('Discovery: ' + (d.label || "Don't care"));
+    var p = this._say('personality');
+    if (p) L.push('DJ personality: ' + (p.any ? p.text : p.label + (p.line ? ' — ' + p.line : '')));
+    // energy, era, speed and anything the listener added: only when switched on and actually chosen
     this.cats.forEach(function(c){
-      if (!c.enabled || self.SPEED_CORE.indexOf(c.key) >= 0 || c.key === 'discovery') return;
-      var o = self.picked(c.key);
-      if (!o) return;
-      extras.push('\n' + c.label + '\n' + (o.line || o.label));
+      if (['activity', 'feel', 'direction', 'discovery', 'personality'].indexOf(c.key) >= 0) return;
+      var v = self._say(c.key);
+      if (v && self.picked(c.key) && !v.any) L.push(c.label.replace(/\?$/, '') + ': ' + v.label + (v.line ? ' — ' + v.line : ''));
     });
-    if (s.chaos && typeof DJ_CHAOS_LINES !== 'undefined'){
-      extras.push('\nCHAOS\n' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
-    }
-    var extrasBlock = extras.length ? extras.join('\n') + '\n' : '';
+    if (s.chaos) L.push('Chaos: ON — ' + this._chaosLine());
+    L.push('Familiarity: ' + s.familiarity + '% familiar / ' + (100 - s.familiarity) + '% discovery');
+    L.push('Tracks: exactly ' + s.count);
+    L.push('Total duration: about ' + s.minutes + ' minutes');
+    L.push('Longest single track: ' + s.maxTrackMin + ' minutes');
+    var g = this._genreList();
+    if (g) L.push('Allowed genres for the GENRE line: ' + g);
 
-    /* DISCOVERY appears when there is something to say: a discovery brief,
-       or a familiarity the listener has actually moved. Left alone, the DJ
-       decides — which is what speed mode is for. */
-    var disc = this.picked('discovery');
-    var famMoved = s.familiarity !== 30;
-    var discoveryBlock = '';
-    if ((disc || famMoved) && typeof DJ_DISCOVERY_BLOCK !== 'undefined'){
-      var famBlock = '';
-      if (famMoved && typeof DJ_FAMILIARITY_BLOCK !== 'undefined'){
-        famBlock = DJ_FAMILIARITY_BLOCK
-          .replace('{{familiar_pct}}', String(s.familiarity))
-          .replace('{{discovery_pct}}', String(100 - s.familiarity));
-      }
-      discoveryBlock = DJ_DISCOVERY_BLOCK
-        .replace('{{discovery_line}}', disc ? (disc.line || disc.label)
-          : 'No particular discovery brief — the familiarity below is the whole of it.')
-        .replace('{{familiarity}}', famBlock);
-    }
-
-    // speed mode shares the top ten and nothing else
-    var listening = '';
+    // one-shot shares the top ten and nothing else — enough to show taste
     if (s.shareContext){
       var top = await this.topTracks(10);
       if (top.length){
-        listening = (typeof DJ_SPEED_LISTENING !== 'undefined' ? DJ_SPEED_LISTENING : '')
-          .replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n'));
+        L.push('');
+        L.push(DJ_SPEED_LISTENING.replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n')).trim());
       }
     }
-
     var promoted = await this.promotedBlock();
+    if (promoted){ L.push(''); L.push(promoted.trim()); }
 
-    return tpl
-      .replace('{{promoted}}',           promoted)
-      .replace('{{activity}}',           this._briefLineFor('activity'))
-      .replace('{{feeling}}',            this._briefLineFor('feel'))
-      .replace('{{direction}}',          this._briefLineFor('direction'))
-      .replace('{{dj_personality}}',     this._briefLineFor('personality'))
-      .replace('{{extras}}',             extrasBlock)
-      .replace('{{discovery}}',          discoveryBlock)
-      .replace('{{listening}}',          listening)
-      .replace(/\{\{track_count\}\}/g,   String(s.count))
-      .replace('{{target_minutes}}',     String(s.minutes))
-      .replace('{{max_track_minutes}}',  String(s.maxTrackMin));
+    return DJ_ONESHOT_PROMPT
+      .replace('{{brief}}', L.join('\n'))
+      .replace(/\{\{count\}\}/g, String(s.count));
   },
 
   /** most-played, as "Artist — Title (23 plays)" */
@@ -672,138 +674,115 @@ var djAi = {
     } catch(e){ return []; }
   },
 
+  /* MULTI-SHOT, prompt 1: the DJ brief (DJ_MULTI_PROMPT). The AI only
+     curates here and replies with a RIFFROLLED-DJ-DRAFT — no links, a
+     reason for every track. Pasting that draft back builds prompt 2, The
+     Track Check (buildTrackCheck). Same wording as the admin tool's
+     dj_brief_prompt.txt; same brief sections as its djbrief.py. */
+  DEFAULT_IDENTITY: ['Where Did This Come From?', 'You are Where Did This Come From?: every track makes the listener ask exactly that.'],
+
+  _identity(){
+    var p = this._say('personality');
+    if (!p || p.any || !p.label) return this.DEFAULT_IDENTITY;
+    return [p.label, p.line || ('You are ' + p.label + '.')];
+  },
+
   async buildDetailsPrompt(){
-    var self = this, s = this.state, L = [];
-    var personality = this.picked('personality');
-    var perLine = personality && personality.line ? personality.line
-      : (personality ? 'You are "' + personality.label + '" — let that colour how you present the set.' : '');
-
-    L.push('You are my DJ.');
-    L.push('');
-    L.push('You are not recommending music and you are not making music. You are taking me');
-    L.push('somewhere. Everything I listen to plays from YouTube, so the set you write is a');
-    L.push('list of YouTube videos.');
-    if (perLine){ L.push(''); L.push(perLine); }
-    L.push('');
-
-    L.push('THE BRIEF');
+    var self = this, s = this.state, B = [];
+    var sec = function(title, lines){
+      lines = lines.filter(Boolean);
+      if (lines.length) B.push(title + '\n' + lines.join('\n') + '\n');
+    };
+    var say = function(key){ var v = self._say(key); return v ? (v.any ? v.text : (v.line || v.label)) : ''; };
+    var dir = this._say('direction');
+    sec('WHAT ARE YOU DOING?', [say('activity')]);
+    sec('HOW DO YOU WANT IT TO FEEL?', [this._say('feel') ? (this._say('feel').any ? this._say('feel').text : this._say('feel').label) : '']);
+    sec('WHERE SHOULD WE GO?', [dir ? (dir.any ? dir.text : dir.label) : '', 'A starting coordinate, not a genre filter. You are allowed to wander.']);
+    var d = this._say('discovery');
+    sec('DISCOVERY', [d && !d.any ? (d.line || d.label) : 'No particular discovery brief — just make it good.',
+      'Do not turn this into an obscure-music exercise. A great song from a known artist is welcome when it improves the journey.']);
+    var id = this._identity();
+    sec('DJ PERSONALITY', [id[0], id[1]]);
+    sec('FAMILIARITY', ['Approximately ' + s.familiarity + '% familiar territory, ' + (100 - s.familiarity) +
+      '% discovery. This is a creative direction, not a quota. Familiarity should make the surprises hit harder.']);
     this.cats.forEach(function(c){
-      if (!c.enabled) return;
-      var o = self.picked(c.key);
-      if (!o) return;
-      L.push('  ' + c.label + ' ' + o.label);
-      if (o.line) L.push('      ' + o.line);
+      if (['activity', 'feel', 'direction', 'discovery', 'personality'].indexOf(c.key) >= 0) return;
+      var v = self._say(c.key);
+      if (v && self.picked(c.key) && !v.any) sec(c.label.replace(/\?$/, '').toUpperCase(), [v.line || v.label]);
     });
-
-    var fam = s.familiarity;
-    L.push('  Familiarity: roughly ' + fam + '% things I might know, ' + (100 - fam) + '% discovery.');
-    L.push('      Treat that as a feel, not arithmetic.');
-    if (this.picked('direction')){
-      L.push('  The direction above is a starting coordinate, not a genre filter. Wander from it');
-      L.push('      if the journey is better for it.');
-    }
-    if (s.chaos){
-      L.push('');
-      L.push('  ' + DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)]);
-    }
-    L.push('');
-
-    L.push('LENGTH AND TIME');
-    L.push('  Exactly ' + s.count + ' tracks.');
-    L.push('  The whole set should run about ' + s.minutes + ' minutes, so aim for an average of');
-    L.push('      roughly ' + this.avgMinutes() + ' minutes a track.');
-    L.push('  No single track longer than ' + s.maxTrackMin + ' minutes. If a track you want is longer');
-    L.push('      than that, pick a different one — not a shortened edit of the same thing.');
-    L.push('');
+    if (s.chaos) sec('CHAOS', [this._chaosLine()]);
 
     if (s.shareContext){
       var ctx = await this.context();
-      if (ctx.size){
-        L.push('WHAT I ALREADY LISTEN TO');
-        if (ctx.top.length){    L.push('  Played most: ' + ctx.top.join('; ')); }
-        if (ctx.liked.length){  L.push('  Liked: ' + ctx.liked.join('; ')); }
-        if (ctx.recent.length){ L.push('  Recent: ' + ctx.recent.join('; ')); }
-        if (ctx.tags.length){   L.push('  My tags: ' + ctx.tags.join(', ')); }
-        if (ctx.have.length){
-          L.push('  Already in my library, so nothing here counts as a discovery:');
-          L.push('      ' + ctx.have.join(', '));
-        }
-        L.push('');
-      }
-    } else {
-      L.push('I have not shared my listening history. Choose blind.');
-      L.push('');
+      if (ctx.size) sec('WHAT I ALREADY LISTEN TO', [
+        ctx.top.length ? 'Played most: ' + ctx.top.join('; ') : '',
+        ctx.liked.length ? 'Liked: ' + ctx.liked.join('; ') : '',
+        ctx.recent.length ? 'Recent: ' + ctx.recent.join('; ') : '',
+        ctx.tags.length ? 'My tags: ' + ctx.tags.join(', ') : '',
+        ctx.have.length ? 'Already in my library, so nothing here counts as a discovery: ' + ctx.have.join(', ') : '']);
     }
+    var promoted = await this.promotedBlock();
+    if (promoted) B.push(promoted.trim() + '\n');
 
-    // paid placements, same block as speed mode and on the same terms
-    var promotedBlock = await this.promotedBlock();
-    if (promotedBlock){ L.push(promotedBlock.trim()); L.push(''); }
+    sec('THE CHALLENGE', ['Build a ' + s.count + '-track, roughly ' + s.minutes + '-minute journey. Every track must earn its place. ' +
+      'Every transition must contribute to the experience.', 'No track longer than ' + s.maxTrackMin + ' minutes.']);
 
-    L.push('REPLY IN THIS EXACT FORMAT. I paste your whole reply straight back into riffrolled,');
-    L.push('so put nothing before or after the block:');
-    L.push('');
-    L.push('RIFFROLLED-PLAYLIST');
-    L.push('NAME: a short name for this set');
-    L.push('1 | Artist | Track title | YouTube URL | 4:12 | genre | why it is here');
-    L.push('2 | Artist | Track title | YouTube URL | 3:48 | genre | why it is here');
+    var m = s.minutes, spread = Math.max(3, Math.round(m * 0.08)), lines = [];
+    for (var i = 1; i <= s.count; i++) lines.push(i + ' | Artist | Exact track title | Duration or UNKNOWN | Genre | Why this track belongs here');
+    return DJ_MULTI_PROMPT
+      .replace('{{identity}}', id[0].toUpperCase() + '\n' + id[1])
+      .replace(/\{\{count\}\}/g, String(s.count))
+      .replace('{{runtime_lo}}', String(Math.max(1, m - spread)))
+      .replace('{{runtime_hi}}', String(m + spread))
+      .replace('{{max_track}}', String(s.maxTrackMin))
+      .replace('{{lines}}', lines.join('\n'))
+      .replace('{{brief}}', B.join('\n').trim() + '\n');
+  },
+
+  /* ── MULTI-SHOT, step 2: The Track Check ──────────────────────────────
+     A RIFFROLLED-DJ-DRAFT has artists, titles, durations, genres and a
+     reason per track, but no links. It is not a playlist yet, so pasting
+     one does not import anything: it is read, and turned into prompt 2. */
+  isDraft(text){
+    var t = String(text || '');
+    return /RIFFROLLED[-\s]DJ[-\s]DRAFT/i.test(t) && !/RIFFROLLED[-\s]PLAYLIST/i.test(t);
+  },
+
+  readDraft(text){
+    var self = this, out = { name:'', mood:'', tracks:[] };
+    String(text || '').replace(/​|﻿/g, '').split(/\r?\n/).forEach(function(raw){
+      var l = raw.trim().replace(/^`+|`+$/g, '');
+      if (!l) return;
+      var m = /^\W{0,3}(\d{1,3})\s*[.)]?\s*\|\s*(.+)$/.exec(l);
+      if (m){
+        var c = m[2].split('|').map(function(x){ return x.trim().replace(/^[*_`\s]+|[*_`\s]+$/g, ''); })
+          .filter(function(x){ return !/https?:\/\/|youtu\.?be/i.test(x); });
+        if (c.length < 2 || !(c[0] || c[1])) return;
+        while (c.length < 5) c.push('');
+        out.tracks.push({ n: out.tracks.length + 1, artist: c[0].slice(0, 200), title: c[1].slice(0, 300),
+          duration: (c[2] || 'UNKNOWN').slice(0, 20), genre: c[3].slice(0, 100),
+          why: c.slice(4).filter(Boolean).join(' | ').slice(0, 300) });
+        return;
+      }
+      var h = /^\W*(NAME|TITLE|MOOD|ABOUT)\W*?\s*[:：]\s*(.*)$/i.exec(l);
+      if (h && !out.tracks.length){
+        var v = self._clean(h[2]);
+        if (/^(name|title)$/i.test(h[1])) out.name = v.slice(0, 80); else out.mood = v.slice(0, 400);
+      }
+    });
+    return out;
+  },
+
+  /** prompt 2, with the draft set into it and every link UNCHECKED; null if no tracks were read */
+  buildTrackCheck(draftText){
+    var d = this.readDraft(draftText);
+    if (!d.tracks.length) return null;
+    var L = ['RIFFROLLED-PLAYLIST', 'NAME: ' + (d.name || 'Untitled mix')];
+    d.tracks.forEach(function(t){
+      L.push((t.n + ' | ' + t.artist + ' | ' + t.title + ' | UNCHECKED | ' + t.duration + ' | ' + t.genre + ' | ' + t.why).replace(/[\s|]+$/, ''));
+    });
     L.push('END');
-    L.push('');
-    L.push('Rules:');
-    L.push('  - One track per line, numbered, in the order I should hear them.');
-    L.push('  - Artist, title, link, running time (m:ss), genre, and a few words on why it earns');
-    L.push('    its place in this journey.');
-    L.push('  - Real, released tracks by real artists. Do not invent songs. Do not repeat a track.');
-    L.push('  - No commentary outside the block.');
-    L.push('');
-    /* This block used to say every track MUST have a URL and that the
-       playlist was incomplete without one for all of them. Read beside
-       the instruction not to invent ids, that is a contradiction, and an
-       AI resolves it the way the stronger wording points: it fills every
-       cell, with a Bandcamp page, an album link, or a video id it has
-       already used. A fifteen-track reply then imports as four. The rule
-       is the same as it always was — never invent a link — but the
-       requirement it was fighting with is gone. */
-    L.push('YOUTUBE LINKS');
-    L.push('riffrolled plays YouTube videos and nothing else. A Bandcamp, Spotify,');
-    L.push('SoundCloud or Apple Music link cannot be played and the track is dropped.');
-    L.push('');
-    L.push('Give exactly ' + s.count + ' TRACKS. You do NOT need ' + s.count + ' URLs.');
-    L.push('A track with an EMPTY url cell is complete and correct — riffrolled looks it');
-    L.push('up from the artist and title. Completeness is counted in tracks, never links.');
-    L.push('');
-    L.push('A wrong link is far worse than no link: it costs the listener that song');
-    L.push('silently, and they get a playlist shorter than the one you wrote.');
-    L.push('');
-    L.push('For EACH track:');
-    L.push('  1. Search YouTube/web for the exact Artist + Track Title.');
-    L.push('  2. Find a real YouTube result for that exact recording.');
-    L.push('  3. Verify that the result matches the exact artist, the exact track title, and the');
-    L.push('     intended recording or version.');
-    L.push('  4. Copy the actual watch URL from the search result.');
-    L.push('  5. Never construct a YouTube URL yourself.');
-    L.push('  6. Never invent, guess, or recall a YouTube video ID.');
-    L.push('  7. Never use a different song, remix, cover, live version, lyric video, or similarly');
-    L.push('     titled track unless it is clearly the intended recording.');
-    L.push('  8. Prefer the official artist or channel upload when available.');
-    L.push('  9. Otherwise use another legitimate upload that clearly contains the exact track.');
-    L.push(' 10. Repeat the search if the first result is unsuitable.');
-    L.push('');
-    L.push('HARD REQUIREMENT');
-    L.push('Return exactly ' + s.count + ' tracks.');
-    L.push('Every URL you DO give must come from an actual search result made during this');
-    L.push('request. Never rely on memory — a plausible-looking URL is not acceptable, and');
-    L.push('never give the same video id for two different tracks.');
-    L.push('');
-    L.push('If a track cannot be confidently matched to a real YouTube result, you may either');
-    L.push('replace it with another track you can verify, or keep it and leave its url cell');
-    L.push('empty. Both are correct. What is not correct is filling the cell with something');
-    L.push('that is not a YouTube video, or with an id you used for another track.');
-    L.push('');
-    L.push('JSON is also accepted if you prefer:');
-    L.push('  {"name":"...","tracks":[{"artist":"...","title":"...","url":"https://www.youtube.com/watch?v=VIDEOID",' +
-           '"duration":"4:12","genre":"...","why":"..."}]}');
-
-    return L.join('\n');
+    return { prompt: DJ_TRACK_CHECK_PROMPT.replace('{{playlist}}', L.join('\n')), draft: d };
   },
 
   avgMinutes(){
@@ -1107,6 +1086,16 @@ var djAi = {
       var nameM = /^#*\s*(?:NAME|PLAYLIST|TITLE|SET)\s*[:\-]\s*(.+)$/i.exec(l);
       if (nameM && !res.name){ res.name = self._clean(nameM[1]); return; }
       if (/^(RIFFROLLED-PLAYLIST|END)\s*$/i.exec(l)) return;
+      /* The one-shot reply carries ABOUT:, GENRE: and TRACKS: header lines.
+         They are kept (about, genre) and must never be read as a track: an
+         ABOUT sentence with a dash in it looks exactly like "Artist - Title". */
+      var keyM = /^[#*_\s]*(ABOUT|MOOD|DESCRIPTION|GENRE|TRACKS?)[*_\s]*[:：]\s*(.*)$/i.exec(l);
+      if (keyM && l.indexOf('|') < 0 && !self._linkCount(l)){
+        var k = keyM[1].toUpperCase(), v = self._clean(keyM[2]);
+        if (k === 'GENRE'){ if (!res.genre) res.genre = v; }
+        else if (k !== 'TRACKS' && k !== 'TRACK'){ if (!res.about) res.about = v.slice(0, 300); }
+        return;
+      }
 
       var body = l.replace(/^\s*(?:[-*•]\s*)?(?:\d{1,2}\s*[\.\)\:]\s*|\d{1,2}\s+[-–—]\s+)?/, '');
 
@@ -1120,6 +1109,13 @@ var djAi = {
         if (/^(artist|#|no\.?)$/i.test(cells[0])) return;                        // table header
 
         var it = self._blank(), rest = [];
+        /* "NOT FOUND" / "SEARCH FAILED" / "UNCHECKED" in the link cell is the
+           AI being honest that it has no link. The track stays, with no url,
+           and riffrolled looks it up from the artist and title. */
+        cells = cells.filter(function(c){
+          if (/^(NOT[\s_-]*FOUND|SEARCH[\s_-]*FAILED|UNCHECKED|UNKNOWN|N\/A)$/i.test(c)){ it.noLink = c.toUpperCase(); return false; }
+          return true;
+        });
 
         // find the link first, and only in a cell that holds a URL. A bare
         // id is accepted afterwards, and never from the first two cells —
@@ -1142,6 +1138,14 @@ var djAi = {
           if (!it.secs && self._looksLikeDuration(c)){ it.secs = self._secs(c); return; }
           rest.push(c);
         });
+        /* "Artist - Title | link | 3:42 | Genre": the one-shot format puts
+           artist and title in ONE cell. Split it when what follows is only a
+           genre (or nothing), so the genre is not taken for the title. */
+        if (/\s[-–—]\s/.test(rest[0] || '') &&
+            (rest.length === 1 || (rest.length === 2 && self._looksLikeGenre(rest[1])))){
+          var dd = self._splitDash(rest.shift());
+          rest.unshift(dd.title); rest.unshift(dd.artist);
+        }
         it.artist = rest.shift() || '';
         it.title  = rest.shift() || '';
         if (!it.title && it.artist){
@@ -1459,6 +1463,7 @@ var djAi = {
       source: 'ai',
       aiRequest: this.briefLine(),
       aiBrief: this.briefObject(),
+      aiAbout: parsed.about || '',          // the one-shot reply's ABOUT line
       totalSecs: total,
       aiAt: Date.now()
     });

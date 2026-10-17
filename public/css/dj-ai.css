@@ -462,3 +462,11 @@ body.mobile .dj-open { padding:7px 11px; font-size:12px; }
 /* link checking is no longer optional, so this is a statement of fact
    rather than a control */
 .dj-check-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.33); padding:4px 2px 6px; }
+
+/* multi-shot, step 2: the DJ's draft came back — now The Track Check */
+.dj-step2 { margin:6px 0 8px; padding:8px 10px; border-radius:8px; background:rgba(138,123,255,0.10); border:1px solid rgba(138,123,255,0.35); display:flex; flex-direction:column; gap:6px; }
+.dj-step2[hidden] { display:none; }
+.dj-step2-head { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#cfc7ff; }
+.dj-step2-what { font-size:12px; color:rgba(255,255,255,0.8); }
+.dj-trackcheck { align-self:flex-start; background:rgba(138,123,255,0.35); border:1px solid rgba(138,123,255,0.7); color:#fff; border-radius:7px; padding:6px 12px; font-weight:700; font-size:12px; cursor:pointer; }
+.dj-trackcheck:hover { background:rgba(138,123,255,0.5); }

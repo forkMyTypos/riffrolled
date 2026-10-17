@@ -146,6 +146,14 @@ var djMenuBoss = {
         // clipboard directly (the click is the gesture that permits it), so a
         // reply never has to be found, selected and pasted into a box.
         "<button class='dj-pasteback' hidden>📋 Paste your reply</button>" +
+        /* Multi-shot, step 2. Appears when the pasted reply is the DJ's
+           draft (no links yet) rather than a playlist. */
+        "<div class='dj-step2' data-testid='dj-step2' hidden>" +
+          "<div class='dj-step2-head'>Step 2 of 2 · The Track Check</div>" +
+          "<div class='dj-step2-what'></div>" +
+          "<button class='dj-trackcheck' data-testid='dj-trackcheck-btn'>⧉ COPY THE TRACK CHECK</button>" +
+          "<div class='dj-note'>Paste it into an AI that can search the web — the same chat is fine. It finds a real YouTube link for every song. Then paste its reply here and import.</div>" +
+        "</div>" +
         "<textarea class='dj-reply' data-testid='dj-reply' rows='4' placeholder='Paste AI response here…'></textarea>" +
         /* Link checking used to be a toggle. It is keyless, costs no API
            quota and takes a second — so offering it as a choice only
@@ -191,12 +199,16 @@ var djMenuBoss = {
     });
   },
 
-  /* ── the two ways to brief ── */
+  /* ── the two ways to brief ──
+     One-shot (state 'speed'): one prompt, the finished playlist comes back.
+     Multi-shot (state 'details'): the DJ brief, then The Track Check. */
   renderSubModes(){
     var speed = this.speed();
     this.el.querySelector('.dj-submodes').innerHTML =
-      "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed'>⚡ Speed mode</button>" +
-      "<button class='dj-sub" + (speed ? '' : ' on') + "' data-s='details'>🎛 The details mode</button>";
+      "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed' data-testid='dj-oneshot' " +
+        "title='One prompt: the AI picks the songs, finds the YouTube links and sends back the finished playlist'>🎯 One-shot prompt</button>" +
+      "<button class='dj-sub" + (speed ? '' : ' on') + "' data-s='details' data-testid='dj-multishot' " +
+        "title='Two prompts: the DJ brief first, then The Track Check finds and verifies the links'>🔁 Multi-shot prompts</button>";
   },
 
   /* ── modes ── */
@@ -465,6 +477,7 @@ var djMenuBoss = {
     });
 
     root.querySelector('.dj-pasteback').onclick = function(){ self.pasteBack(this); };
+    root.querySelector('.dj-trackcheck').onclick = function(){ self.copyTrackCheck(); };
 
     /* Coming back to the tab is the signal that you have been to an AI.
        Both events are needed: switching tabs fires visibilitychange, while
@@ -475,6 +488,14 @@ var djMenuBoss = {
 
     var reply = root.querySelector('.dj-reply');
     reply.addEventListener('input', function(){
+      if (djAi.isDraft(reply.value)){
+        var dr = djAi.readDraft(reply.value);
+        var pe = root.querySelector('.dj-parsed');
+        pe.className = 'dj-parsed';
+        pe.textContent = dr.tracks.length ? 'The DJ’s draft: ' + dr.tracks.length + ' tracks, no links yet — step 2 below' : '';
+        if (dr.tracks.length) self.showStep2(reply.value, true);
+        return;
+      }
       var parsed = djAi.parseReply(reply.value);
       var n = parsed.items.length;
       var secs = djAi.totalSecs(parsed.items);
@@ -734,6 +755,10 @@ var djMenuBoss = {
       ? 'Share your track data' : 'DJ knows';
 
     root.querySelector('.dj-brief').textContent = djAi.briefLine();
+    root.querySelector('.dj-copy').textContent = this.speed() ? '⧉ COPY DJ BRIEF' : '⧉ COPY PROMPT 1 · DJ BRIEF';
+    root.querySelector('.dj-reply').placeholder = this.speed()
+      ? 'Paste AI response here…'
+      : 'Paste the DJ’s draft here (step 1), then The Track Check’s reply (step 2)…';
     root.querySelector('.dj-est').textContent = 'DJ thinking time ' + djAi.estimateLabel();
     // only count what's actually on screen — a section hidden behind More
     // settings isn't something the listener has left blank
@@ -810,6 +835,8 @@ var djMenuBoss = {
       clipboard needs this document focused and opening a tab takes that
       focus away. A popup blocker can still refuse the window, so that
       case is reported rather than silently doing half the job. */
+  PREFILL_MAX: 6000,          // encoded characters; see openIn
+
   async openIn(key, btn){
     var site = DJ_SITES.find(function(s){ return s.key === key; });
     if (!site) return;
@@ -817,10 +844,14 @@ var djMenuBoss = {
     try {
       var copied = await this.copyBrief({ silent: true });
       var url = site.url;
-      if (site.q){
-        var text = await djAi.buildPrompt();
-        url = site.url + (site.url.indexOf('?') >= 0 ? '&' : '?') +
-              site.q + '=' + encodeURIComponent(text);
+      /* Pre-fill only what was tested to arrive whole. The one-shot and
+         multi-shot prompts run to 11–14,000 characters, far past the ~3,300
+         that chatgpt.com/?q= was checked with — and truncation is silent.
+         So a long prompt opens the site plain and goes by the clipboard. */
+      var text = this._lastPrompt || '';
+      var enc = text ? encodeURIComponent(text) : '';
+      if (site.q && enc && enc.length <= this.PREFILL_MAX){
+        url = site.url + (site.url.indexOf('?') >= 0 ? '&' : '?') + site.q + '=' + enc;
       }
       var w = window.open(url, '_blank', 'noopener');
       if (!w){
@@ -889,6 +920,14 @@ var djMenuBoss = {
         this.bstatus('That’s still the brief — copy what the AI sent back.', 'err');
         return;
       }
+      if (djAi.isDraft(text)){
+        var rb = this.el.querySelector('.dj-reply');
+        rb.value = text;
+        this._armed = false;
+        btn.hidden = true;
+        this.showStep2(text);
+        return;
+      }
       var items = djAi.parseReply(text).items;
       if (!items.length){
         this.bstatus('No playlist in that. Copy the whole reply, including the RIFFROLLED-PLAYLIST block.', 'err');
@@ -921,6 +960,7 @@ var djMenuBoss = {
     btn.disabled = true;
     try {
       var text = await djAi.buildPrompt();
+      this._lastPrompt = text;     // openIn reuses this exact text (chaos lines are random)
       /* The billable moment, in both branches below. The brief has been
          built and the person is looking at it either way — on the
          clipboard, or in the fallback box when the clipboard is blocked.
@@ -952,9 +992,51 @@ var djMenuBoss = {
     } finally { btn.disabled = false; }
   },
 
+  /* Multi-shot step 2: the pasted reply is the DJ's draft. Nothing is
+     imported — there are no links yet. Offer The Track Check instead. */
+  showStep2(text, quiet){
+    var tc = djAi.buildTrackCheck(text);
+    var box = this.el.querySelector('.dj-step2');
+    if (!tc){
+      box.hidden = true;
+      this.bstatus('That looks like the DJ’s draft, but no track lines were readable. They should look like:  1 | Artist | Title | 3:42 | Genre | why', 'err');
+      return false;
+    }
+    this._draftText = text;
+    box.hidden = false;
+    this.el.querySelector('.dj-step2-what').textContent =
+      'The DJ picked ' + tc.draft.tracks.length + ' track' + (tc.draft.tracks.length === 1 ? '' : 's') +
+      (tc.draft.name ? ' for “' + tc.draft.name + '”' : '') + '. They have no links yet.';
+    if (!quiet) this.bstatus('Draft read — copy The Track Check below (step 2).', 'ok');
+    return true;
+  },
+
+  async copyTrackCheck(){
+    var text = this._draftText || this.el.querySelector('.dj-reply').value;
+    var tc = djAi.buildTrackCheck(text);
+    if (!tc){ this.bstatus('Paste the DJ’s draft first (it starts with RIFFROLLED-DJ-DRAFT).', 'err'); return; }
+    var reply = this.el.querySelector('.dj-reply');
+    try {
+      await navigator.clipboard.writeText(tc.prompt);
+      if (window.appToast) appToast('The Track Check copied — paste it into your AI', 'ok');
+      this.bstatus('The Track Check copied ✓ — paste the AI’s reply here when it comes back.', 'ok');
+      reply.value = '';
+      this.el.querySelector('.dj-parsed').textContent = '';
+      this.arm(tc.prompt);          // the one-click paste on the way back, and "that's still the prompt" if it comes back unchanged
+    } catch(e){
+      var box = this.el.querySelector('.dj-step2 .dj-promptbox') || (function(sec){
+        var t = document.createElement('textarea');
+        t.className = 'dj-promptbox'; t.rows = 6; sec.appendChild(t); return t;
+      })(this.el.querySelector('.dj-step2'));
+      box.value = tc.prompt; box.select();
+      this.bstatus('Clipboard blocked — select the text in the box and copy it.', 'err');
+    }
+  },
+
   async importReply(){
     var root = this.el, self = this;
     var raw = root.querySelector('.dj-reply').value;
+    if (djAi.isDraft(raw)){ this.showStep2(raw); return; }
     var parsed = djAi.parseReply(raw);
 
     if (!parsed.items.length){
@@ -1034,6 +1116,8 @@ var djMenuBoss = {
 
       root.querySelector('.dj-reply').value = '';
       root.querySelector('.dj-parsed').textContent = '';
+      root.querySelector('.dj-step2').hidden = true;
+      this._draftText = '';
       if (window.djHistoryBoss) djHistoryBoss.render();
     } catch(e){
       this.bstatus('Import failed: ' + e.message, 'err');

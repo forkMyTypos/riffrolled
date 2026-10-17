@@ -652,3 +652,18 @@ body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; 
 .dbs-genre { width:100%; height:28px; background:rgba(255,255,255,0.06); color:#e8e8f4; border:1px solid rgba(255,255,255,0.14); border-radius:8px; padding:0 8px; font-size:12px; }
 .dbs-gtag { flex:0 0 auto; font-size:10px; color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.16); border-radius:999px; padding:1px 7px; margin-right:4px; white-space:nowrap; }
 .promo-contact a { color:#ffcc4d; }
+
+/* 🔑 Your keys (Mine panel) — public key to share, private key to keep */
+.wallet-lbl { font-size:11px; color:rgba(255,255,255,0.7); margin:8px 0 3px; }
+.wallet-hint { color:rgba(255,255,255,0.4); }
+.wallet-hint.warn { color:#e0a34d; }
+.wallet-pub { flex:1; min-width:0; font:12px ui-monospace,Consolas,monospace; color:#9fe0b2; background:rgba(0,0,0,0.3);
+  border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:5px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wallet-move { margin-top:8px; font-size:11px; color:rgba(255,255,255,0.6); }
+.wallet-move summary { cursor:pointer; }
+.wallet-move .row { margin-top:6px; }
+.wallet-new { flex:1; min-width:0; font-family:monospace; font-size:11px; }
+.wallet-move .row { display:flex; gap:6px; align-items:center; }
+.wallet-move .wallet-new { flex:1 1 auto; min-width:120px; width:auto; }
+.wallet-move .wallet-save { flex:0 0 auto; width:auto; }
+.wallet-move .wallet-new { background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.14); border-radius:6px; padding:6px 8px; }

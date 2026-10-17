@@ -36,6 +36,7 @@
 // thousand early wallets mine no faster than one early wallet. It rewards
 // being early, which is the whole intent.
 
+import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { epochOf } from '../contrib.js';
@@ -176,8 +177,8 @@ function leadingZeroBits(bytes) {
 
 export async function handleMineChallenge(request, env) {
   const body = await readJson(request);
-  const wallet = String(body?.wallet || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const wallet = await walletFrom(env, request, body, null);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
 
   const cfg = await mineConfig(env);
   const now = nowIso();
@@ -202,10 +203,10 @@ export async function handleMineChallenge(request, env) {
 
 export async function handleMineSubmit(request, env) {
   const body = await readJson(request);
-  const wallet = String(body?.wallet || '');
+  const wallet = await walletFrom(env, request, body, null);
   const challenge = String(body?.challenge || '');
   const nonce = String(body?.nonce || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
   if (!/^[0-9a-f]{32}$/.test(challenge) || nonce.length === 0 || nonce.length > 64) {
     return errorJson(env, 'Invalid challenge or nonce', 400);
   }
@@ -242,8 +243,8 @@ export async function handleMineSubmit(request, env) {
 }
 
 export async function handleWallet(request, env, url) {
-  const wallet = String(url.searchParams.get('wallet') || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const wallet = await walletFrom(env, request, null, url);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
   const cfg = await mineConfig(env);
   const now = nowIso();
   await ensureWallet(env.DB, wallet, now);
@@ -283,6 +284,7 @@ export async function handleWallet(request, env, url) {
     Math.min(cfg.ceil, cfg.difficulty + state.adjustment - discount));
 
   return json(env, {
+    public_key: wallet,          // what the server files this wallet under; the private key is never stored
     balance,
     earned: totals.earned,
     spent: totals.spent,
@@ -313,8 +315,8 @@ export async function handleWallet(request, env, url) {
 
 /** GET /api/ledger?wallet=… — the wallet's own recent mints and spends. */
 export async function handleLedger(request, env, url) {
-  const wallet = String(url.searchParams.get('wallet') || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const wallet = await walletFrom(env, request, null, url);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
   const rows = await walletLedger(env.DB, wallet, 40);
   return json(env, rows);
 }

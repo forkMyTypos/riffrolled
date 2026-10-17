@@ -424,3 +424,7 @@ body.mobile .screen-grip { display:none; }
 .np-titlerow.editing .np-title, .np-titlerow.editing .deck-react { display:none; }
 
 /* The controls' looks, the plinth's finish and the skins live in skins.css. */
+.ti-more-btn[hidden] { display:none; }
+.ti-journey-btn { width:100%; min-height:32px; margin-top:6px; padding:6px 10px; font-size:12px; color:#fff; cursor:pointer; text-align:left;
+  background:linear-gradient(135deg, rgba(255,204,77,0.16), rgba(255,138,61,0.16)); border:1px solid rgba(255,184,107,0.5); border-radius:9px; }
+.ti-journey-btn:hover { filter:brightness(1.2); }

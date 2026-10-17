@@ -18,6 +18,7 @@
 // promoted strip can never carry arbitrary content — same safety story
 // as the rest of the site.
 
+import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { parseTags, tagScore } from '../tags.js';
@@ -41,8 +42,8 @@ const BRIEF_RE = /^[0-9a-f]{32}$/;
 
 export async function handlePromote(request, env) {
   const body = await readJson(request);
-  const wallet = String(body?.wallet || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const wallet = await walletFrom(env, request, body, null);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
 
   const canonical = canonicalYouTubeUrl(String(body?.url || ''));
   if (!canonical) return errorJson(env, 'url must be a YouTube video link or id', 400);
@@ -325,8 +326,8 @@ export async function handleBriefClaim(request, env) {
 
 /** GET /api/promotions/mine?wallet=… — the caller's own promotions + stats. */
 export async function handleMyPromotions(request, env, url) {
-  const wallet = String(url.searchParams.get('wallet') || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  const wallet = await walletFrom(env, request, null, url);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
   const list = await walletPromotions(env.DB, wallet, nowIso(), 25);
   return json(env, list);
 }
@@ -343,10 +344,10 @@ export async function handleMyPromotions(request, env, url) {
  */
 export async function handlePromotionAction(request, env) {
   const body = await readJson(request);
-  const wallet = String(body?.wallet || '');
+  const wallet = await walletFrom(env, request, body, null);
   const id = Number(body?.id);
   const action = String(body?.action || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Invalid wallet', 400);
+  if (!wallet) return errorJson(env, 'Invalid wallet', 400);
   if (!Number.isInteger(id) || id <= 0) return errorJson(env, 'Invalid promotion id', 400);
 
   const promo = await getOwnedPromotion(env.DB, id, wallet);

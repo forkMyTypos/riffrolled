@@ -34,6 +34,7 @@
 // and it taxes every real listener's battery to do it — which is why the
 // rewards that exist today deliberately pay for contribution instead.
 
+import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { canonicalYouTubeUrl, WALLET_RE, ensureWallet } from '../db/queries.js';
 import { credit as contribCredit } from '../contrib.js';
@@ -135,8 +136,8 @@ const ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
 export async function handleLink(request, env) {
   const body = await readJson(request);
-  const wallet = String(body && body.wallet || '');
-  if (!WALLET_RE.test(wallet)) return errorJson(env, 'Bad wallet key', 400);
+  const wallet = await walletFrom(env, request, body, null);
+  if (!wallet) return errorJson(env, 'Bad wallet key', 400);
 
   const a = String(body && body.a || '').trim();
   const b = String(body && body.b || '').trim();

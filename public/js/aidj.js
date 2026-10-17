@@ -30,6 +30,10 @@ var djAi = {
   modes: [
     { id:'text',  label:'TEXT',        sub:'COPY + PASTE', state:'ACTIVE',
       blurb:'Build the brief, copy it, paste your AI\'s answer back.' },
+    /* Track Rolled Journey: the listener's own tracks are the brief. Same
+       copy + paste system as TEXT; only the brief is different. */
+    { id:'seeded', label:'TRACK ROLLED', sub:'JOURNEY', state:'ACTIVE',
+      blurb:'Pick a few tracks you love — the DJ rolls a journey outward from them.' },
     { id:'byoai', label:'YOUR AI',     sub:'BRING YOUR OWN', state:'COMING SOON',
       blurb:'Connect the AI you already pay for and skip the clipboard.' },
     { id:'riffroll', label:'RIFFROLL IT', sub:'WE HANDLE IT', state:'COMING SOON',
@@ -49,6 +53,8 @@ var djAi = {
     maxTrackMin: 8,
     shareContext: true,
     allowPromoted: false, // opt-in: paid placements offered alongside the brief
+    shareCommunity: false,// opt-in: post imported sets to Mixes → Community
+    seeds: [],            // Track Rolled Journey: [{ ytId, artist, title }], up to SEED_MAX
     briefId: ''           // ties a copy back to the placements it was offered
   },
 
@@ -78,6 +84,8 @@ var djAi = {
       var saved = await dbBoss.getSetting('djState');
       if (saved) this.state = Object.assign(this.state, JSON.parse(saved));
     } catch(e){ /* a bad saved state is not worth failing over */ }
+    if (!Array.isArray(this.state.seeds)) this.state.seeds = [];
+    if (['text', 'seeded'].indexOf(this.state.mode) < 0) this.state.mode = 'text';
     // anything picked that has since been deleted quietly clears
     var self = this;
     Object.keys(this.state.picks).forEach(function(k){
@@ -428,6 +436,15 @@ var djAi = {
   /* ── the brief, as one line (what the menu shows) ── */
   briefLine(){
     var self = this, bits = [];
+    if (this.state.mode === 'seeded'){
+      var seeds = this.state.seeds.map(function(t){ return (t.artist ? t.artist + ' — ' : '') + (t.title || t.ytId); });
+      bits.push('From: ' + (seeds.length ? seeds.join(', ') : 'no seeds yet'));
+      var pp = this.picked('personality');
+      if (pp) bits.push(pp.label);
+      bits.push(this.state.count + ' tracks · ' + this.state.minutes + ' min');
+      if (this.state.chaos) bits.push('CHAOS');
+      return bits.join(' | ');
+    }
     this.cats.forEach(function(c){
       if (!c.enabled) return;
       var o = self.picked(c.key);
@@ -498,6 +515,7 @@ var djAi = {
      Link Hunter, built from that draft, is the second prompt. Same
      brief underneath. ── */
   async buildPrompt(){
+    if (this.state.mode === 'seeded') return await this.buildSeededPrompt();
     return this.state.textMode === 'speed'
       ? await this.buildSpeedPrompt()
       : await this.buildDetailsPrompt();
@@ -804,6 +822,116 @@ var djAi = {
     return out;
   },
 
+  /* ── TRACK ROLLED JOURNEY ──────────────────────────────────────────────
+     Seed tracks instead of a brief: the DJ rolls a journey outward from
+     them (DJ_SEEDED_PROMPT). Up to five seeds; the DJ personality and the
+     length come from the same controls as everywhere else. */
+  SEED_MAX: 5,
+
+  seedKey(t){ return t.ytId || this._matchNorm((t.artist || '') + ' ' + (t.title || '')); },
+
+  async addSeed(t){
+    t = { ytId: t.ytId || '', artist: String(t.artist || '').slice(0, 200), title: String(t.title || '').slice(0, 300) };
+    if (!t.ytId && !t.title) throw new Error('Give a track: a YouTube link, or Artist - Title');
+    var self = this, k = this.seedKey(t);
+    if (this.state.seeds.some(function(x){ return self.seedKey(x) === k; })) throw new Error('That track is already a seed');
+    if (this.state.seeds.length >= this.SEED_MAX) throw new Error('Five seeds at most — remove one first');
+    this.state.seeds.push(t);
+    await this.save();
+    return t;
+  },
+
+  async removeSeed(i){
+    this.state.seeds.splice(i, 1);
+    await this.save();
+  },
+
+  /** a typed seed: a YouTube link or bare id (looked up in the library), or "Artist - Title" */
+  async seedFromText(text){
+    var s = String(text || '').trim();
+    if (!s) throw new Error('Type a track, or paste a YouTube link');
+    var id = this._ytUrlId(s) || this._bareId(s);
+    if (id){
+      var row = null;
+      try { row = await db.tracks.where('ytId').equals(id).first(); } catch(e){}
+      return { ytId: id, artist: row ? (row.artist || '') : '', title: row ? (row.name || '') : '' };
+    }
+    var d = this._splitDash(s);
+    return d ? { ytId: '', artist: d.artist, title: d.title } : { ytId: '', artist: '', title: s.slice(0, 300) };
+  },
+
+  _seedLine(t, i){
+    return (i + 1) + '. ' + (t.artist ? t.artist + ' — ' : '') + (t.title || '(title unknown)') +
+      (t.ytId ? '  (YouTube video ID: ' + t.ytId + ')' : '');
+  },
+
+  async buildSeededPrompt(){
+    var self = this, s = this.state, L = [];
+    if (!s.seeds.length) throw new Error('Add at least one seed track first');
+    L.push('In short: ' + this.briefLine());
+    L.push('');
+    L.push('THE SEED TRACKS (the starting point — do not include these in the mix):');
+    s.seeds.forEach(function(t, i){ L.push(self._seedLine(t, i)); });
+    L.push('');
+    var p = this._say('personality');
+    if (p) L.push('DJ personality: ' + (p.any ? p.text : p.label + (p.line ? ' — ' + p.line : '')));
+    if (s.chaos) L.push('Chaos: ON — ' + this._chaosLine());
+    L.push('Tracks: exactly ' + s.count);
+    L.push('Total duration: about ' + s.minutes + ' minutes');
+    L.push('Longest single track: ' + s.maxTrackMin + ' minutes');
+    var g = this._genreList();
+    if (g) L.push('Allowed genres for the GENRE line: ' + g);
+    if (s.shareContext){
+      var top = await this.topTracks(10);
+      if (top.length){
+        L.push('');
+        L.push(DJ_SPEED_LISTENING.replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n')).trim());
+      }
+    }
+    var promoted = await this.promotedBlock();
+    if (promoted){ L.push(''); L.push(promoted.trim()); }
+    return DJ_SEEDED_PROMPT.replace('{{brief}}', L.join('\n')).replace(/\{\{count\}\}/g, String(s.count));
+  },
+
+  /* ── SHARE WITH COMMUNITY ──────────────────────────────────────────────
+     Opt-in (the "🌍 Share with community" box, off by default). An
+     imported set goes to Mixes → Community exactly as the Share button
+     would send it: name, one line about it, genre, the tracks' titles,
+     artists and YouTube links, and the DJ choices. The wallet's private key
+     rides in the X-Riff-Key header so the server can log the sharer's
+     PUBLIC key (admin-only, for tracing abuse); nothing else about the
+     listener goes. Every rule the Share button lives under applies: the
+     daily limit, link checks, name rules, duplicate sets, reports. */
+  async shareToCommunity(playlistId, meta){
+    meta = meta || {};
+    var pl = await db.playlists.get(playlistId);
+    if (!pl) throw new Error('That playlist is gone');
+    var joins = await db.playlistTracks.where('playlistId').equals(playlistId).sortBy('order');
+    var tracks = [];
+    for (var i = 0; i < joins.length && tracks.length < 50; i++){
+      var t = await db.tracks.get(joins[i].trackId);
+      if (t && t.ytId && t.playable !== 0){
+        tracks.push({ name: t.name || '', artist: t.artist || '', genre: t.genre || '', url: 'https://www.youtube.com/watch?v=' + t.ytId });
+      }
+    }
+    var name = String(meta.name || pl.name || '').replace(/^[^\p{L}\p{N}]+/u, '').slice(0, 80);
+    var genre = meta.genre && window.riffGenres ? (riffGenres.normalize(meta.genre).genre || '') : '';
+    if (!genre){
+      var gs = tracks.map(function(t){ return t.genre; }).filter(Boolean);
+      genre = gs[0] || '';
+    }
+    var brief = (window.mixesBoss && mixesBoss.shareableBrief) ? mixesBoss.shareableBrief(this.briefObject()) : null;
+    var headers = Object.assign({ 'content-type': 'application/json' },
+      window.riffWallet ? await riffWallet.headers() : {});
+    var r = await fetch('/api/mixes/share', { method: 'POST', headers: headers,
+      body: JSON.stringify({ name: name, blurb: String(meta.about || pl.aiAbout || '').slice(0, 200), genre: genre,
+                             brief: brief || undefined, tracks: tracks }) });
+    var j = null; try { j = await r.json(); } catch(e){}
+    if (!r.ok) throw new Error((j && j.error) || ('Sharing didn’t work (HTTP ' + r.status + ')'));
+    try { await db.playlists.update(playlistId, { sharedMixId: j.id }); } catch(e){}
+    return j;
+  },
+
   /* ── LINK HUNTER ───────────────────────────────────────────────────────
      The prompt that finds the YouTube links (DJ_LINK_HUNTER_PROMPT). Used
      for multi-shot step 3, and for any reply — one-shot or multi-shot —
@@ -1041,7 +1169,12 @@ var djAi = {
 
   /** a link, not a guess: only the URL forms */
   _ytUrlId(s){
-    var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(s)
+    s = String(s || '');
+    /* Gemini (and some chat apps) hand links back wrapped in a redirect:
+       https://www.google.com/url?q=https://www.youtube.com/watch%3Fv%3D…
+       Decode first, so the id inside is found either way. */
+    if (/%[0-9a-f]{2}/i.test(s)){ try { s = decodeURIComponent(s); } catch(e){} }
+    var m = /[?&]v=([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/.exec(s)
          || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(s)
          || /\/(?:shorts|embed)\/([A-Za-z0-9_-]{11})/.exec(s);
     return m ? m[1] : null;
@@ -1053,7 +1186,14 @@ var djAi = {
      never on a cell that could be an artist or a title. */
   _bareId(s){
     var m = /^([A-Za-z0-9_-]{11})$/.exec(String(s || '').trim());
-    return m ? m[1] : null;
+    if (!m) return null;
+    /* The prompts now ask for the bare 11-character id rather than a URL
+       (it can't be mangled into a redirect). A real id is random, so it
+       almost always has a digit, a - or _, or capitals after the first
+       letter; an 11-letter word ("Electronica", "Gamesofluck") has none. */
+    var id = m[1];
+    var idLike = /[0-9_-]/.test(id) || (/[A-Z]/.test(id.slice(1)) && /[a-z]/.test(id));
+    return idLike ? id : null;
   },
 
   /** "4:12" / "1:02:30" / "4m12s" / "252" → seconds, or 0 */
@@ -1223,7 +1363,10 @@ var djAi = {
           if (urlId){ it.url = urlId; linkAt = ci; break; }
         }
         if (linkAt < 0){
-          for (var cj = 2; cj < cells.length; cj++){
+          /* "Artist - Title | ID | 3:42 | genre" (one-shot) puts the id in the
+             second cell; the numbered formats put it third or later. */
+          var firstId = /\s[-–—]\s/.test(cells[0] || '') ? 1 : 2;
+          for (var cj = firstId; cj < cells.length; cj++){
             var bare = self._bareId(cells[cj]);
             if (bare){ it.url = bare; linkAt = cj; break; }
           }
@@ -1673,6 +1816,10 @@ var djAi = {
 
   /** a name from the brief when the AI didn't give one */
   briefSummaryName(){
+    if (this.state.mode === 'seeded' && this.state.seeds.length){
+      var f = this.state.seeds[0];
+      return 'Journey from ' + (f.title || f.artist || 'your tracks');
+    }
     var bits = [];
     ['activity', 'feel', 'direction'].forEach(function(k){
       var o = djAi.picked(k);

@@ -48,6 +48,40 @@ Frontend files worth knowing: `public/js/track-info.js` owns the Track info pane
 `public/js/dock.js` places panels, `public/js/promo-popup.js` draws the promoted
 record, and `public/js/aidj.js` + `dj-menu.js` + `dj-data.js` are the DJ.
 
+**Wallet keys** (src/wallet.js, schema 21). A wallet is a *private key* (64 hex, made and
+kept in the browser; the one thing to copy to another device) and a *public key*
+(`sha256("riffrolled/wallet/v1:" + private)`). The server files everything — ledger,
+promotions, contributions, links — under the public key and never stores the private
+one; the browser sends the private key in an `X-Riff-Key` header (not the URL, so it
+never lands in a log). Wallets from before schema 21 were filed under their private key
+(`wallets.pub = 0`); each moves itself to its public key the first time its owner shows
+up, and only such legacy rows can move — sending someone's public key as a "private key"
+gets you a new, empty wallet. The Mine panel's 🔑 Your keys shows both, with copy and
+"use a private key from another device".
+
+The prompts ask for the bare 11-character **video id** (e.g. `dQw4w9WgXcQ`) rather than a
+URL — Gemini in particular mangles links into `google.com/url?q=…` redirects. The parser
+takes either: a bare id, any YouTube URL form, or a redirect-wrapped one; an 11-letter word
+("Electronica") is never mistaken for an id.
+
+**Share with community** (DJ AI, opt-in, off by default). An imported set is also posted to
+Mixes → Community (name, ABOUT line, genre, tracks, DJ choices) through the same
+`/api/mixes/share` as the Share button — same daily limit, link checks, name rules,
+duplicate detection and reports. When Link Hunter is still filling gaps it waits, so the
+shared mix is the finished one. Shares carry the private key in `X-Riff-Key`; the server
+logs the sharer's **public key** in `mixes.creator` (schema 22) — admin-only, never sent to
+listeners — and the daily limit applies per wallet as well as per network. The admin shows
+"by rr·…" on each community mix and can hide everything one wallet shared. Community lists
+10 at a time (Newest / Popular, then Show more); search covers mix names, blurbs, artists,
+track titles and DJ choice values.
+
+**Track Rolled Journey** (DJ AI mode card next to TEXT; `DJ_SEEDED_PROMPT`). The brief is
+up to five seed tracks — from what's playing, the library, a pasted link / video id, or
+typed "Artist - Title" — plus the DJ personality and the length. One prompt, the same reply
+format and import as one-shot (its link-finding, repair and output sections are the
+one-shot's, word for word); the seeds are listed with their video ids and kept out of the
+mix. Track info has "🎲 Roll a journey from this track". Mode and seeds persist.
+
 The DJ AI has two ways to brief an AI. **One-shot prompt** (`DJ_ONESHOT_PROMPT`): one
 prompt; the AI curates the mix, finds and verifies the YouTube links itself and replies
 with a finished `RIFFROLLED-PLAYLIST` (`Artist - Title | link | m:ss | genre` lines under
@@ -133,7 +167,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":20`).
+the tables are missing (`/api/health` should show `"schema":22`).
 
 ## Endpoints
 

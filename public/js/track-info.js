@@ -47,7 +47,7 @@ var trackInfo = {
       plays: q('.ti-plays'), added: q('.ti-added'), yt: q('.ti-yt'),
       elsewhere: q('.ti-elsewhere'), back: q('.ti-back'),
       tags: q('.ti-tags'), tagNew: q('.ti-tagnew'),
-      more: q('.ti-more'), moreBtn: q('.ti-more-btn'),
+      more: q('.ti-more'), moreBtn: q('.ti-more-btn'), journeyBtn: q('.ti-journey-btn'),
       likeCount: q('.like-count'), dislikeCount: q('.dislike-count')
     };
 
@@ -64,6 +64,10 @@ var trackInfo = {
     });
 
     this.ui.moreBtn.addEventListener('click', function(){ self.more(); });
+    // a Track Rolled Journey seeded with this track (DJ AI)
+    if (this.ui.journeyBtn) this.ui.journeyBtn.addEventListener('click', function(){
+      if (self.target && window.djMenuBoss) djMenuBoss.seedFrom(self.target);
+    });
 
     this.ui.tagNew.addEventListener('keydown', function(e){
       if (e.key === 'Enter'){ e.preventDefault(); self.addTag(this.value); this.value = ''; return; }
@@ -116,9 +120,11 @@ var trackInfo = {
     var info;
     try { info = await riffArtist.localOthers(ytId); } catch(e){ box.hidden = true; return; }
     if (this.target !== ytId) return;
-    // no artist we can name: hide the button rather than offer one that cannot work
-    if (!info.artist){ box.hidden = true; return; }
+    // no artist we can name: hide that button rather than offer one that cannot
+    // work — the journey button below it still applies to any track
     box.hidden = false;
+    if (!info.artist){ btn.hidden = true; return; }
+    btn.hidden = false;
     btn.disabled = false;
     btn.textContent = info.rows.length
       ? '♫ Queue more from ' + info.artist + ' · ' + info.rows.length + ' in your library'

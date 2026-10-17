@@ -202,8 +202,8 @@ export async function ensureWallet(db, id, now) {
      accuracy nobody can perceive at the price of a failed insert on the
      busiest possible moment. */
   await db.prepare(
-    `INSERT INTO wallets (id, created_at, seq)
-     VALUES (?1, ?2, (SELECT IFNULL(MAX(seq), 0) + 1 FROM wallets))
+    `INSERT INTO wallets (id, created_at, seq, pub)
+     VALUES (?1, ?2, (SELECT IFNULL(MAX(seq), 0) + 1 FROM wallets), 1)
      ON CONFLICT(id) DO NOTHING`
   ).bind(id, now).run();
 }

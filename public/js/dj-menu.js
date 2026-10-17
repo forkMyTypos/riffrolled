@@ -61,6 +61,10 @@ var DJ_MODE_ICONS = {
     "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M9 2.5v5M15 2.5v5' stroke='currentColor' stroke-width='1.7' stroke-linecap='round'/>" +
     "<rect x='6' y='7.5' width='12' height='7' rx='2.2' fill='none' stroke='currentColor' stroke-width='1.7'/>" +
     "<path d='M12 14.5v3.2a3.4 3.4 0 0 0 3.4 3.4' fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round'/></svg>",
+  seeded:
+    "<svg viewBox='0 0 24 24' aria-hidden='true' fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'>" +
+      "<circle cx='7' cy='17' r='2.4'/><path d='M9.4 17V6.5l5-1.3v9.6'/><circle cx='12' cy='14.8' r='2.4'/>" +
+      "<path d='M16.5 9.5c1.6.4 3 1.6 3.8 3.3M16.5 6.4c2.5.6 4.6 2.5 5.4 5'/></svg>",
   riffroll:
     "<svg viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='12' r='8.6' fill='none' stroke='currentColor' stroke-width='1.7'/>" +
     "<circle cx='12' cy='12' r='3.1' fill='none' stroke='currentColor' stroke-width='1.5'/>" +
@@ -152,6 +156,14 @@ var djMenuBoss = {
            invited people to turn off the thing that catches an AI handing
            back invented video ids. It just happens now. */
         "<div class='dj-check-note'>Links are checked against YouTube before importing.</div>" +
+        /* Opt-in, off by default, and worded so the listener knows exactly
+           what leaves the browser before they tick it. */
+        "<label class='dj-community' data-testid='dj-community'>" +
+          "<input type='checkbox' class='dj-community-cb' data-testid='dj-community-cb'>" +
+          "<span>🌍 Share with community</span>" +
+        "</label>" +
+        "<div class='dj-community-note'>Adds the playlist to Mixes → Community for anyone to play: its name, tracks and your DJ choices. " +
+          "Your wallet's public key is recorded so abuse can be traced — it isn't shown to anyone, and nothing else about you goes.</div>" +
         "<div class='row dj-gorow'>" +
           "<span class='dj-parsed' data-testid='dj-parsed' role='status' aria-live='polite'></span>" +
           "<button class='dj-go' data-testid='dj-import-btn' aria-label='Import playlist'>▶ IMPORT PLAYLIST</button>" +
@@ -222,14 +234,16 @@ var djMenuBoss = {
   /* ── modes ── */
   renderModes(){
     var box = this.el.querySelector('.dj-modes');
+    var cur = djAi.state.mode || 'text';
     box.innerHTML = djAi.modes.map(function(m){
-      var live = m.state === 'ACTIVE';
-      return "<button class='dj-mode" + (live ? ' live' : ' soon') + "' data-m='" + m.id + "'" +
-        (live ? '' : " disabled") + " title='" + escapeHtml(m.blurb) + "'>" +
+      var live = m.state === 'ACTIVE', on = live && m.id === cur;
+      var badge = !live ? m.state : (on ? 'ACTIVE' : (m.id === 'seeded' ? 'NEW' : 'PICK'));
+      return "<button class='dj-mode" + (live ? ' live' : ' soon') + (on ? ' on' : '') + "' data-m='" + m.id + "' data-testid='dj-mode-" + m.id + "'" +
+        (live ? '' : " disabled") + " title='" + escapeHtml(m.blurb) + "' aria-pressed='" + (on ? 'true' : 'false') + "'>" +
         "<span class='dj-mode-ico'>" + (DJ_MODE_ICONS[m.id] || '') + "</span>" +
         "<span class='dj-mode-label'>" + escapeHtml(m.label) + "</span>" +
         "<span class='dj-mode-sub'>" + escapeHtml(m.sub) + "</span>" +
-        "<span class='dj-mode-state'>" + escapeHtml(m.state) + "</span>" +
+        "<span class='dj-mode-state" + (badge === 'NEW' ? ' new' : '') + "'>" + escapeHtml(badge) + "</span>" +
       "</button>";
     }).join('');
   },
@@ -303,14 +317,82 @@ var djMenuBoss = {
     "</div>";
   },
 
+  seeded(){ return djAi.state.mode === 'seeded'; },
+
+  /* Track Rolled Journey: the seeds ARE the brief. Up to five, added from
+     what's playing, from the library, or typed / pasted. */
+  seedsHtml(){
+    var seeds = djAi.state.seeds || [];
+    return "<div class='dj-section dj-fixed dj-seeds open' data-testid='dj-seeds'>" +
+      "<div class='dj-sec-head'><span class='dj-sec-ico'>🎵</span><span class='dj-sec-label'>Seed tracks</span>" +
+        "<span class='dj-sec-value'>" + seeds.length + ' of ' + djAi.SEED_MAX + "</span></div>" +
+      "<div class='dj-seed-body'>" +
+        "<div class='dj-note'>Pick up to five tracks you love. The DJ rolls a journey outward from them — the seeds themselves won't be in it.</div>" +
+        (seeds.length ? "<ol class='dj-seed-list'>" + seeds.map(function(t, i){
+          return "<li class='dj-seed' data-i='" + i + "'><span class='dj-seed-t'>" +
+            escapeHtml((t.artist ? t.artist + ' — ' : '') + (t.title || t.ytId)) + "</span>" +
+            "<button class='dj-seed-x' data-i='" + i + "' title='Remove' aria-label='Remove this seed'>✕</button></li>";
+        }).join('') + "</ol>" : "<div class='dj-seed-empty'>No seeds yet.</div>") +
+        "<div class='row dj-seed-row'>" +
+          "<button class='dj-seed-now' data-testid='dj-seed-now'>＋ Now playing</button>" +
+        "</div>" +
+        "<div class='row dj-seed-row'>" +
+          "<input type='text' class='dj-seed-in' data-testid='dj-seed-in' placeholder='Search your library, paste a YouTube link, or type Artist - Title'>" +
+          "<button class='icon-btn dj-seed-add' data-testid='dj-seed-add' title='Add as a seed'>＋</button>" +
+        "</div>" +
+        "<div class='dj-seed-hits'></div>" +
+      "</div>" +
+    "</div>";
+  },
+
+  async renderSeedHits(q){
+    var box = this.el.querySelector('.dj-seed-hits');
+    if (!box) return;
+    q = String(q || '').trim().toLowerCase();
+    if (q.length < 2 || djAi._ytUrlId(q) || djAi._bareId(q)){ box.innerHTML = ''; return; }
+    var rows = [];
+    try {
+      rows = (await db.tracks.toArray()).filter(function(t){
+        return ((t.artist || '') + ' ' + (t.name || '')).toLowerCase().indexOf(q) >= 0;
+      }).slice(0, 6);
+    } catch(e){}
+    box.innerHTML = rows.map(function(t){
+      return "<button class='dj-seed-hit' data-yt='" + escapeHtml(t.ytId) + "'>" +
+        escapeHtml((t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId)) + "</button>";
+    }).join('');
+  },
+
+  async addSeedAndRender(t){
+    try { await djAi.addSeed(t); }
+    catch(e){ this.status(e.message, 'err'); return false; }
+    this.renderSections(); this.sync();
+    this.status('Seed added', 'ok');
+    return true;
+  },
+
+  /** from elsewhere (Track info): start a Track Rolled Journey from this track */
+  async seedFrom(ytId){
+    await djAi.ready();
+    var t = null;
+    try { t = await db.tracks.where('ytId').equals(ytId).first(); } catch(e){}
+    djAi.state.mode = 'seeded';
+    await djAi.save();
+    this.renderModes(); this.renderSections();
+    if (window.dock) dock.openPanel(this.el);
+    await this.addSeedAndRender({ ytId: ytId, artist: t ? t.artist : '', title: t ? t.name : '' });
+  },
+
   renderSections(){
     var self = this;
     var box = this.el.querySelector('.dj-sections');
-    var cats = this.mainCats();
+    var seeded = this.seeded();
+    this.el.classList.toggle('dj-seeded', seeded);
+    var cats = seeded ? djAi.cats.filter(function(c){ return c.key === 'personality' && c.enabled; }) : this.mainCats();
 
-    var html = cats.map(function(c){ return self.sectionHtml(c); }).join('');
+    var html = seeded ? this.seedsHtml() : '';
+    html += cats.map(function(c){ return self.sectionHtml(c); }).join('');
     // familiarity is a details-mode control; in speed it waits behind More
-    if (!this.speed()) html += this.famHtml();
+    if (!seeded && !this.speed()) html += this.famHtml();
     html += this.timeHtml();
 
     box.innerHTML = html;
@@ -412,6 +494,48 @@ var djMenuBoss = {
       self.sync();
     };
 
+    root.querySelector('.dj-modes').addEventListener('click', async function(e){
+      var b = e.target.closest('.dj-mode.live');
+      if (!b || djAi.state.mode === b.dataset.m) return;
+      djAi.state.mode = b.dataset.m;
+      await djAi.save();
+      self.open = {};
+      self.renderModes(); self.renderSubModes(); self.renderSections(); self.sync();
+    });
+
+    root.querySelector('.dj-sections').addEventListener('click', async function(e){
+      var x = e.target.closest('.dj-seed-x');
+      if (x){ await djAi.removeSeed(+x.dataset.i); self.renderSections(); self.sync(); return; }
+      if (e.target.closest('.dj-seed-now')){
+        var yt = window.player && player.currentYtId;
+        if (!yt){ self.status('Nothing is playing — search your library below instead', 'err'); return; }
+        var tr = null; try { tr = await db.tracks.where('ytId').equals(yt).first(); } catch(err){}
+        await self.addSeedAndRender({ ytId: yt, artist: tr ? tr.artist : '', title: tr ? tr.name : '' });
+        return;
+      }
+      var hit = e.target.closest('.dj-seed-hit');
+      if (hit){
+        var row = null; try { row = await db.tracks.where('ytId').equals(hit.dataset.yt).first(); } catch(err){}
+        await self.addSeedAndRender({ ytId: hit.dataset.yt, artist: row ? row.artist : '', title: row ? row.name : '' });
+        return;
+      }
+      if (e.target.closest('.dj-seed-add')){
+        var inp = root.querySelector('.dj-seed-in');
+        try { await self.addSeedAndRender(await djAi.seedFromText(inp.value)); }
+        catch(err){ self.status(err.message, 'err'); }
+      }
+    });
+    root.querySelector('.dj-sections').addEventListener('input', function(e){
+      if (e.target.classList.contains('dj-seed-in')) self.renderSeedHits(e.target.value);
+    });
+    root.querySelector('.dj-sections').addEventListener('keydown', async function(e){
+      if (e.key === 'Enter' && e.target.classList.contains('dj-seed-in')){
+        e.preventDefault();
+        try { await self.addSeedAndRender(await djAi.seedFromText(e.target.value)); }
+        catch(err){ self.status(err.message, 'err'); }
+      }
+    });
+
     root.querySelector('.dj-submodes').addEventListener('click', async function(e){
       var b = e.target.closest('.dj-sub');
       if (!b || djAi.state.textMode === b.dataset.s) return;
@@ -491,6 +615,10 @@ var djMenuBoss = {
 
     root.querySelector('.dj-pasteback').onclick = function(){ self.pasteBack(this); };
     root.querySelector('.dj-wiz').addEventListener('click', function(e){ self.onWiz(e); });
+    root.querySelector('.dj-community-cb').onchange = async function(){
+      djAi.state.shareCommunity = this.checked;
+      await djAi.save();
+    };
 
     /* Coming back to the tab is the signal that you have been to an AI.
        Both events are needed: switching tabs fires visibilitychange, while
@@ -757,6 +885,7 @@ var djMenuBoss = {
     if (avg) avg.textContent = '≈ ' + djAi.avgMinutes() + ' min each';
 
     root.querySelector('.dj-share-cb').checked = s.shareContext;
+    root.querySelector('.dj-community-cb').checked = !!s.shareCommunity;
     root.querySelector('.dj-promo-cb').checked = !!s.allowPromoted;
     root.querySelector('.dj-knows-state').textContent = s.shareContext ? 'sharing' : 'private';
     root.querySelector('.dj-knows-state').className = 'dj-knows-state' + (s.shareContext ? ' on' : '');
@@ -768,13 +897,21 @@ var djMenuBoss = {
       ? 'Share your track data' : 'DJ knows';
 
     root.querySelector('.dj-brief').textContent = djAi.briefLine();
-    root.querySelector('.dj-copy').textContent = this.speed() ? '⧉ COPY DJ BRIEF' : '⧉ COPY PROMPT 1 · DJ BRIEF';
-    root.querySelector('.dj-reply').placeholder = this.speed()
+    var seeded = this.seeded();
+    root.querySelector('.dj-copy').textContent = seeded ? '⧉ COPY TRACK ROLLED JOURNEY' : (this.speed() ? '⧉ COPY DJ BRIEF' : '⧉ COPY PROMPT 1 · DJ BRIEF');
+    // the seeds are the brief: no one-shot / Riffenator choice, no Riff Roll dice, no extra sections
+    ['.dj-submodes', '.dj-rollbar', '.dj-more', '.dj-est'].forEach(function(sel){ var n = root.querySelector(sel); if (n) n.hidden = seeded; });
+    root.querySelector('.dj-reply').placeholder = (this.speed() || seeded)
       ? 'Paste AI response here…'
       : 'Copy prompt 1 — the steps after it open in a pop-up…';
     root.querySelector('.dj-est').textContent = 'DJ thinking time ' + djAi.estimateLabel();
     // only count what's actually on screen — a section hidden behind More
     // settings isn't something the listener has left blank
+    if (seeded){
+      var n = (djAi.state.seeds || []).length;
+      root.querySelector('.dj-copy-note').textContent = n ? '' : 'add a seed track first';
+      return;
+    }
     var missing = this.mainCats().filter(function(x){ return !djAi.picked(x.key); }).length;
     root.querySelector('.dj-copy-note').textContent = missing
       ? (missing + ' left to the DJ')
@@ -973,7 +1110,7 @@ var djMenuBoss = {
         if (!opts.silent) this.status('Brief copied ✓', 'ok');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         this.arm(text);             // offer the one-click paste on the way back
-        if (!this.speed()) this.wizOpen('list', {});      // multi-shot: on to step 2
+        if (!this.speed() && !this.seeded()) this.wizOpen('list', {});      // the Riffenator: on to step 2
         return true;
       } catch(e){
         var box = this.el.querySelector('.dj-promptbox') || (function(sec){
@@ -982,7 +1119,7 @@ var djMenuBoss = {
         })(this.el.querySelector('.dj-brief-sec'));
         box.value = text; box.select();
         this.status('Select the text below and copy it');
-        if (!this.speed()) this.wizOpen('list', { prompt1: text });
+        if (!this.speed() && !this.seeded()) this.wizOpen('list', { prompt1: text });
         if (window.appToast) appToast('Clipboard blocked — the prompt is in the box below', 'warn');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         return false;
@@ -1013,8 +1150,27 @@ var djMenuBoss = {
   },
 
   wizClose(){
+    var pending = this._wiz && this._wiz.shareAfter;
     this.el.querySelector('.dj-wiz').hidden = true;
     this._wiz = null;
+    if (pending) this.shareNow(pending);
+  },
+
+  /** 🌍 post an imported set to Mixes → Community, and say how it went */
+  async shareNow(share){
+    var el = this.el.querySelector('.dj-community-status') || (function(sec){
+      var d = document.createElement('div'); d.className = 'status-bar dj-community-status';
+      d.setAttribute('data-testid', 'dj-community-status'); sec.appendChild(d); return d;
+    })(this.el.querySelector('.dj-import-sec'));
+    el.className = 'status-bar dj-community-status'; el.textContent = '🌍 Sharing with the community…';
+    try {
+      var j = await djAi.shareToCommunity(share.playlistId, share);
+      el.className = 'status-bar dj-community-status ok';
+      el.textContent = j.existing ? '🌍 That exact set is already in Community' : '🌍 Shared to Mixes → Community as “' + j.name + '”';
+    } catch(e){
+      el.className = 'status-bar dj-community-status err';
+      el.textContent = '🌍 Not shared: ' + e.message;
+    }
   },
 
   wizMsg(msg, kind){
@@ -1328,11 +1484,15 @@ var djMenuBoss = {
       var missing = (R.noLink || []).concat(R.dead || [], R.repeated || []);
       missing.sort(function(a, b){ return parsed.items.indexOf(a) - parsed.items.indexOf(b); });
       missing.forEach(function(it){ it.url = ''; });
+      // 🌍 sharing waits until any gaps are filled, so the shared mix is the finished one
+      var share = djAi.state.shareCommunity ? { playlistId: saved.playlistId, name: parsed.name || saved.name, about: parsed.about, genre: parsed.genre } : null;
       if (missing.length || odd.length){
         this.wizOpen('missing', { playlistId: saved.playlistId, all: parsed.items, missing: missing, name: saved.name,
-          reasons: this.wizReasons(missing, R, odd), total: R.total, imported: saved.count, found: (found && found.found) || 0 });
-      } else if (opts.wizard){
-        this.wizClose();
+          reasons: this.wizReasons(missing, R, odd), total: R.total, imported: saved.count, found: (found && found.found) || 0,
+          shareAfter: share });
+      } else {
+        if (opts.wizard) this.wizClose();
+        if (share) this.shareNow(share);
       }
     } catch(e){
       this.bstatus('Import failed: ' + e.message, 'err');

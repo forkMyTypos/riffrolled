@@ -336,6 +336,23 @@ const MIGRATIONS = [
     `ALTER TABLE mixes ADD COLUMN brief TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE mix_tracks ADD COLUMN note TEXT NOT NULL DEFAULT ''`,
   ]},
+
+  { id: 21, name: 'wallet-public-keys', sql: [
+    /* Wallets are filed under a PUBLIC key from now on (see src/wallet.js).
+       pub = 1 marks a row filed under its public key; every row that exists
+       when this runs is a legacy row filed under its private key (pub = 0),
+       and moves itself across the first time its owner turns up. */
+    `ALTER TABLE wallets ADD COLUMN pub INTEGER NOT NULL DEFAULT 0`,
+  ]},
+
+  { id: 22, name: 'mix-creator', sql: [
+    /* Who shared a community mix: the sharer's wallet PUBLIC key (never the
+       private key), or '' when none came with the share. Shown to the owner
+       in the admin tool so abuse can be traced and cleaned up in one go; it
+       is never sent to other listeners. */
+    `ALTER TABLE mixes ADD COLUMN creator TEXT NOT NULL DEFAULT ''`,
+    `CREATE INDEX IF NOT EXISTS idx_mixes_creator ON mixes(creator, created_at)`,
+  ]},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

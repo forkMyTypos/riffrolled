@@ -513,3 +513,34 @@ body.mobile .dj-wiz { top:48px; }
 .dj-opt-label { min-width:0; }
 .dj-opt-blurb { white-space:normal; overflow:visible; }
 .dj-opt-tags { color:rgba(255,255,255,0.38); flex-shrink:1; min-width:0; overflow:hidden; text-overflow:ellipsis; max-width:42%; }
+
+/* mode cards: TEXT and TRACK ROLLED JOURNEY are both pickable */
+.dj-mode.live { cursor:pointer; }
+.dj-mode.live:not(.on) { opacity:.75; }
+.dj-mode.on { border-color:rgba(255,157,226,0.6); background:rgba(255,157,226,0.10); }
+.dj-mode-state.new { background:linear-gradient(135deg,#ffcc4d,#ff8a3d); color:#1a1020; }
+/* Track Rolled Journey: the seed list */
+.dj-seed-body { padding:4px 8px 8px 30px; display:flex; flex-direction:column; gap:6px; }
+.dj-seed-list { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:3px; }
+.dj-seed { font-size:12px; color:#fff; }
+.dj-seed-t { margin-right:6px; }
+.dj-seed-x { background:transparent; border:0; color:rgba(255,255,255,0.45); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:5px; }
+.dj-seed-x:hover { color:#fff; background:rgba(255,255,255,0.1); }
+.dj-seed-empty { font-size:11.5px; color:rgba(255,255,255,0.45); }
+.dj-seed-row { display:flex; gap:6px; }
+.dj-seed-in { flex:1; min-width:0; font-size:12px; padding:6px 8px; background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.14); border-radius:6px; }
+.dj-seed-now { font-size:11.5px; padding:5px 10px; border-radius:7px; background:rgba(255,157,226,0.14); border:1px solid rgba(255,157,226,0.4); color:#fff; cursor:pointer; }
+.dj-seed-hits { display:flex; flex-direction:column; gap:3px; }
+.dj-seed-hits:empty { display:none; }
+.dj-seed-hit { text-align:left; font-size:12px; padding:5px 8px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.85); cursor:pointer; }
+.dj-seed-hit:hover { background:rgba(255,255,255,0.12); }
+.dj-panel [hidden] { display:none !important; }
+body.mobile .dj-seed-x, body.mobile .dj-seed-now, body.mobile .dj-seed-hit { min-height:40px; }
+body.mobile .dj-seed-body { padding-left:10px; }
+
+/* 🌍 Share with community — opt-in, with what it means written underneath */
+.dj-community { display:flex; align-items:center; gap:8px; margin:8px 0 2px; font-size:12px; color:#fff; cursor:pointer; }
+.dj-community input { width:16px; height:16px; accent-color:#8a7bff; }
+.dj-community-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.45); margin-bottom:6px; }
+.dj-community-status { margin-top:6px; }
+body.mobile .dj-community { min-height:40px; }

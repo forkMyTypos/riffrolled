@@ -23,18 +23,60 @@ var PROMOTE_SVG =
     "</g>" +
   "</svg>";
 
-/* the anonymous wallet key both mining and promoting sit on top of */
+/* The wallet both mining and promoting sit on top of: two keys.
+     private key  64 random hex characters, made here and kept here. It is
+                  your wallet — copy it to use your tokens on another device.
+     public key   sha256 of it (src/wallet.js says exactly how). The server
+                  files your wallet under this and never stores the private
+                  key; it is safe to show and share.
+   Nothing about you is in either. */
 var riffWallet = {
+  PREFIX: 'riffrolled/wallet/v1:',
+
+  /** the PRIVATE key (created on first use) */
   async get(){
     if (this._w) return this._w;
-    let w = await dbBoss.getSetting('wallet');
-    if (!w){
-      const a = new Uint8Array(32); crypto.getRandomValues(a);
-      w = [...a].map(b => b.toString(16).padStart(2, '0')).join('');
-      await dbBoss.setSetting('wallet', w);
-    }
-    this._w = w;
-    return w;
+    /* One creation, however many callers. The Mine panel, the Promote
+       panel and the keys section all ask at boot; without this, each could
+       mint its own key on a first visit and the panels would disagree. */
+    if (!this._making) this._making = (async () => {
+      let w = await dbBoss.getSetting('wallet');
+      if (!w){
+        const a = new Uint8Array(32); crypto.getRandomValues(a);
+        w = [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+        await dbBoss.setSetting('wallet', w);
+      }
+      this._w = w;
+      return w;
+    })();
+    try { return await this._making; } finally { this._making = null; }
+  },
+
+  /** the PUBLIC key: what riffrolled's server knows this wallet as */
+  async publicKey(){
+    var w = await this.get();
+    if (this._pubFor === w && this._pub) return this._pub;
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(this.PREFIX + w));
+    this._pub = [...new Uint8Array(buf)].map(function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+    this._pubFor = w;
+    return this._pub;
+  },
+
+  /** short form for display: rr·1a2b3c4d…9f8e */
+  shortPub(pub){ return 'rr·' + pub.slice(0, 8) + '…' + pub.slice(-4); },
+
+  /** headers that carry the private key — kept out of URLs, so it never lands in a log */
+  async headers(extra){
+    return Object.assign({ 'X-Riff-Key': await this.get() }, extra || {});
+  },
+
+  /** switch this browser to another private key (one from another device) */
+  async use(k){
+    k = String(k || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(k)) throw new Error('That is not a private key (64 characters, 0–9 and a–f)');
+    await dbBoss.setSetting('wallet', k);
+    this._w = k; this._pub = null; this._pubFor = null; this._making = null;
+    return k;
   }
 };
 
@@ -70,13 +112,26 @@ var mineBoss = {
         "<div class='mine-note'>Mining burns CPU (and battery on phones). Tokens are spent in the Promote panel — they have no cash value.</div>" +
       "</div>" +
       "<div class='sec wallet-sec'>" +
-        "<div class='sec-head'>Wallet key</div>" +
+        "<div class='sec-head'>🔑 Your keys</div>" +
+        "<div class='wallet-lbl'>Public key <span class='wallet-hint'>— safe to share</span></div>" +
         "<div class='row'>" +
-          "<input type='text' class='wallet-key' spellcheck='false' autocomplete='off'>" +
-          "<button class='icon-btn wallet-copy' title='Copy'>⧉</button>" +
+          "<code class='wallet-pub' data-testid='wallet-pub' title=''>…</code>" +
+          "<button class='icon-btn wallet-pub-copy' title='Copy your public key'>⧉</button>" +
         "</div>" +
-        "<button class='wallet-save'>Use this key on this device</button>" +
-        "<div class='wallet-note'>Your tokens belong to this key, not to this browser. Save it somewhere safe: clear this site's data without it and the balance can't be recovered. Anyone holding the key controls the balance.</div>" +
+        "<div class='wallet-lbl'>Private key <span class='wallet-hint warn'>— keep it secret</span></div>" +
+        "<div class='row'>" +
+          "<input type='password' class='wallet-key' data-testid='wallet-key' readonly spellcheck='false' autocomplete='off'>" +
+          "<button class='icon-btn wallet-show' title='Show / hide'>👁</button>" +
+          "<button class='icon-btn wallet-copy' title='Copy your private key'>⧉</button>" +
+        "</div>" +
+        "<div class='wallet-note'>Your tokens belong to your <b>private key</b>, not to this browser. Copy it somewhere safe — it is the only way to use your wallet on another device or after clearing this site's data. Anyone who has it controls the balance. riffrolled only ever stores your public key.</div>" +
+        "<details class='wallet-move'><summary>Use a private key from another device</summary>" +
+          "<div class='row'>" +
+            "<input type='password' class='wallet-new' data-testid='wallet-new' spellcheck='false' autocomplete='off' placeholder='Paste the private key'>" +
+            "<button class='wallet-save' data-testid='wallet-save'>Use it here</button>" +
+          "</div>" +
+          "<div class='wallet-note'>This browser's current key is replaced. Copy it first if it holds tokens you want to keep.</div>" +
+        "</details>" +
         "<div class='status-bar wallet-status'></div>" +
       "</div>";
     this.el = menuB.createMenu('⛏ Mine', main);
@@ -111,19 +166,37 @@ var mineBoss = {
       st.className = 'status-bar wallet-status' + (kind ? ' ' + kind : '');
       if (msg && kind === 'ok') setTimeout(function(){ if (st.textContent === msg) say(''); }, 5000);
     }
-    riffWallet.get().then(function(w){ input.value = w; });
+    var pubEl = this.el.querySelector('.wallet-pub');
+    var showKeys = async function(){
+      input.value = await riffWallet.get();
+      var pub = await riffWallet.publicKey();
+      pubEl.textContent = riffWallet.shortPub(pub);
+      pubEl.title = pub;
+      pubEl.dataset.full = pub;
+    };
+    showKeys();
 
+    this.el.querySelector('.wallet-show').onclick = function(){
+      input.type = input.type === 'password' ? 'text' : 'password';
+    };
+    this.el.querySelector('.wallet-pub-copy').onclick = async function(){
+      try { await navigator.clipboard.writeText(pubEl.dataset.full || ''); say('Public key copied', 'ok'); }
+      catch(e){ say('Copy blocked — your public key is ' + (pubEl.dataset.full || ''), null); }
+    };
     this.el.querySelector('.wallet-copy').onclick = async function(){
-      try { await navigator.clipboard.writeText(input.value.trim()); say('Key copied — store it somewhere safe', 'ok'); }
-      catch(e){ input.select(); say('Press Ctrl/Cmd+C to copy', null); }
+      try { await navigator.clipboard.writeText(input.value.trim()); say('Private key copied — store it somewhere safe, and don’t share it', 'ok'); }
+      catch(e){ input.type = 'text'; input.select(); say('Press Ctrl/Cmd+C to copy', null); }
     };
 
     this.el.querySelector('.wallet-save').onclick = async function(){
-      var k = input.value.trim().toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(k)){ say('That is not a valid wallet key (64 hex characters)', 'err'); return; }
-      await dbBoss.setSetting('wallet', k);
-      riffWallet._w = k;
-      say('Wallet key set for this device', 'ok');
+      var box = self.el.querySelector('.wallet-new');
+      var k = box.value.trim().toLowerCase();
+      if (k === input.value.trim()){ say('That is already this browser’s key', 'err'); return; }
+      try { await riffWallet.use(k); }
+      catch(e){ say(e.message, 'err'); return; }
+      box.value = '';
+      await showKeys();
+      say('Done — this browser now uses that wallet', 'ok');
       self.refresh();
       if (window.promoBoss) promoBoss.refresh();
     };
@@ -138,7 +211,7 @@ var mineBoss = {
   async refresh(){
     try {
       var w = await this.wallet();
-      var r = await fetch('/api/wallet?wallet=' + w);
+      var r = await fetch('/api/wallet', { headers: await riffWallet.headers() });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var d = await r.json();
       this.el.querySelector('.mine-bal').textContent = d.balance;
@@ -243,7 +316,7 @@ var mineBoss = {
     if (!box) return;
     try {
       var w = await riffWallet.get();
-      var r = await fetch('/api/ledger?wallet=' + w);
+      var r = await fetch('/api/ledger', { headers: await riffWallet.headers() });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var rows = await r.json();
       if (!rows.length){
@@ -735,7 +808,7 @@ var promoBoss = {
     try {
       var w = await riffWallet.get();
       try {
-        var wr = await fetch('/api/wallet?wallet=' + w);
+        var wr = await fetch('/api/wallet', { headers: await riffWallet.headers() });
         if (wr.ok){
           var wd = await wr.json();
           this._balance = wd.balance;
@@ -747,7 +820,7 @@ var promoBoss = {
         }
       } catch(e0){ /* the balance line is cosmetic */ }
 
-      var r = await fetch('/api/promotions/mine?wallet=' + w);
+      var r = await fetch('/api/promotions/mine', { headers: await riffWallet.headers() });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var rows = await r.json();
       if (!rows.length){
@@ -861,7 +934,7 @@ var promoBoss = {
       var w = await riffWallet.get();
       var live = [];
       try {
-        var r = await fetch('/api/promotions/mine?wallet=' + w);
+        var r = await fetch('/api/promotions/mine', { headers: await riffWallet.headers() });
         if (r.ok) live = await r.json();
       } catch(e){ /* the archive alone is still worth exporting */ }
 

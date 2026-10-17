@@ -17,7 +17,8 @@
 
    SHARING is opt-in and happens here, from the Share button in the Playlist
    panel. The sheet says exactly what leaves the browser: track titles,
-   artists and YouTube links, plus the name you choose. Nothing about you —
+   artists and YouTube links, plus the name you choose — and the wallet's
+   PUBLIC key, logged for the owner to trace abuse, never shown. Nothing else —
    riffrolled does not know who you are.
 
    The default is everything closed: the panel opens on the three doors and
@@ -45,7 +46,7 @@ var MX_ICONS = {
 };
 
 var mixesBoss = {
-  PAGE: 30,
+  PAGE: 10,                   // ten at a time: newest or most played, then "Show more"
   view: 'home',               // 'home' | 'premade' | 'community' | 'share'
   sort: 'new',                // community only: 'new' | 'popular'
   genre: '',
@@ -79,7 +80,7 @@ var mixesBoss = {
               "<button class='mx-sort' data-s='popular'>Popular</button>" +
             "</div>" +
             "<select class='mx-genre' aria-label='Filter by genre' data-testid='mx-genre'>" + genreOpts + "</select>" +
-            "<input type='search' class='mx-q' placeholder='Search mixes…' aria-label='Search mixes' maxlength='60'>" +
+            "<input type='search' class='mx-q' placeholder='Search mixes, artists, tracks, moods…' aria-label='Search mixes, artists, tracks and DJ choices' maxlength='60'>" +
           "</div>" +
           "<div class='mx-list scrollable' data-testid='mx-list'></div>" +
         "</div>" +
@@ -391,7 +392,7 @@ var mixesBoss = {
     el.querySelector('.mx-sh-brief').checked = true;
     el.querySelector('.mx-sh-what').textContent =
       this._shareFor.rows.length + ' tracks will be shared: their titles, artists and YouTube links, in this order, with the name above. ' +
-      'Nothing about you goes with it — riffrolled doesn’t know who you are. Anyone will be able to play it.';
+      'Anyone will be able to play it. Your wallet’s public key is recorded so abuse can be traced — it isn’t shown to anyone, and nothing else about you goes with it.';
     el.querySelector('.mx-sh-go').disabled = false;
     el.querySelector('.mx-sh-name').focus();
   },
@@ -404,7 +405,9 @@ var mixesBoss = {
     go.disabled = true; this.status('Checking the links and sharing…');
     try {
       var r = await fetch('/api/mixes/share', {
-        method: 'POST', headers: { 'content-type':'application/json' },
+        // the private key rides in a header so the server can log the sharer's
+        // PUBLIC key (admin-only); it is never stored or shown
+        method: 'POST', headers: Object.assign({ 'content-type':'application/json' }, window.riffWallet ? await riffWallet.headers() : {}),
         body: JSON.stringify({
           name: name,
           blurb: el.querySelector('.mx-sh-blurb').value.trim(),

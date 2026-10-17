@@ -1,6 +1,7 @@
 // ── /api/mixes — sets meant to be shown to other people ───────────────
 //
 //   GET  /api/mixes?kind=premade|community&sort=new|popular&genre=&q=&limit=&offset=
+//        q matches mix names and blurbs, the DJ choices, and the artists and titles of the tracks
 //   GET  /api/mixes/:id                 the mix and its tracks, in order
 //   POST /api/mixes/share               a listener shares a mix (community); may carry the DJ AI choices as `brief`
 //   POST /api/mixes/:id/play            a play, for the Popular sort
@@ -31,6 +32,7 @@ import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { ingestTracks } from '../services/ingest.js';
 import { normalizeGenre } from '../genres.js';
+import { walletFrom } from '../wallet.js';
 
 const MAX_TRACKS = 50;
 const LIST_MAX = 50;
@@ -142,7 +144,13 @@ export async function handleListMixes(request, env, url) {
        FROM mixes m
       WHERE m.kind = ?1 AND m.hidden = 0
         AND (?2 = '' OR m.genre = ?2)
-        AND (?3 = '' OR m.name LIKE ?4 ESCAPE '\\' OR m.blurb LIKE ?4 ESCAPE '\\')
+        AND (?3 = '' OR m.name LIKE ?4 ESCAPE '\\' OR m.blurb LIKE ?4 ESCAPE '\\'
+             -- the DJ choices are JSON: match their VALUES ("Road trip", "The Crate
+             -- Digger"), never the keys, so "picks" or "count" can't match everything
+             OR EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(m.brief) THEN m.brief ELSE '{}' END, '$.picks') je
+                         WHERE je.value LIKE ?4 ESCAPE '\\')
+             OR EXISTS (SELECT 1 FROM mix_tracks st JOIN tracks tt ON tt.id = st.track_id
+                         WHERE st.mix_id = m.id AND (tt.artist LIKE ?4 ESCAPE '\\' OR tt.name LIKE ?4 ESCAPE '\\')))
       ORDER BY ${order} LIMIT ?5 OFFSET ?6`
   ).bind(kind, genre, q, like, limit, offset).all();
   const mixes = results || [];
@@ -201,9 +209,21 @@ export async function handleShareMix(request, env) {
   if (rows.length > MAX_TRACKS) return errorJson(env, `Too many tracks (max ${MAX_TRACKS})`, 400);
   if (rows.length < cfg.MIX_MIN_TRACKS) return errorJson(env, `A mix needs at least ${cfg.MIX_MIN_TRACKS} tracks`, 422, 'too_short');
 
+  // the sharer's PUBLIC key, when the page sent their private key (it
+  // always does now); logged for the owner, never shown to listeners
+  const creator = (await walletFrom(env, request, body, null)) || '';
+
   // the daily allowance, counted before any paid-for work happens
   const day = nowIso().slice(0, 10);
   const who = await whoToday(request, day);
+  if (creator) {
+    const mine = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM mixes WHERE creator = ?1 AND created_at >= ?2`
+    ).bind(creator, day).first();
+    if ((mine?.n || 0) >= cfg.MIX_SHARE_PER_DAY) {
+      return errorJson(env, `That’s ${cfg.MIX_SHARE_PER_DAY} mixes shared today — try again tomorrow`, 429, 'daily_limit');
+    }
+  }
   const used = await env.DB.prepare(`SELECT n FROM mix_shares WHERE day = ?1 AND who = ?2`).bind(day, who).first();
   if ((used?.n || 0) >= cfg.MIX_SHARE_PER_DAY) {
     return errorJson(env, `That’s ${cfg.MIX_SHARE_PER_DAY} mixes shared today — try again tomorrow`, 429, 'daily_limit');
@@ -232,9 +252,9 @@ export async function handleShareMix(request, env) {
   // either way they are rebuilt from a whitelist, never stored as sent
   const brief = cleanBrief(body.brief);
   const res = await env.DB.prepare(
-    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief)
-     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6)`
-  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '').run();
+    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator)
+     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator).run();
   const mixId = res.meta.last_row_id;
   const stmt = env.DB.prepare(`INSERT INTO mix_tracks (mix_id, track_id, position) VALUES (?1, ?2, ?3)`);
   await env.DB.batch(ids.map((tid, i) => stmt.bind(mixId, tid, i)));

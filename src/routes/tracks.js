@@ -2,6 +2,7 @@
 //   GET  /api/tracks?genre=&limit=   list (optionally by genre)
 //   POST /api/track                  { name, artist?, genre?, url } manual add
 
+import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import {
   listTracks, insertTracks, getTrackByUrl, canonicalYouTubeUrl, knownUrls,
@@ -76,8 +77,8 @@ export async function handleAddTrack(request, env) {
      The wallet is optional and the reward is best-effort — adding a
      track must never fail because the points table was unhappy. */
   let rewarded = 0;
-  const wallet = String(body?.wallet || '');
-  if (!already && verified && WALLET_RE.test(wallet)) {
+  const wallet = (!already && verified) ? await walletFrom(env, request, body, null) : null;
+  if (wallet) {
     await ensureWallet(env.DB, wallet, nowIso());
     rewarded = await contribCredit(env, wallet, 'add', nowIso());
   }

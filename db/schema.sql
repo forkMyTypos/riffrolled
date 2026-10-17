@@ -28,7 +28,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_url ON tracks(url);
 
 CREATE TABLE IF NOT EXISTS wallets (
   id         TEXT PRIMARY KEY,          -- client-generated bearer key (64 hex)
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  pub INTEGER NOT NULL DEFAULT 0   -- 1 = filed under its public key (migration 21)
 );
 
 CREATE TABLE IF NOT EXISTS mint_challenges (
@@ -123,7 +124,8 @@ CREATE TABLE IF NOT EXISTS mixes (
   plays INTEGER NOT NULL DEFAULT 0,
   reports INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT '',
-  brief TEXT NOT NULL DEFAULT ''          -- the DJ AI choices, as JSON (migration 20)
+  brief TEXT NOT NULL DEFAULT '',         -- the DJ AI choices, as JSON (migration 20)
+  creator TEXT NOT NULL DEFAULT ''        -- sharer's wallet public key, admin-only (migration 22)
 );
 CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != '';

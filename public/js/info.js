@@ -21,13 +21,14 @@ var TERMS_HTML =
     "<li>The Service may change or be unavailable at any time, and features may break during beta.</li>" +
     "<li>To the maximum extent permitted by law, riffrolled is not liable for any damages arising from use of the Service.</li>" +
   "</ul>" +
-  "<h4>Riff tokens</h4>" +"<p>Riff tokens are a play feature of the Service. They are earned by proof-of-work mining in your browser and spent on promoting tracks within the catalogue.</p>" +"<ul>" +"<li>Tokens have <strong>no monetary value</strong>, are not currency, and are not redeemable, transferable, or exchangeable for money, goods, or other assets.</li>" +"<li>Tokens are held against an anonymous wallet key stored in your browser. If you clear your browser data or lose that key, the balance is unrecoverable — there is no account recovery.</li>" +"<li>Mining difficulty is not fixed. It adjusts automatically with how fast the whole site is minting, so the work one token costs can rise or fall at any time without notice. Accounts that joined early mine at a permanently lower difficulty.</li>" +"<li>During beta, balances, prices, mining difficulty, and limits may change, and balances may be reset. Tokens obtained by automated abuse or exploitation of the Service may be voided.</li>" +"<li>Promotion statistics are approximate, are not audited, and are provided for interest only.</li>" +"</ul>" +"<p>riffrolled is not affiliated with YouTube or Google LLC.</p>" +
+  "<h4>Riff tokens</h4>" +"<p>Riff tokens are a play feature of the Service. They are earned by proof-of-work mining in your browser and spent on promoting tracks within the catalogue.</p>" +"<ul>" +"<li>Tokens have <strong>no monetary value</strong>, are not currency, and are not redeemable, transferable, or exchangeable for money, goods, or other assets.</li>" +"<li>Tokens are held against an anonymous wallet: a private key stored in your browser, and a public key derived from it. If you clear your browser data without a copy of the private key, the balance is unrecoverable — there is no account recovery.</li>" +"<li>Mining difficulty is not fixed. It adjusts automatically with how fast the whole site is minting, so the work one token costs can rise or fall at any time without notice. Accounts that joined early mine at a permanently lower difficulty.</li>" +"<li>During beta, balances, prices, mining difficulty, and limits may change, and balances may be reset. Tokens obtained by automated abuse or exploitation of the Service may be voided.</li>" +"<li>Promotion statistics are approximate, are not audited, and are provided for interest only.</li>" +"</ul>" +"<p>riffrolled is not affiliated with YouTube or Google LLC.</p>" +
   "<p class='info-meta'>Last updated: 10 June 2026 (beta). Contact: <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a>. Please review with your own counsel before relying on these terms.</p>";
 
 var PRIVACY_HTML =
   "<h4>Privacy Policy</h4>" +
   "<p><strong>What lives on our server</strong> (a shared music catalogue, and the bare minimum): track name, artist/channel, genre, and YouTube URL, plus <em>when</em> each track was added and <em>how</em> (search, channel or playlist import, or a pasted link) — never <em>who</em> added it. It contains nothing about <em>you</em>.</p>" +
-  "<p><strong>Riff tokens</strong> are recorded against your anonymous wallet key: each token mined, each promotion and what it cost. That's what makes a balance work. The site's operator can see this activity per wallet key to stop abuse, but a wallet key isn't linked to your name, email, IP address or anything else about you.</p>" +
+  "<p><strong>Riff tokens</strong> are recorded against your wallet's <em>public key</em>: each token mined, each promotion and what it cost. That's what makes a balance work. Your <em>private key</em> stays in your browser — it is sent to riffrolled only to prove the wallet is yours, and is never stored. The site's operator can see activity per public key to stop abuse, but a key isn't linked to your name, email, IP address or anything else about you.</p>" +
+  "<p><strong>Sharing a mix</strong> (the Share button, or “Share with community” in DJ AI — both off until you choose them) publishes its name, tracks and DJ choices for anyone to play. Your wallet's <em>public key</em> is recorded with it so the operator can trace and remove abuse; it is never shown to other listeners.</p>" +
   "<p><strong>What stays on your device</strong> (browser storage, never uploaded): your playlists and their order, play history and counts, likes/dislikes, tags and edits, track-to-track listening links, panel layout, and every setting. Clearing this site's browser data removes all of it.</p>" +
   "<p><strong>The one exception</strong>: when a <em>promoted</em> track is played or liked, a counter on that promotion is increased by one so whoever paid for it can see how it did. No wallet, device identifier, or listening history is sent with it — the server learns that a promotion got another play, never who played it. Nothing else you do is counted.</p>" +
   "<ul>" +
@@ -38,7 +39,7 @@ var PRIVACY_HTML =
 
 var DATA_HTML =
   "<h4>Your data</h4>" +
-  "<p>Everything personal — playlists, track names and tags, play history, reactions, panel layout, and your riff-token wallet key — is stored in <strong>this browser only</strong>. It is never uploaded, which also means nothing can restore it for you.</p>" +
+  "<p>Everything personal — playlists, track names and tags, play history, reactions, panel layout, and your riff-token private key — is stored in <strong>this browser only</strong>. It is never uploaded, which also means nothing can restore it for you.</p>" +
   "<p><strong>Clearing this site's browser data deletes all of it permanently.</strong> Export a backup now and again, especially before clearing anything or switching device.</p>" +
   "<div class='data-btns'>" +
     "<button class='data-export'>⬇ Export a backup</button>" +
@@ -46,7 +47,7 @@ var DATA_HTML =
     "<input type='file' class='data-file' accept='application/json,.json' hidden>" +
   "</div>" +
   "<div class='status-bar data-status'></div>" +
-  "<p class='info-meta'>Importing <em>merges</em> — it never deletes what's already here. The backup includes your wallet key, so restoring it on another device moves your token balance there too.</p>";
+  "<p class='info-meta'>Importing <em>merges</em> — it never deletes what's already here. The backup includes your private key, so restoring it on another device moves your token balance there too.</p>";
 
 var infoBoss = {
   setup(){
@@ -123,8 +124,8 @@ var infoBoss = {
         var obj = JSON.parse(await f.text());
         var r = await dbBoss.importData(obj);
         if (obj.wallet && /^[0-9a-f]{64}$/.test(obj.wallet)){
-          await dbBoss.setSetting('wallet', obj.wallet);
-          if (window.riffWallet) riffWallet._w = obj.wallet;
+          if (window.riffWallet) await riffWallet.use(obj.wallet);
+          else await dbBoss.setSetting('wallet', obj.wallet);
           if (window.mineBoss) mineBoss.refresh();
           if (window.promoBoss) promoBoss.refresh();
         }

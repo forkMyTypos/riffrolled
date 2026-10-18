@@ -66,6 +66,7 @@ var dock = {
           btn.innerHTML = '<span class="dock-ico-more" aria-hidden="true">⋯</span>';
         } else if (t.iconSvg) btn.innerHTML = t.iconSvg; else btn.textContent = t.icon;
         if (t.accent) btn.style.setProperty('--accent', t.accent);
+        if (t.poster) btn.classList.add('dock-poster');
         const lbl = document.createElement('span');
         lbl.className = 'dock-lbl';
         lbl.textContent = t.short;
@@ -97,6 +98,7 @@ var dock = {
       if (it.iconSvg) btn.innerHTML = it.iconSvg; else btn.textContent = it.icon;
       if (it.accent) btn.style.setProperty('--accent', it.accent);
       if (it.bottom) btn.classList.add('dock-bottom');   // pinned to the rail's end
+      if (it.poster) btn.classList.add('dock-poster');   // a picture, not an icon tile
       btn.setAttribute('aria-label', it.label);
       btn.setAttribute('data-testid', 'dockbtn-' + this.slugOf(it.label));
       it.btn = btn;
@@ -491,7 +493,8 @@ dock.build([
   { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
   { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d' },
-  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
+  // the gig flyer, pinned near the bottom right, just above About
+  { iconSvg: PROMOTE_POSTER, poster:true, bottom:true, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
   { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', bottom:true, accent:'#8a90a8' }
 ]);
 

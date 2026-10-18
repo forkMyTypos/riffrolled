@@ -353,6 +353,24 @@ const MIGRATIONS = [
     `ALTER TABLE mixes ADD COLUMN creator TEXT NOT NULL DEFAULT ''`,
     `CREATE INDEX IF NOT EXISTS idx_mixes_creator ON mixes(creator, created_at)`,
   ]},
+
+  { id: 23, name: 'share-approval', sql: [
+    /* Sharing is earned, once per wallet. Every public key starts at
+       sharing = 0 (false): what it shares is kept with pending = 1 — in the
+       database, out of every list — until the owner looks at it in the admin
+       tool. Approving the key sets sharing = 1 (true) and lists its waiting
+       mixes; from then on its shares go straight up. sharing = -1 is a key
+       the owner blocked. A key gets a row the first time it tries to share;
+       no row means it never has. Mixes already listed are left as they are. */
+    `CREATE TABLE IF NOT EXISTS sharers (
+       pub        TEXT PRIMARY KEY,
+       sharing    INTEGER NOT NULL DEFAULT 0,
+       first_at   TEXT NOT NULL DEFAULT '',
+       decided_at TEXT NOT NULL DEFAULT ''
+     )`,
+    `ALTER TABLE mixes ADD COLUMN pending INTEGER NOT NULL DEFAULT 0`,
+    `CREATE INDEX IF NOT EXISTS idx_mixes_pending ON mixes(pending, creator)`,
+  ]},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

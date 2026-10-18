@@ -36,6 +36,10 @@ body.mobile .dock-btn .dock-lbl { font-size:9px; letter-spacing:0.2px; line-heig
 body.mobile .dock-btn.active { background:color-mix(in srgb, var(--accent,#8a7bff) 18%, transparent); }
 
 body.mobile .dock-btn.dock-bottom { margin:0; }
+body.mobile .dock-btn.dock-bottom ~ .dock-btn.dock-bottom { margin:0; }
+body.mobile .dock-btn.dock-poster { width:62px; height:50px; transform:none; opacity:1; filter:none; border-radius:10px; }
+body.mobile .dock-btn.dock-poster:hover { transform:none; }
+body.mobile .dock-btn.dock-poster .dock-poster-img { width:auto; height:30px; transform:rotate(-5deg); }
 
 /* Player view: the deck fills the screen above the tab bar */
 body.mobile > .flex.flex1 { display:block; flex:0 0 auto; }

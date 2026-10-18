@@ -75,6 +75,19 @@ listeners — and the daily limit applies per wallet as well as per network. The
 10 at a time (Newest / Popular, then Show more); search covers mix names, blurbs, artists,
 track titles and DJ choice values.
 
+**Share approval** (schema 23, `MIX_SHARE_REVIEW`, on by default). Every wallet public key
+starts at **sharing:false**. A share now needs a key (401 `needs_key` without one). While a key
+is sharing:false its mixes are stored with `mixes.pending = 1` — kept in the database, listed
+nowhere, 404 to open — and the page says "sent for a quick check" (HTTP 202, `pending: true`).
+The first share also writes a `sharers` row (`pub`, `sharing` 0 / 1 / -1 blocked, `first_at`,
+`decided_at`). In the admin tool, **Mixes → Waiting for your OK** shows each waiting key with
+exactly what it tried to share (name, blurb, genre, DJ choices, every track); **Approve key** sets
+sharing:true and lists its waiting mixes (later shares go straight up), **Reject this mix**
+deletes one (the key stays sharing:false), **Block key** sets -1, deletes its waiting mixes and
+hides anything it already listed. A key can have 3 mixes waiting at once. The Mixes tab shows a
+count badge and the Overview says when something is waiting. `MIX_SHARE_REVIEW = false` lists
+shares straight away (blocked keys stay blocked). Mixes listed before schema 23 are untouched.
+
 **Track Rolled Journey** (DJ AI mode card next to TEXT; `DJ_SEEDED_PROMPT`). The brief is
 up to five seed tracks — from what's playing, the library, a pasted link / video id, or
 typed "Artist - Title" — plus the DJ personality and the length. One prompt, the same reply
@@ -163,11 +176,12 @@ riffrolled stores the list, YouTube plays the music. Tables (migration 19): `mix
 same list is never stored twice, hidden, sort, plays, reports), `mix_tracks`, `mix_reports` (one report
 per person per mix), `mix_shares` (daily limit; pruned after 2 days). People are counted by a salted
 hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns sharing off**),
+`MIX_SHARE_REVIEW` (default on: a wallet's shares wait for your OK until you approve it once),
 `MIX_REPORTS_TO_HIDE` (default 3; community only — premade never auto-hides), `MIX_MIN_TRACKS` (default 3).
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":22`).
+the tables are missing (`/api/health` should show `"schema":23`).
 
 ## Endpoints
 

@@ -93,6 +93,8 @@ export const SCHEMA = {
   // ── mixes ──
   MIX_SHARE_PER_DAY:    { type: 'num', def: 5, min: 0, max: 1000,
     note: 'Mixes one person (one network address) may share a day. 0 switches sharing off.' },
+  MIX_SHARE_REVIEW:     { type: 'bool', def: true,
+    note: 'Each wallet’s shares wait for your OK in the admin tool (Mixes → Waiting) until you approve that wallet once. Off = every share is listed straight away.' },
   MIX_REPORTS_TO_HIDE:  { type: 'num', def: 3, min: 1, max: 100,
     note: 'Different people who must report a community mix before it hides itself. You can still hide or restore any mix in the admin tool.' },
   MIX_MIN_TRACKS:       { type: 'num', def: 3, min: 1, max: 20,

@@ -106,8 +106,9 @@ CREATE TABLE IF NOT EXISTS ai_lookups (
 
 -- ── mixes: sets meant to be shown to other people ────────────────────
 -- 'premade' are added by the owner in the local admin tool; 'community'
--- are shared by listeners with the Share button. No owner column: a
--- community mix is anonymous. fingerprint (a hash of the ordered track
+-- are shared by listeners with the Share button. creator is the sharer's
+-- wallet public key, seen only by the owner; a key's shares wait (pending)
+-- until the owner approves it once (see sharers). fingerprint (a hash of the ordered track
 -- ids) stops the same set being listed twice. mix_shares and mix_reports
 -- hold a per-day hash used only to rate-limit; mix_shares is pruned.
 
@@ -125,7 +126,8 @@ CREATE TABLE IF NOT EXISTS mixes (
   reports INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT '',
   brief TEXT NOT NULL DEFAULT '',         -- the DJ AI choices, as JSON (migration 20)
-  creator TEXT NOT NULL DEFAULT ''        -- sharer's wallet public key, admin-only (migration 22)
+  creator TEXT NOT NULL DEFAULT '',       -- sharer's wallet public key, admin-only (migration 22)
+  pending INTEGER NOT NULL DEFAULT 0      -- 1 = waiting for the owner's OK, listed nowhere (migration 23)
 );
 CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != '';
@@ -137,6 +139,14 @@ CREATE INDEX IF NOT EXISTS idx_mix_tracks ON mix_tracks(mix_id, position);
 CREATE TABLE IF NOT EXISTS mix_reports (
   mix_id INTEGER NOT NULL, who TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (mix_id, who)
 );
+-- sharers: one row per wallet public key that has tried to share a mix.
+-- sharing: 0 = not yet (its shares wait in the admin tool), 1 = approved
+-- (shares go straight up), -1 = blocked. Default is 0 (migration 23).
+CREATE TABLE IF NOT EXISTS sharers (
+  pub TEXT PRIMARY KEY, sharing INTEGER NOT NULL DEFAULT 0,
+  first_at TEXT NOT NULL DEFAULT '', decided_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_mixes_pending ON mixes(pending, creator);
 CREATE TABLE IF NOT EXISTS mix_shares (
   day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, who)
 );

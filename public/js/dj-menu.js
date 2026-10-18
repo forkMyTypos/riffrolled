@@ -163,7 +163,8 @@ var djMenuBoss = {
           "<span>🌍 Share with community</span>" +
         "</label>" +
         "<div class='dj-community-note'>Adds the playlist to Mixes → Community for anyone to play: its name, tracks and your DJ choices. " +
-          "Your wallet's public key is recorded so abuse can be traced — it isn't shown to anyone, and nothing else about you goes.</div>" +
+          "Your wallet's public key is recorded so abuse can be traced — it isn't shown to anyone, and nothing else about you goes. " +
+          "The first share from a new key gets a quick check by a person before it's listed.</div>" +
         "<div class='row dj-gorow'>" +
           "<span class='dj-parsed' data-testid='dj-parsed' role='status' aria-live='polite'></span>" +
           "<button class='dj-go' data-testid='dj-import-btn' aria-label='Import playlist'>▶ IMPORT PLAYLIST</button>" +
@@ -1166,7 +1167,10 @@ var djMenuBoss = {
     try {
       var j = await djAi.shareToCommunity(share.playlistId, share);
       el.className = 'status-bar dj-community-status ok';
-      el.textContent = j.existing ? '🌍 That exact set is already in Community' : '🌍 Shared to Mixes → Community as “' + j.name + '”';
+      el.textContent = j.pending
+        ? (j.existing ? '🌍 That exact set is already waiting for its quick check'
+                      : '🌍 Sent for a quick check: “' + j.name + '”. A person looks at the first share from each key — once yours is approved, it goes up in Mixes → Community, and so does everything you share after.')
+        : j.existing ? '🌍 That exact set is already in Community' : '🌍 Shared to Mixes → Community as “' + j.name + '”';
     } catch(e){
       el.className = 'status-bar dj-community-status err';
       el.textContent = '🌍 Not shared: ' + e.message;

@@ -3,6 +3,7 @@
 Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 
 ## Just fixed
+- [x] Promote is now the gig-flyer poster (your artwork, background cut out, 13 KB) pinned near the bottom right, just above About. Smaller on short windows; a "Promo" tab on phones.
 - [x] Menus appeared *under* the record player. Panels and menus can now sit on top of the record player's body; only the YouTube video stays above them (YouTube's "never covered" rule). Phones unchanged.
 
 ## Mixes
@@ -35,6 +36,7 @@ Dan's running to-do list. `[ ]` open, `[x]` done. Bandcamp is parked on purpose.
 - [x] DJ AI is first in the dock / tab bar.
 - [x] DJ AI "🌍 Share with community" (opt-in): shares the finished set; creator's public key logged (admin-only); per-wallet daily limit; admin "Hide all by creator".
 - [x] Community: 10 newest / popular at a time; search by name, artist, track and DJ choices.
+- [x] Share approval: every wallet starts at sharing:false; its shares wait in admin → Mixes → "Waiting for your OK" until you approve the key (then sharing:true and it goes straight up). Reject / Block / Revoke there too. Needs schema 23 deployed.
 - [x] Track Rolled Journey: a DJ AI mode seeded with up to five of your tracks (plus "Roll a journey from this track" in Track info).
 - [x] Prompts ask for bare video IDs (Gemini mangles URLs); the importer takes IDs, URLs or Google redirect links.
 - [x] Any reply that isn't a full playlist pops up Link Hunter for the missing tracks; found tracks go back in their own places.

@@ -23,6 +23,11 @@
 //     sharing off). The address is hashed together with the date, so the
 //     counter is not a record of anyone, and it is pruned after two days
 //   · the same set of tracks can only be listed once
+//   · a share needs a wallet key, and every wallet starts at sharing:false —
+//     its mixes are kept as pending (in the database, listed nowhere) until
+//     the owner looks at them in the admin tool and approves the key once;
+//     after that its shares are listed straight away (MIX_SHARE_REVIEW;
+//     off = no review). A key can have MAX_WAITING mixes waiting at a time
 //   · enough different people reporting a mix hides it (MIX_REPORTS_TO_HIDE);
 //     the owner can hide or restore any mix in the admin tool
 // Play counts are anonymous and cheap to inflate; they order the Popular
@@ -35,6 +40,7 @@ import { normalizeGenre } from '../genres.js';
 import { walletFrom } from '../wallet.js';
 
 const MAX_TRACKS = 50;
+const MAX_WAITING = 3;      // a not-yet-approved key's mixes in the queue at once
 const LIST_MAX = 50;
 
 async function sha256hex(s) {
@@ -142,7 +148,7 @@ export async function handleListMixes(request, env, url) {
     `SELECT m.id, m.kind, m.name, m.blurb, m.genre, m.tags, m.plays, m.created_at,
             (SELECT COUNT(*) FROM mix_tracks mt WHERE mt.mix_id = m.id) AS tracks
        FROM mixes m
-      WHERE m.kind = ?1 AND m.hidden = 0
+      WHERE m.kind = ?1 AND m.hidden = 0 AND m.pending = 0
         AND (?2 = '' OR m.genre = ?2)
         AND (?3 = '' OR m.name LIKE ?4 ESCAPE '\\' OR m.blurb LIKE ?4 ESCAPE '\\'
              -- the DJ choices are JSON: match their VALUES ("Road trip", "The Crate
@@ -184,7 +190,7 @@ export async function handleGetMix(request, env, url) {
   const id = parseInt(url.pathname.split('/')[3], 10);
   if (!id) return errorJson(env, 'No such mix', 404);
   const m = await env.DB.prepare(
-    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief FROM mixes WHERE id = ?1 AND hidden = 0`
+    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief FROM mixes WHERE id = ?1 AND hidden = 0 AND pending = 0`
   ).bind(id).first();
   if (!m) return errorJson(env, 'No such mix', 404);
   const { results } = await env.DB.prepare(
@@ -209,20 +215,33 @@ export async function handleShareMix(request, env) {
   if (rows.length > MAX_TRACKS) return errorJson(env, `Too many tracks (max ${MAX_TRACKS})`, 400);
   if (rows.length < cfg.MIX_MIN_TRACKS) return errorJson(env, `A mix needs at least ${cfg.MIX_MIN_TRACKS} tracks`, 422, 'too_short');
 
-  // the sharer's PUBLIC key, when the page sent their private key (it
-  // always does now); logged for the owner, never shown to listeners
+  // the sharer's PUBLIC key, from the private key the page sends; logged for
+  // the owner, never shown to listeners. No key, no share: approval is per key
   const creator = (await walletFrom(env, request, body, null)) || '';
+  if (!creator) return errorJson(env, 'Sharing needs your wallet key — reload the page and try again', 401, 'needs_key');
+
+  // has the owner OK'd this key? (0 = not yet, 1 = yes, -1 = blocked)
+  const sharer = await env.DB.prepare(`SELECT sharing FROM sharers WHERE pub = ?1`).bind(creator).first();
+  const sharing = sharer ? Number(sharer.sharing) : 0;
+  if (sharing < 0) return errorJson(env, 'This key can’t share mixes', 403, 'sharing_blocked');
+  const review = cfg.MIX_SHARE_REVIEW && sharing !== 1;
+  if (review) {
+    const waiting = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM mixes WHERE creator = ?1 AND pending = 1`
+    ).bind(creator).first();
+    if ((waiting?.n || 0) >= MAX_WAITING) {
+      return errorJson(env, `You’ve ${MAX_WAITING} mixes waiting for a quick check already — they’ll go up once your key is approved`, 429, 'waiting_full');
+    }
+  }
 
   // the daily allowance, counted before any paid-for work happens
   const day = nowIso().slice(0, 10);
   const who = await whoToday(request, day);
-  if (creator) {
-    const mine = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM mixes WHERE creator = ?1 AND created_at >= ?2`
-    ).bind(creator, day).first();
-    if ((mine?.n || 0) >= cfg.MIX_SHARE_PER_DAY) {
-      return errorJson(env, `That’s ${cfg.MIX_SHARE_PER_DAY} mixes shared today — try again tomorrow`, 429, 'daily_limit');
-    }
+  const mine = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM mixes WHERE creator = ?1 AND created_at >= ?2`
+  ).bind(creator, day).first();
+  if ((mine?.n || 0) >= cfg.MIX_SHARE_PER_DAY) {
+    return errorJson(env, `That’s ${cfg.MIX_SHARE_PER_DAY} mixes shared today — try again tomorrow`, 429, 'daily_limit');
   }
   const used = await env.DB.prepare(`SELECT n FROM mix_shares WHERE day = ?1 AND who = ?2`).bind(day, who).first();
   if ((used?.n || 0) >= cfg.MIX_SHARE_PER_DAY) {
@@ -244,29 +263,37 @@ export async function handleShareMix(request, env) {
 
   // the same tracks in the same order are the same mix, whatever it is called
   const fingerprint = (await sha256hex(ids.join(','))).slice(0, 32);
-  const existing = await env.DB.prepare(`SELECT id, name FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
-  if (existing) return json(env, { id: existing.id, name: existing.name, tracks: ids.length, existing: true });
+  const existing = await env.DB.prepare(`SELECT id, name, pending FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
+  if (existing) {
+    return json(env, { id: existing.id, name: existing.name, tracks: ids.length, existing: true,
+                       ...(existing.pending ? { pending: true } : {}) });
+  }
 
   const genre = normalizeGenre(body.genre || '').genre;
   // the DJ AI choices travel only if the listener ticked the box (page side);
   // either way they are rebuilt from a whitelist, never stored as sent
   const brief = cleanBrief(body.brief);
   const res = await env.DB.prepare(
-    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator)
-     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7)`
-  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator).run();
+    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator, pending)
+     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator, review ? 1 : 0).run();
   const mixId = res.meta.last_row_id;
   const stmt = env.DB.prepare(`INSERT INTO mix_tracks (mix_id, track_id, position) VALUES (?1, ?2, ?3)`);
   await env.DB.batch(ids.map((tid, i) => stmt.bind(mixId, tid, i)));
+  // the first time a key shares, it gets its row (sharing:false) — that is
+  // what puts it in front of the owner in the admin tool
+  await env.DB.prepare(`INSERT OR IGNORE INTO sharers (pub, sharing, first_at) VALUES (?1, 0, ?2)`)
+    .bind(creator, nowIso()).run();
 
-  return json(env, { id: mixId, name, tracks: ids.length, ...(dropped.length ? { dropped } : {}) }, 201);
+  return json(env, { id: mixId, name, tracks: ids.length, ...(review ? { pending: true } : {}),
+                     ...(dropped.length ? { dropped } : {}) }, review ? 202 : 201);
 }
 
 // ── POST /api/mixes/:id/play ──────────────────────────────────────────
 export async function handleMixPlay(request, env, url) {
   const id = parseInt(url.pathname.split('/')[3], 10);
   if (!id) return errorJson(env, 'No such mix', 404);
-  await env.DB.prepare(`UPDATE mixes SET plays = plays + 1 WHERE id = ?1 AND hidden = 0`).bind(id).run();
+  await env.DB.prepare(`UPDATE mixes SET plays = plays + 1 WHERE id = ?1 AND hidden = 0 AND pending = 0`).bind(id).run();
   return json(env, { ok: true });
 }
 

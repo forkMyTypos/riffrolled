@@ -7,21 +7,12 @@
    until it has enough leading zero bits; the server verifies with one hash
    and credits the ledger. Wallet = a random bearer key kept in local settings:
    guard it like a password, lose it and the balance is gone. ── */
-/* A gig flyer: a crooked, torn-edged poster with a starburst and a music note,
-   the kind pasted to a wall outside a tiny venue. Promoting is "spread the word
-   about good music", not advertising — so, no megaphone. Chunky shapes only:
-   it has to read at 20px. Paper, black ink and one gold accent (the Promote colour). */
-var PROMOTE_SVG =
-  "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
-    "<defs><linearGradient id='pmg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffcc4d'/><stop offset='1' stop-color='#ff8a3d'/></linearGradient></defs>" +
-    "<g transform='rotate(-10 12 12)'>" +
-      "<path d='M4.6 2.6 H16.6 L18.2 4.1 L17.4 5.4 L19.2 6.6 L18.6 8 L19.4 9.4 V21 H4.6 Z' fill='#f3ecd8' stroke='#0b0b12' stroke-width='1.1' stroke-linejoin='round'/>" +
-      "<polygon points='12.7,4.4 13.6,7.4 16.6,6.6 15.1,9.3 17.8,10.9 14.8,11.8 15.6,14.8 12.9,13.3 11.3,16.0 10.4,13.0 7.4,13.8 8.9,11.1 6.2,9.5 9.2,8.6 8.4,5.6 11.1,7.1' fill='url(#pmg)' stroke='#0b0b12' stroke-width='.8' stroke-linejoin='round'/>" +
-      "<path d='M10.6 11.4 V8.3 L13.6 7.6 V10.6' fill='none' stroke='#0b0b12' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/>" +
-      "<ellipse cx='9.9' cy='11.5' rx='1.1' ry='.85' fill='#0b0b12'/><ellipse cx='12.9' cy='10.7' rx='1.1' ry='.85' fill='#0b0b12'/>" +
-      "<rect x='6.4' y='16' width='10.2' height='1.3' rx='.4' fill='#0b0b12'/><rect x='6.4' y='18.3' width='6.4' height='1.3' rx='.4' fill='#0b0b12'/>" +
-    "</g>" +
-  "</svg>";
+/* The Promote button is a gig flyer: a torn poster with a starburst and a
+   music note, the kind pasted to a wall outside a tiny venue. Promoting is
+   "spread the word about good music", not advertising — so, no megaphone.
+   It is a picture (img/promote-poster.webp, 13 KB, transparent edges), not
+   a drawn icon, and it sits at the bottom of the dock, above About. */
+var PROMOTE_POSTER = "<img class='dock-poster-img' src='img/promote-poster.webp' alt='' draggable='false' decoding='async'>";
 
 /* The wallet both mining and promoting sit on top of: two keys.
      private key  64 random hex characters, made here and kept here. It is

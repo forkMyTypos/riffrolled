@@ -392,7 +392,8 @@ var mixesBoss = {
     el.querySelector('.mx-sh-brief').checked = true;
     el.querySelector('.mx-sh-what').textContent =
       this._shareFor.rows.length + ' tracks will be shared: their titles, artists and YouTube links, in this order, with the name above. ' +
-      'Anyone will be able to play it. Your wallet’s public key is recorded so abuse can be traced — it isn’t shown to anyone, and nothing else about you goes with it.';
+      'Anyone will be able to play it. Your wallet’s public key is recorded so abuse can be traced — it isn’t shown to anyone, and nothing else about you goes with it. ' +
+      'The first share from a new key gets a quick check by a person before it’s listed.';
     el.querySelector('.mx-sh-go').disabled = false;
     el.querySelector('.mx-sh-name').focus();
   },
@@ -425,7 +426,11 @@ var mixesBoss = {
       this.sort = 'new';
       this.view = 'home';
       this.choose('community');
-      this.status(j.existing ? 'That exact mix is already shared' : 'Shared “' + j.name + '” — thank you', 'ok');
+      this.status(j.pending
+        ? (j.existing ? 'That exact mix is already waiting for its quick check'
+                      : 'Thanks — “' + j.name + '” is waiting for a quick check. A person looks at the first share from each key; once yours is approved it goes up, and so does everything you share after.')
+        : j.existing ? 'That exact mix is already shared' : 'Shared “' + j.name + '” — thank you',
+        j.pending ? '' : 'ok');            // the waiting note stays up: it is worth reading
     } catch(err){
       this.status(err.message, 'err');
       go.disabled = false;

@@ -127,7 +127,8 @@ CREATE TABLE IF NOT EXISTS mixes (
   created_at TEXT NOT NULL DEFAULT '',
   brief TEXT NOT NULL DEFAULT '',         -- the DJ AI choices, as JSON (migration 20)
   creator TEXT NOT NULL DEFAULT '',       -- sharer's wallet public key, admin-only (migration 22)
-  pending INTEGER NOT NULL DEFAULT 0      -- 1 = waiting for the owner's OK, listed nowhere (migration 23)
+  pending INTEGER NOT NULL DEFAULT 0,     -- 1 = waiting for the owner's OK, listed nowhere (migration 23)
+  slug TEXT NOT NULL DEFAULT ''           -- 8-character share code: riffrolled.com/?m=<slug> (migration 24)
 );
 CREATE INDEX IF NOT EXISTS idx_mixes_list ON mixes(kind, hidden, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_fp ON mixes(fingerprint) WHERE fingerprint != '';
@@ -147,6 +148,7 @@ CREATE TABLE IF NOT EXISTS sharers (
   first_at TEXT NOT NULL DEFAULT '', decided_at TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_mixes_pending ON mixes(pending, creator);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_slug ON mixes(slug) WHERE slug != '';
 CREATE TABLE IF NOT EXISTS mix_shares (
   day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, who)
 );

@@ -7,12 +7,21 @@
    until it has enough leading zero bits; the server verifies with one hash
    and credits the ledger. Wallet = a random bearer key kept in local settings:
    guard it like a password, lose it and the balance is gone. ── */
-/* The Promote button is a gig flyer: a torn poster with a starburst and a
-   music note, the kind pasted to a wall outside a tiny venue. Promoting is
-   "spread the word about good music", not advertising — so, no megaphone.
-   It is a picture (img/promote-poster.webp, 13 KB, transparent edges), not
-   a drawn icon, and it sits at the bottom of the dock, above About. */
-var PROMOTE_POSTER = "<img class='dock-poster-img' src='img/promote-poster.webp' alt='' draggable='false' decoding='async'>";
+/* A gig flyer: a crooked, torn-edged poster with a starburst and a music note,
+   the kind pasted to a wall outside a tiny venue. Promoting is "spread the word
+   about good music", not advertising — so, no megaphone. Chunky shapes only:
+   it has to read at 20px. Paper, black ink and one gold accent (the Promote colour). */
+var PROMOTE_SVG =
+  "<svg viewBox='0 0 24 24' aria-hidden='true'>" +
+    "<defs><linearGradient id='pmg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffcc4d'/><stop offset='1' stop-color='#ff8a3d'/></linearGradient></defs>" +
+    "<g transform='rotate(-10 12 12)'>" +
+      "<path d='M4.6 2.6 H16.6 L18.2 4.1 L17.4 5.4 L19.2 6.6 L18.6 8 L19.4 9.4 V21 H4.6 Z' fill='#f3ecd8' stroke='#0b0b12' stroke-width='1.1' stroke-linejoin='round'/>" +
+      "<polygon points='12.7,4.4 13.6,7.4 16.6,6.6 15.1,9.3 17.8,10.9 14.8,11.8 15.6,14.8 12.9,13.3 11.3,16.0 10.4,13.0 7.4,13.8 8.9,11.1 6.2,9.5 9.2,8.6 8.4,5.6 11.1,7.1' fill='url(#pmg)' stroke='#0b0b12' stroke-width='.8' stroke-linejoin='round'/>" +
+      "<path d='M10.6 11.4 V8.3 L13.6 7.6 V10.6' fill='none' stroke='#0b0b12' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/>" +
+      "<ellipse cx='9.9' cy='11.5' rx='1.1' ry='.85' fill='#0b0b12'/><ellipse cx='12.9' cy='10.7' rx='1.1' ry='.85' fill='#0b0b12'/>" +
+      "<rect x='6.4' y='16' width='10.2' height='1.3' rx='.4' fill='#0b0b12'/><rect x='6.4' y='18.3' width='6.4' height='1.3' rx='.4' fill='#0b0b12'/>" +
+    "</g>" +
+  "</svg>";
 
 /* The wallet both mining and promoting sit on top of: two keys.
      private key  64 random hex characters, made here and kept here. It is
@@ -493,75 +502,129 @@ var promoBoss = {
         : 'Pick at least one — the DJ cannot offer an untagged track to anything.';
       count.classList.toggle('empty', !this.tags.length);
     }
+    this.drawPreviews();
   },
 
   sel: null,          // { ytId, name, inCatalogue }
 
+  /* ── the Promote panel, in the order a person decides things ─────────
+     1 which track · 2 where it shows up (each with a picture of what that
+     looks like) · 3 which moods, only if the DJ is involved · 4 how many
+     credits. "Your promotions" is a second window of its own, so the form
+     is not sitting on top of a list it has nothing to do with. */
+  thumb(id){ return 'https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg'; },
+
   setup(){
     var main =
-      "<div class='sec'>" +
-        "<div class='sec-head'>Promote a track</div>" +
-        "<div class='promo-wallet'><span class='promo-bal'>–</span> credits · 1 credit = one person's attention</div>" +
-        "<div class='row'>" +
-          "<input type='text' class='promo-srh' placeholder='Search the catalogue, or paste a YouTube link…'>" +
-          "<button class='icon-btn promo-usecur' title='Use the track playing now'>💿</button>" +
+      "<div class='sec promo-wiz'>" +
+        "<div class='promo-wallet'>" +
+          "<span><span class='promo-bal'>–</span> credits · 1 credit = one person's attention</span>" +
+          "<button type='button' class='promo-mine-open' title='See how your promotions are doing'>Your promotions<span class='promo-mine-n'></span></button>" +
         "</div>" +
-        "<div class='promo-results'></div>" +
-        "<div class='promo-pick'>Nothing selected yet.</div>" +
-        "<div class='row promo-name-row'>" +
-          "<span class='promo-spend-lbl'>Name</span>" +
-          "<input type='text' class='promo-label' maxlength='120' placeholder='Call this campaign something'>" +
+
+        "<div class='promo-step'>" +
+          "<div class='promo-step-h'><span class='promo-n'>1</span>Pick a track</div>" +
+          "<div class='row promo-find'>" +
+            "<input type='text' class='promo-srh' placeholder='Search, or paste a link…'>" +
+            "<button type='button' class='promo-usecur' title='Use the track playing now'>💿 Playing now</button>" +
+          "</div>" +
+          "<div class='promo-results'></div>" +
+          "<div class='promo-pick'>Nothing selected yet.</div>" +
         "</div>" +
-        // two ways to be seen, and the user should understand they differ
-        "<div class='promo-modes'>" +
-          "<label class='promo-mode'><input type='checkbox' class='promo-mode-popup' checked>" +
-            "<span class='pm-t'>Pop-up</span>" +
-            "<span class='pm-d'>Your track appears on riffrolled's promoted card, labelled as promoted.</span></label>" +
-          "<label class='promo-mode'><input type='checkbox' class='promo-mode-ai'>" +
-            "<span class='pm-t'>AI playlists</span>" +
-            "<span class='pm-d'>Offered to DJ AI as a candidate. It still has to fit the brief, and it's marked when it appears.</span></label>" +
+
+        "<div class='promo-step'>" +
+          "<div class='promo-step-h'><span class='promo-n'>2</span>Where should it appear?</div>" +
+          "<div class='promo-modes'>" +
+            "<label class='promo-mode'><input type='checkbox' class='promo-mode-popup' checked>" +
+              "<span class='pm-t'>Pop-up card</span>" +
+              "<span class='pm-d'>A gig poster with your track's picture slides up in the corner while someone listens. Hover it for Play and Add. Always marked “Promoted”.</span>" +
+              "<span class='pv pv-popup' aria-hidden='true'>" +
+                "<span class='pp-sheet'><img class='pp-paper' src='img/promote-poster.webp' alt=''><img class='pp-art pv-art' alt=''></span>" +
+              "</span>" +
+            "</label>" +
+            "<label class='promo-mode'><input type='checkbox' class='promo-mode-ai'>" +
+              "<span class='pm-t'>AI playlists</span>" +
+              "<span class='pm-d'>Offered to someone's AI when they build a DJ brief — only if they switched on “Allow promotional tracks” and your moods fit what they asked for. Their AI decides whether to use it.</span>" +
+              "<span class='pv pv-ai' aria-hidden='true'>" +
+                "<span class='pv-ai-h'>PROMOTED TRACKS</span>" +
+                "<span class='pv-ai-l'><b class='pv-name'>Your track</b></span>" +
+                "<span class='pv-ai-l dim'>tagged: <span class='pv-tags'>pick moods below</span></span>" +
+              "</span>" +
+            "</label>" +
+          "</div>" +
         "</div>" +
-        /* The moods, shown only when AI placement is ticked — they are
-           the whole of how a brief finds this track, and meaningless to
-           a pop-up-only campaign. Same closed vocabulary the DJ's own
-           options are tagged with, which is the only reason a promoter
-           and a listener's brief can ever match. */
-        "<div class='promo-tags' hidden>" +
-          "<div class='promo-tags-head'>Which moods does this track suit?</div>" +
+
+        /* the moods are the whole of how a brief finds a track, and mean
+           nothing to a pop-up-only campaign, so they appear with the AI
+           option and not before */
+        "<div class='promo-step promo-tags' hidden>" +
+          "<div class='promo-step-h'><span class='promo-n promo-n-tags'>3</span>Which moods does this track suit?</div>" +
           "<div class='promo-tags-note'>Pick up to 4. A brief has to ask for these moods before your track is offered to it — a track tagged with everything is matched less often, not more.</div>" +
           "<div class='promo-tag-grid'></div>" +
           "<div class='promo-tags-count'></div>" +
         "</div>" +
-        "<div class='row promo-spend-row'>" +
-          "<span class='promo-spend-lbl'>Credits</span>" +
-          "<input type='number' class='promo-tokens' value='10' min='1' step='1'>" +
-          "<span class='promo-dur'></span>" +
+
+        "<div class='promo-step'>" +
+          "<div class='promo-step-h'><span class='promo-n promo-n-credits'>3</span>How many credits?</div>" +
+          "<div class='row promo-spend-row'>" +
+            "<input type='number' class='promo-tokens' value='10' min='1' step='1'>" +
+            "<span class='promo-quick'>" +
+              "<button type='button' data-n='5'>5</button><button type='button' data-n='10'>10</button>" +
+              "<button type='button' data-n='25'>25</button><button type='button' data-n='50'>50</button>" +
+            "</span>" +
+            "<span class='promo-dur'></span>" +
+          "</div>" +
+          "<div class='row promo-name-row'>" +
+            "<span class='promo-spend-lbl'>Name</span>" +
+            "<input type='text' class='promo-label' maxlength='120' placeholder='Optional — what you’ll call this campaign'>" +
+          "</div>" +
         "</div>" +
+
+        "<div class='promo-sum'></div>" +
         "<button class='promo-go'>📣 Start campaign</button>" +
         "<div class='status-bar promo-status'></div>" +
       "</div>" +
+      "<p class='info-meta promo-contact'>Questions about promoting? <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a></p>";
+    this.el = menuB.createMenu('📣 Promote', main);
+    menuB.place(this.el, { right:'1120px', top:'120px', width:'340px', maxHeight:'calc(100vh - 140px)' });
+
+    /* …and the second window. It is a panel in its own right (registered
+       in the dock without a button of its own), opened from the button
+       above and when a campaign starts. */
+    var mine =
       "<div class='sec promo-sec'>" +
-        "<div class='sec-head'>Your promotions</div>" +
+        "<div class='promo-mine-top'>" +
+          "<button type='button' class='promo-new-open'>＋ New promotion</button>" +
+          "<span class='promo-wallet-s'><span class='promo-bal'>–</span> credits</span>" +
+        "</div>" +
         "<div class='promo-list'></div>" +
+        "<div class='status-bar promo-status'></div>" +
       "</div>" +
       // finished campaigns live here, read from the local archive rather
       // than the API — see renderArchive()
-      "<div class='sec promo-sec promo-archive'></div>" +
-      "<p class='info-meta promo-contact'>Questions about promoting? <a href='mailto:hello@riffrolled.com'>hello@riffrolled.com</a></p>";
-    this.el = menuB.createMenu('📣 Promote', main);
-    menuB.place(this.el, { right:'1120px', top:'120px', width:'320px' });
+      "<div class='sec promo-sec promo-archive'></div>";
+    this.mine = menuB.createMenu('📣 Your promotions', mine);
+    // no dock button means the dock never hides it for us (see Track info)
+    this.mine.classList.add('is-hidden');
+    menuB.place(this.mine, { right:'760px', top:'160px', width:'330px', maxHeight:'calc(100vh - 180px)' });
 
     var self = this;
     var srh = this.el.querySelector('.promo-srh');
     srh.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.search(); }, 200); });
     this.el.querySelector('.promo-usecur').onclick = function(){ self.useCurrent(); };
     this.el.querySelector('.promo-go').onclick = function(){ self.promote(); };
+    this.el.querySelector('.promo-mine-open').onclick = function(){ self.openMine(); };
+    this.mine.querySelector('.promo-new-open').onclick = function(){ if (window.dock) dock.openPanel(self.el); };
 
     /* The moods only exist for AI placement, so the block only appears
        when AI placement is ticked. Shown unconditionally it would be a
-       required-looking field that does nothing for a pop-up campaign. */
-    this.el.querySelector('.promo-mode-ai').addEventListener('change', function(){
-      self.syncTags();
+       required-looking field that does nothing for a pop-up-only campaign. */
+    this.el.querySelector('.promo-mode-ai').addEventListener('change', function(){ self.syncTags(); self.summarise(); });
+    this.el.querySelector('.promo-mode-popup').addEventListener('change', function(){ self.summarise(); });
+    this.el.querySelectorAll('.promo-mode').forEach(function(l){
+      var cb = l.querySelector('input');
+      var tick = function(){ l.classList.toggle('on', cb.checked); };
+      cb.addEventListener('change', tick); tick();
     });
     this.el.querySelector('.promo-tag-grid').addEventListener('click', function(e){
       var b = e.target.closest('.promo-tag-btn'); if (!b) return;
@@ -569,15 +632,22 @@ var promoBoss = {
     });
     this.renderTags();
     this.el.querySelector('.promo-tokens').addEventListener('input', function(){ self._touched = true; self.showDuration(); });
-    this.el.querySelector('.promo-list').addEventListener('click', function(e){
+    this.el.querySelector('.promo-quick').addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      self.el.querySelector('.promo-tokens').value = b.dataset.n; self.showDuration();
+    });
+    this.el.querySelector('.promo-pick').addEventListener('click', function(e){
+      if (e.target.closest('.promo-change')){ self.clearSel(); srh.focus(); }
+    });
+    this.mine.querySelector('.promo-list').addEventListener('click', function(e){
       var btn = e.target.closest('.promo-act'); if (!btn) return;
       var row = btn.closest('.promo-row');
       if (btn.dataset.a === 'topup'){ row.classList.add('topping'); row.querySelector('.promo-add').focus(); self.showAddDur(row); return; }
       if (btn.dataset.a === 'cancel'){ row.classList.remove('topping'); return; }
       self.action(Number(row.dataset.id), btn.dataset.a, btn, row);
     });
-    // live "+Xh" preview beside the token field
-    this.el.querySelector('.promo-list').addEventListener('input', function(e){
+    // live "+N people" preview beside the credits field
+    this.mine.querySelector('.promo-list').addEventListener('input', function(e){
       var inp = e.target.closest('.promo-add'); if (!inp) return;
       self.showAddDur(inp.closest('.promo-row'));
     });
@@ -587,15 +657,80 @@ var promoBoss = {
       self.el.querySelector('.promo-results').innerHTML = '';
       srh.value = '';
     });
+    this.drawPreviews();
+    this.summarise();
     this.refresh();
   },
 
+  openMine(){
+    if (window.dock && dock.openPanel) dock.openPanel(this.mine);
+    else this.mine.classList.remove('is-hidden');
+    this.refresh();
+  },
+
+  /* What each option will look like, with the chosen track in it. Cheap
+     enough to redraw on every change, so nothing has to remember what it
+     last drew. */
+  drawPreviews(){
+    var el = this.el;
+    var art = el.querySelector('.pv-art');
+    var id = this.sel && this.sel.ytId;
+    if (art){
+      if (id) art.src = this.thumb(id);
+      else art.removeAttribute('src');
+      art.classList.toggle('empty', !id);
+    }
+    var nm = el.querySelector('.pv-name');
+    if (nm) nm.textContent = this.sel ? this.sel.name : 'Your track';
+    var tg = el.querySelector('.pv-tags');
+    if (tg) tg.textContent = this.tags.length ? this.tags.join(', ') : 'pick moods below';
+  },
+
+  clearSel(){
+    this.sel = null;
+    this.renderPick();
+    this.drawPreviews();
+    this.summarise();
+  },
+
+  renderPick(){
+    var box = this.el.querySelector('.promo-pick');
+    if (!this.sel){ box.textContent = 'Nothing selected yet.'; box.classList.remove('has'); return; }
+    box.classList.add('has');
+    box.innerHTML =
+      "<img class='pr-th' alt='' src='" + this.thumb(this.sel.ytId) + "'>" +
+      "<span class='pr-txt'><span class='promo-pick-lbl'>Promoting</span><span class='pr-name'>" + escapeHtml(this.sel.name) + "</span>" +
+        (this.sel.inCatalogue ? '' : "<span class='promo-new'>will be added to the catalogue</span>") + "</span>" +
+      "<button type='button' class='promo-change'>Change</button>";
+  },
+
+  /* One plain sentence about what pressing the button does, so the cost
+     is never a surprise. */
+  summarise(){
+    var box = this.el.querySelector('.promo-sum');
+    if (!box) return;
+    var n = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
+    var ai = this.el.querySelector('.promo-mode-ai').checked;
+    var pop = this.el.querySelector('.promo-mode-popup').checked;
+    var num = this.el.querySelector('.promo-n-credits'); if (num) num.textContent = ai ? '4' : '3';
+    var where = pop && ai ? 'pop-up cards and DJ briefs' : ai ? 'DJ briefs' : pop ? 'pop-up cards' : 'nowhere yet';
+    var left = typeof this._balance === 'number' ? this._balance - n : null;
+    box.textContent = n > 0
+      ? 'Costs ' + n + (n === 1 ? ' credit' : ' credits') + ' · shown to ' + n + (n === 1 ? ' person' : ' people') + ' in ' + where +
+        (left !== null ? (left >= 0 ? ' · ' + left + ' left after' : ' · you only have ' + this._balance) : '')
+      : '';
+    box.classList.toggle('low', left !== null && left < 0);
+  },
+
   status(msg, kind){
-    var el = this.el.querySelector('.promo-status');
-    el.textContent = msg || '';
-    el.className = 'status-bar promo-status' + (kind ? ' ' + kind : '');
-    var self = this;
-    if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 7000); }
+    var els = [this.el.querySelector('.promo-status'), this.mine && this.mine.querySelector('.promo-status')];
+    els.forEach(function(el){
+      if (!el) return;
+      el.textContent = msg || '';
+      el.className = 'status-bar promo-status' + (kind ? ' ' + kind : '');
+    });
+    var self = this, first = els[0];
+    if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (first.textContent === msg) self.status(''); }, 7000); }
   },
 
   idFromUrl(u){
@@ -608,9 +743,9 @@ var promoBoss = {
 
   select(ytId, name, inCatalogue){
     this.sel = { ytId: ytId, name: name, inCatalogue: inCatalogue !== false };
-    this.el.querySelector('.promo-pick').innerHTML =
-      "<span class='promo-pick-lbl'>Promoting</span> " + escapeHtml(name) +
-      (this.sel.inCatalogue ? '' : " <span class='promo-new'>· will be added to the catalogue</span>");
+    this.renderPick();
+    this.drawPreviews();
+    this.summarise();
   },
 
   useCurrent(){
@@ -633,6 +768,7 @@ var promoBoss = {
         if (o.ok){ var od = await o.json(); if (od.title) title = od.title; }
       } catch(e){}
       box.innerHTML = "<div class='promo-res' data-yt='" + escapeHtml(vid) + "' data-name='" + escapeHtml(title) + "' data-new='1'>"
+        + "<img class='pr-th' alt='' loading='lazy' src='" + this.thumb(vid) + "'>"
         + "<span class='name'>" + escapeHtml(title) + "</span><span class='promo-new'>from link</span></div>";
       return;
     }
@@ -647,7 +783,8 @@ var promoBoss = {
         var id = self.idFromUrl(t.url || '');
         if (!id) return '';
         return "<div class='promo-res' data-yt='" + escapeHtml(id) + "' data-name='" + escapeHtml(t.name || id) + "'>"
-          + "<span class='name'>" + escapeHtml(t.name || id) + "</span></div>";
+          + "<img class='pr-th' alt='' loading='lazy' src='" + self.thumb(id) + "'>"
+          + "<span class='name'>" + escapeHtml(t.name || id) + (t.artist ? "<span class='pr-art'>" + escapeHtml(t.artist) + "</span>" : '') + "</span></div>";
       }).join('');
     } catch(e){
       box.innerHTML = '';
@@ -661,7 +798,7 @@ var promoBoss = {
     var n = parseInt(this.el.querySelector('.promo-tokens').value, 10) || 0;
     var el = this.el.querySelector('.promo-dur');
     el.textContent = n > 0 ? (n === 1 ? '= 1 person' : '= ' + n + ' people') : '';
-    return;
+    this.summarise();
   },
 
   _showDurationOld(){
@@ -718,8 +855,10 @@ var promoBoss = {
       this.tags = [];              // the next campaign is a different track
       this.syncTags();
       this.sel = null;
-      this.el.querySelector('.promo-pick').textContent = 'Nothing selected yet.';
+      this.renderPick();
+      this.drawPreviews();
       await this.refresh();
+      this.openMine();             // so you can watch it start working
       if (window.mineBoss) mineBoss.refresh();
       if (window.promoTrack) promoTrack.refresh();
       if (window.dataBoss && dataBoss.el && !dataBoss.el.classList.contains('is-hidden')) dataBoss.run();
@@ -795,7 +934,7 @@ var promoBoss = {
   },
 
   async refresh(){
-    var list = this.el.querySelector('.promo-list');
+    var list = this.mine.querySelector('.promo-list');
     try {
       var w = await riffWallet.get();
       try {
@@ -804,6 +943,7 @@ var promoBoss = {
           var wd = await wr.json();
           this._balance = wd.balance;
           this.el.querySelector('.promo-bal').textContent = wd.balance;
+          this.mine.querySelector('.promo-bal').textContent = wd.balance;
           // no minimum any more: one credit is a coherent, if small, campaign
           var ti = this.el.querySelector('.promo-tokens');
           ti.min = 1; ti.step = 1;
@@ -814,8 +954,11 @@ var promoBoss = {
       var r = await fetch('/api/promotions/mine', { headers: await riffWallet.headers() });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var rows = await r.json();
+      var liveN = rows.filter(function(p){ return Number(p.credits_remaining || 0) > 0; }).length;
+      var badge = this.el.querySelector('.promo-mine-n');
+      if (badge) badge.textContent = liveN ? ' · ' + liveN + ' live' : '';
       if (!rows.length){
-        list.innerHTML = "<div class='empty promo-empty'>Nothing promoted yet.<br>Mine some tokens, then pick a track above.</div>";
+        list.innerHTML = "<div class='empty promo-empty'>Nothing promoted yet.<br>Pick a track in the Promote window and it will show up here.</div>";
         return;
       }
       var self = this;
@@ -870,7 +1013,7 @@ var promoBoss = {
      the server row. A campaign appears here the moment it is spent and
      stays after the sweeper has removed it upstream. */
   async renderArchive(){
-    var box = this.el.querySelector('.promo-archive');
+    var box = this.mine.querySelector('.promo-archive');
     if (!box) return;
     var rows = await dbBoss.archivedPromotions();
     if (!rows.length){ box.innerHTML = ''; return; }

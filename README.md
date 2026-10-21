@@ -88,6 +88,25 @@ hides anything it already listed. A key can have 3 mixes waiting at once. The Mi
 count badge and the Overview says when something is waiting. `MIX_SHARE_REVIEW = false` lists
 shares straight away (blocked keys stay blocked). Mixes listed before schema 23 are untouched.
 
+**Mix links** (schema 24, `src/slug.js`). Every listed mix has a random 8-character code
+(`mixes.slug`, unique, from a 31-letter alphabet with nothing that looks like something else,
+always at least one letter so it can't be mistaken for a row number). `GET /api/mixes/<id or code>`
+opens either; hidden or waiting mixes are 404 by both. `riffrolled.com/?m=<code>` opens the Mixes
+panel on that mix (mixes.js reads it at boot). Codes are filled in by the migration for old mixes and
+lazily for anything created since; the admin tool's publish writes one too and has a "Copy link"
+button. The site is static assets, so a pasted link shows the generic riffrolled card in chat apps,
+not the mix's name.
+
+**Promote panel.** Four steps: track (catalogue search with pictures, or a link), where it appears
+(each option shows what it looks like), moods (only with the DJ option), credits (with a plain cost
+line). "Your promotions" is a separate registered panel with no dock button (`promoBoss.mine`).
+`/?promo=now` shows the poster card a few seconds after load for testing.
+
+**Free test promotions** are made in the admin tool (Promotions tab). They are ordinary rows in
+`promotions` owned by the pseudo-wallet `riffrolled-admin`, which has no `wallets` or `ledger` rows,
+so nothing is debited or refunded; everything after that (credit spending, brief matching, the
+"Promoted" label, sweeping) is the same code as a paid campaign.
+
 **Track Rolled Journey** (DJ AI mode card next to TEXT; `DJ_SEEDED_PROMPT`). The brief is
 up to five seed tracks — from what's playing, the library, a pasted link / video id, or
 typed "Artist - Title" — plus the DJ personality and the length. One prompt, the same reply
@@ -124,10 +143,11 @@ promotions match on; the lint suite checks they stay in that set), and personali
 built-ins take the new wording but keep favourites, built-ins that left the list are hidden
 (`retired`), and a listener's own options are never touched. DJ AI is first in the dock.
 
-The promoted pop-up is a bare spinning record (no box) with the video's
-picture as the label. The title and the Play / Add / Close buttons appear only
+The promoted pop-up is a gig flyer (`img/promote-poster.webp`, a torn-edged poster
+with transparent edges) stuck at a slight angle, with the video's picture taped
+onto it. The title and the Play / Add / Close buttons appear only
 on hover or keyboard focus; on touch screens they are always shown. The small
-"Promoted" tag on the rim is always visible, because it is the disclosure. It
+"Promoted" tag on its bottom edge is always visible, because it is the disclosure. It
 sits bottom-right (the deck controls own bottom-left), falls back to the left
 if the right would cover the player, and is skipped if neither fits. Add puts
 the track in the current playlist. A skipped card does not refund its credit.
@@ -181,7 +201,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":23`).
+the tables are missing (`/api/health` should show `"schema":24`).
 
 ## Endpoints
 
@@ -341,7 +361,7 @@ cron; tables just keep rows they no longer need.
 ### Disclosure
 
 Promoted tracks are labelled wherever they appear — the promoted strip, the
-pop-up record, and the playlist row itself, because that last one is where
+pop-up flyer, and the playlist row itself, because that last one is where
 somebody actually listens. The DJ brief says it in words too, since the badge
 depends on a fetch that can fail.
 

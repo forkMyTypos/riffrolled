@@ -11,6 +11,7 @@
 //   · db/schema.sql is kept as readable documentation; this file is what runs
 
 import { normalizeGenre } from '../genres.js';
+import { newMixSlug } from '../slug.js';
 
 const MIGRATIONS = [
   { id: 1, name: 'base schema', sql: [
@@ -371,6 +372,28 @@ const MIGRATIONS = [
     `ALTER TABLE mixes ADD COLUMN pending INTEGER NOT NULL DEFAULT 0`,
     `CREATE INDEX IF NOT EXISTS idx_mixes_pending ON mixes(pending, creator)`,
   ]},
+
+  { id: 24, name: 'mix-share-links', sql: [
+    /* A mix's share link is riffrolled.com/?m=<slug>. The slug is 8 random
+       characters (see newMixSlug in src/routes/mixes.js), never the row
+       number: a number can be counted through, a random code can only be
+       known by someone who was given it. It is not a secret — anyone who
+       has the link can open the mix — but a hidden, pending or deleted mix
+       is not found by its slug either. Unique among the mixes that have one. */
+    `ALTER TABLE mixes ADD COLUMN slug TEXT NOT NULL DEFAULT ''`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_mixes_slug ON mixes(slug) WHERE slug != ''`,
+  ], run: async (db) => {
+    // every mix that exists now gets its code (safe to repeat: only blanks are filled)
+    const { results } = await db.prepare(`SELECT id FROM mixes WHERE slug = ''`).bind().all();
+    for (const r of results || []) {
+      for (let tries = 0; tries < 6; tries++) {
+        try {
+          await db.prepare(`UPDATE mixes SET slug = ?2 WHERE id = ?1 AND slug = ''`).bind(r.id, newMixSlug()).run();
+          break;
+        } catch (err) { if (!/unique|constraint/i.test(String(err && err.message))) throw err; }
+      }
+    }
+  }},
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

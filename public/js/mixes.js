@@ -207,7 +207,7 @@ var mixesBoss = {
     if (m.genre) meta.push("<span class='mx-chip'>" + escapeHtml(m.genre) + "</span>");
     meta.push(m.tracks + (m.tracks === 1 ? ' track' : ' tracks'));
     if (m.kind === 'community' && m.plays) meta.push(m.plays + (m.plays === 1 ? ' play' : ' plays'));
-    return "<div class='mx-card' data-id='" + Number(m.id) + "' data-testid='mx-card'>" +
+    return "<div class='mx-card' data-id='" + Number(m.id) + "' data-slug='" + escapeHtml(m.slug || '') + "' data-testid='mx-card'>" +
       cover +
       "<div class='mx-info'>" +
         "<div class='mx-name' title='" + escapeHtml(m.name) + "'>" + escapeHtml(m.name) + "</div>" +
@@ -226,11 +226,13 @@ var mixesBoss = {
   async onList(e){
     var more = e.target.closest('.mx-loadmore');
     if (more){ this.load(this.view, false); return; }
+    if (e.target.closest('.mx-back')){ this.choose('home'); return; }
     var card = e.target.closest('.mx-card'); if (!card) return;
     var id = Number(card.dataset.id);
     if (e.target.closest('.mx-play')) return this.act(id, 'play', card);
     if (e.target.closest('.mx-save')) return this.act(id, 'save', card);
     if (e.target.closest('.mx-report')) return this.report(id, card);
+    if (e.target.closest('.mx-link')) return this.copyLink(card.dataset.slug, (card.querySelector('.mx-name') || {}).textContent);
     if (e.target.closest('.mx-tog') || e.target.closest('.mx-name')) return this.toggle(card, id);
   },
 
@@ -297,8 +299,67 @@ var mixesBoss = {
         return "<li>" + (t.artist ? "<span class='mx-ta'>" + escapeHtml(t.artist) + "</span> — " : '') + escapeHtml(t.name || t.ytId) +
           (t.note ? "<div class='mx-why'>" + escapeHtml(t.note) + "</div>" : '') + "</li>";
       }).join('') + "</ol>" +
-      (m.kind === 'community' ? "<button class='mx-report' title='Tell riffrolled this mix shouldn’t be here'>⚑ Report this mix</button>" : '');
+      "<div class='mx-foot'>" +
+        (m.slug ? "<button class='mx-link' data-testid='mx-link' title='Copy a link to this mix — anyone with it can open it'>" +
+          "<img class='mx-link-ico' src='img/share-icon.webp' alt='' width='18' height='18'> Copy link</button>" : '') +
+        (m.kind === 'community' ? "<button class='mx-report' title='Tell riffrolled this mix shouldn’t be here'>⚑ Report this mix</button>" : '') +
+      "</div>";
     } catch(err){ box.innerHTML = "<div class='mx-fine'>" + escapeHtml(err.message) + "</div>"; }
+  },
+
+  /* ── share links: riffrolled.com/?m=<code> ───────────────────────────
+     A link carries an 8-character random code, never a row number. Opening
+     one shows that mix on its own, with Play and Save, and nothing plays
+     until the person presses it. A mix that is hidden, still waiting for
+     approval, or gone says so in words rather than opening empty. */
+  linkFor(slug){ return location.origin + '/?m=' + slug; },
+
+  async copyLink(slug, name){
+    if (!slug){ this.status('That mix has no link yet — try again in a moment', 'warn'); return; }
+    var link = this.linkFor(slug);
+    // phones: the native share sheet, which is where people send links from
+    if (navigator.share && document.body.classList.contains('mobile')){
+      try { await navigator.share({ title: name || 'A mix on riffrolled', text: 'A mix on riffrolled', url: link }); return; }
+      catch(e){ if (e && e.name === 'AbortError') return; }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      this.status('Link copied — ' + link.replace(/^https?:\/\//, ''), 'ok');
+    } catch(e){
+      this.status('Copy this link: ' + link, 'warn');      // stays up so it can be selected by hand
+    }
+  },
+
+  /** the page was opened with ?m=<code> */
+  async openFromUrl(code){
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}   // a reload must not reopen it
+    this.open();
+    if (!/^[a-hj-km-np-z2-9]{8}$/.test(code)){ this.status('That link doesn’t look right — it may have been cut short', 'warn'); return; }
+    this.status('Opening the shared mix…');
+    try {
+      var r = await fetch('/api/mixes/' + code);
+      if (r.status === 404){ this.status('That mix isn’t available. It may have been removed, or it’s still waiting to be approved.', 'warn'); return; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      this.showLinked(await r.json());
+    } catch(e){ this.status('Couldn’t open that link just now. Check your connection and try again.', 'err'); }
+  },
+
+  showLinked(m){
+    this.choose('home');                       // reset the doors, then show one mix on its own
+    var el = this.el;
+    var items = m.items || [];
+    m.cover = items[0] ? items[0].ytId : '';
+    m.artists = items.map(function(t){ return t.artist; }).filter(function(a, i, arr){ return a && arr.indexOf(a) === i; }).slice(0, 3);
+    this.view = 'linked';
+    el.setAttribute('data-view', 'linked');
+    el.querySelector('.mx-view').hidden = false;
+    el.querySelector('.mx-sorts').hidden = true;
+    el.querySelector('.mx-list').innerHTML =
+      "<div class='mx-linked-head' data-testid='mx-linked'>Shared with you</div>" + this.card(m) +
+      "<button class='mx-back'>← See all mixes</button>";
+    var card = el.querySelector('.mx-list .mx-card');
+    this.status('');
+    this.toggle(card, m.id);                   // open its track list straight away
   },
 
   /* ── Play and Save: a mix becomes a playlist in this browser ─────── */
@@ -421,7 +482,7 @@ var mixesBoss = {
       });
       var j = null; try { j = await r.json(); } catch(e){}
       if (!r.ok) throw new Error((j && j.error) || 'That didn’t work (HTTP ' + r.status + ')');
-      try { await db.playlists.update(s.id, { sharedMixId: j.id }); } catch(e){}
+      try { await db.playlists.update(s.id, { sharedMixId: j.id, sharedSlug: j.slug || '' }); } catch(e){}
       this._shareFor = null;
       this.sort = 'new';
       this.view = 'home';
@@ -429,7 +490,7 @@ var mixesBoss = {
       this.status(j.pending
         ? (j.existing ? 'That exact mix is already waiting for its quick check'
                       : 'Thanks — “' + j.name + '” is waiting for a quick check. A person looks at the first share from each key; once yours is approved it goes up, and so does everything you share after.')
-        : j.existing ? 'That exact mix is already shared' : 'Shared “' + j.name + '” — thank you',
+        : j.existing ? 'That exact mix is already shared — open it in Community and press “Copy link”' : 'Shared “' + j.name + '” — thank you. Open it in Community and press “Copy link” to send it to someone.',
         j.pending ? '' : 'ok');            // the waiting note stays up: it is worth reading
     } catch(err){
       this.status(err.message, 'err');
@@ -437,3 +498,13 @@ var mixesBoss = {
     }
   }
 };
+
+/* Opened from a shared link (riffrolled.com/?m=<code>): wait for the saved
+   layout to be restored, then show that mix. */
+(function(){
+  var code = new URLSearchParams(location.search).get('m');
+  if (code === null) return;
+  var n = 0, t = setInterval(function(){
+    if ((window.dock && dock._ready) || ++n > 100){ clearInterval(t); mixesBoss.openFromUrl(code); }
+  }, 100);
+})();

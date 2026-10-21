@@ -38,6 +38,7 @@ import { getConfig } from '../config.js';
 import { ingestTracks } from '../services/ingest.js';
 import { normalizeGenre } from '../genres.js';
 import { walletFrom } from '../wallet.js';
+import { newMixSlug, SLUG_RE } from '../slug.js';
 
 const MAX_TRACKS = 50;
 const MAX_WAITING = 3;      // a not-yet-approved key's mixes in the queue at once
@@ -126,8 +127,26 @@ function shape(r, extra = {}) {
   return {
     id: r.id, kind: r.kind, name: r.name, blurb: r.blurb, genre: r.genre,
     tags: r.tags ? String(r.tags).split(',').map((s) => s.trim()).filter(Boolean) : [],
-    tracks: r.tracks, plays: r.plays, created_at: r.created_at, ...extra,
+    tracks: r.tracks, plays: r.plays, created_at: r.created_at, slug: r.slug || '', ...extra,
   };
+}
+
+/** Give any mix that has no share code one (mixes the admin tool wrote, or that
+ *  pre-date schema 24). Done when a mix is read, so a link always exists. */
+async function fillSlugs(env, rows) {
+  for (const r of rows) {
+    if (r.slug) continue;
+    for (let tries = 0; tries < 6; tries++) {
+      const s = newMixSlug();
+      try {
+        const done = await env.DB.prepare(`UPDATE mixes SET slug = ?2 WHERE id = ?1 AND slug = ''`).bind(r.id, s).run();
+        r.slug = done.meta && done.meta.changes === 0
+          ? ((await env.DB.prepare(`SELECT slug FROM mixes WHERE id = ?1`).bind(r.id).first()) || {}).slug || ''
+          : s;
+        break;
+      } catch (err) { if (!/unique|constraint/i.test(String(err && err.message))) throw err; }
+    }
+  }
 }
 
 // ── GET /api/mixes ────────────────────────────────────────────────────
@@ -145,7 +164,7 @@ export async function handleListMixes(request, env, url) {
     : sort === 'popular' ? 'm.plays DESC, m.id DESC' : 'm.id DESC';
 
   const { results } = await env.DB.prepare(
-    `SELECT m.id, m.kind, m.name, m.blurb, m.genre, m.tags, m.plays, m.created_at,
+    `SELECT m.id, m.kind, m.name, m.blurb, m.genre, m.tags, m.plays, m.created_at, m.slug,
             (SELECT COUNT(*) FROM mix_tracks mt WHERE mt.mix_id = m.id) AS tracks
        FROM mixes m
       WHERE m.kind = ?1 AND m.hidden = 0 AND m.pending = 0
@@ -160,6 +179,7 @@ export async function handleListMixes(request, env, url) {
       ORDER BY ${order} LIMIT ?5 OFFSET ?6`
   ).bind(kind, genre, q, like, limit, offset).all();
   const mixes = results || [];
+  await fillSlugs(env, mixes);
 
   // a small taste of each: the first few artists and the first video, for a cover
   const taste = new Map();
@@ -185,19 +205,26 @@ export async function handleListMixes(request, env, url) {
   }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
-// ── GET /api/mixes/:id ────────────────────────────────────────────────
+// ── GET /api/mixes/:id-or-code ────────────────────────────────────────
+// A row number (what the lists use) or an 8-character share code (what a
+// shared link carries). A mix that is hidden, waiting for approval or gone is
+// not found by either.
 export async function handleGetMix(request, env, url) {
-  const id = parseInt(url.pathname.split('/')[3], 10);
-  if (!id) return errorJson(env, 'No such mix', 404);
+  const key = url.pathname.split('/')[3] || '';
+  const bySlug = SLUG_RE.test(key) && !/^\d{1,7}$/.test(key);
+  const id = bySlug ? 0 : parseInt(key, 10);
+  if (!bySlug && !id) return errorJson(env, 'No such mix', 404);
   const m = await env.DB.prepare(
-    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief FROM mixes WHERE id = ?1 AND hidden = 0 AND pending = 0`
-  ).bind(id).first();
+    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief, slug FROM mixes
+      WHERE ${bySlug ? 'slug = ?1' : 'id = ?1'} AND hidden = 0 AND pending = 0`
+  ).bind(bySlug ? key : id).first();
   if (!m) return errorJson(env, 'No such mix', 404);
+  await fillSlugs(env, [m]);
   const { results } = await env.DB.prepare(
     `SELECT t.id, t.name, t.artist, t.genre, t.url, mt.note
        FROM mix_tracks mt JOIN tracks t ON t.id = mt.track_id
       WHERE mt.mix_id = ?1 ORDER BY mt.position`
-  ).bind(id).all();
+  ).bind(m.id).all();
   const tracks = (results || []).map((t) => ({ ...t, note: cleanNote(t.note), ytId: ytId(t.url) })).filter((t) => t.ytId);
   return json(env, { ...shape({ ...m, tracks: tracks.length }), brief: briefOut(m.brief), items: tracks }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
@@ -263,9 +290,10 @@ export async function handleShareMix(request, env) {
 
   // the same tracks in the same order are the same mix, whatever it is called
   const fingerprint = (await sha256hex(ids.join(','))).slice(0, 32);
-  const existing = await env.DB.prepare(`SELECT id, name, pending FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
+  const existing = await env.DB.prepare(`SELECT id, name, pending, slug FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
   if (existing) {
-    return json(env, { id: existing.id, name: existing.name, tracks: ids.length, existing: true,
+    await fillSlugs(env, [existing]);
+    return json(env, { id: existing.id, name: existing.name, slug: existing.slug, tracks: ids.length, existing: true,
                        ...(existing.pending ? { pending: true } : {}) });
   }
 
@@ -273,10 +301,11 @@ export async function handleShareMix(request, env) {
   // the DJ AI choices travel only if the listener ticked the box (page side);
   // either way they are rebuilt from a whitelist, never stored as sent
   const brief = cleanBrief(body.brief);
+  const slug = newMixSlug();
   const res = await env.DB.prepare(
-    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator, pending)
-     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
-  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator, review ? 1 : 0).run();
+    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator, pending, slug)
+     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator, review ? 1 : 0, slug).run();
   const mixId = res.meta.last_row_id;
   const stmt = env.DB.prepare(`INSERT INTO mix_tracks (mix_id, track_id, position) VALUES (?1, ?2, ?3)`);
   await env.DB.batch(ids.map((tid, i) => stmt.bind(mixId, tid, i)));
@@ -285,7 +314,7 @@ export async function handleShareMix(request, env) {
   await env.DB.prepare(`INSERT OR IGNORE INTO sharers (pub, sharing, first_at) VALUES (?1, 0, ?2)`)
     .bind(creator, nowIso()).run();
 
-  return json(env, { id: mixId, name, tracks: ids.length, ...(review ? { pending: true } : {}),
+  return json(env, { id: mixId, name, slug, tracks: ids.length, ...(review ? { pending: true } : {}),
                      ...(dropped.length ? { dropped } : {}) }, review ? 202 : 201);
 }
 

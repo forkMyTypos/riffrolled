@@ -54,6 +54,15 @@ var promoPopup = {
 
     this._next = Date.now() + this.FIRST_DELAY;
     setInterval(function(){ self.tick(); }, 15000);
+
+    /* Testing: riffrolled.com/?promo=now asks for one card straight away,
+       skipping the 40-second wait and the new-visitor hold, so a campaign
+       can be seen working without sitting through the pacing. It goes
+       through showOne() like every other card, so it still takes a real
+       credit from a real campaign and still steps aside for the player. */
+    if (/[?&]promo=now(&|$)/.test(location.search)){
+      setTimeout(function(){ self.showOne(); }, 2500);
+    }
   },
 
   async tick(){
@@ -93,19 +102,19 @@ var promoPopup = {
       this.seen[p.id] = 1;
       this.shown++;
 
-      /* Just a record. The video's picture is the big centre label of a
-         7-inch single, turning slowly; there is no card around it. The
-         title and the three buttons appear when the pointer is over it.
+      /* A gig flyer stuck to the wall, with the video's picture pasted onto
+         it like a taped-up photo. The title and the three buttons appear when
+         the pointer is over it.
 
          The Promoted chip is not styling. It is the disclosure, so it is
-         always shown, sits on the rim, and stays outside the spinning
-         disc where nothing can rotate it out of view. */
+         always shown, sits on the flyer's bottom edge, and is never inside
+         the part that dims on hover. */
       this.el.innerHTML =
         "<div class='pp-disc'>"
-          + "<div class='pp-vinyl'>"
+          + "<div class='pp-sheet'>"
+            + "<img class='pp-paper' src='img/promote-poster.webp' alt='' width='150' height='208' draggable='false'>"
             + "<img class='pp-art' src='https://i.ytimg.com/vi/" + m[1] + "/mqdefault.jpg'"
-              + " alt='' width='118' height='118'>"
-            + "<span class='pp-hole' aria-hidden='true'></span>"
+              + " alt='' width='320' height='180'>"
           + "</div>"
           + "<div class='pp-acts'>"
             + "<button class='pp-play' title='Play now' aria-label='Play now'>\u25B6</button>"

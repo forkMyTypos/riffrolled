@@ -71,6 +71,7 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [ ] Phone-friendly pass on DJ AI (44px tap targets, bigger text).
 
 ## Done
+- [x] A promoter is never shown (or charged for) their own campaign: pop-up, DJ briefs and claims all leave your own wallet's campaigns out, and your own plays/likes on it aren't counted. To test a paid campaign, use a second browser profile (or another private key); admin free campaigns still show to you.
 - [x] Free test promotions from the admin tool; Promotions tab rewritten for credits (it was still counting hours).
 - [x] Fixed an old stylesheet bug that left the "Your promotions" list unstyled.
 - [x] Menus no longer appear under the record player.

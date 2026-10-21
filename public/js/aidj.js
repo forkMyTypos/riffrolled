@@ -581,7 +581,7 @@ var djAi = {
     if (!tags.length) return [];
     try {
       var r = await fetch('/api/promotions/brief', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', headers: window.riffWallet ? await riffWallet.peekHeaders({ 'content-type': 'application/json' }) : { 'content-type': 'application/json' },
         body: JSON.stringify({ brief_id: this.briefId(), tags: tags })
       });
       if (!r.ok) return [];
@@ -601,7 +601,7 @@ var djAi = {
     if (!this._promoted || !this._promoted.length) return 0;
     try {
       var r = await fetch('/api/promotions/brief/claim', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', headers: window.riffWallet ? await riffWallet.peekHeaders({ 'content-type': 'application/json' }) : { 'content-type': 'application/json' },
         body: JSON.stringify({ brief_id: this.state.briefId })
       });
       if (!r.ok) return 0;

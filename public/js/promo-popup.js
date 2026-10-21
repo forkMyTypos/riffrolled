@@ -89,7 +89,7 @@ var promoPopup = {
     try {
       var ex = Object.keys(this.seen).slice(-6).join(',');
       var r = await fetch('/api/promotions/next?mode=popup' + (ex ? '&exclude=' + encodeURIComponent(ex) : ''),
-                          { cache: 'no-store' });
+                          { cache: 'no-store', headers: window.riffWallet ? await riffWallet.peekHeaders() : {} });
       if (!r.ok) return;
       var body = await r.json();
       var p = body && body.promotion;
@@ -190,10 +190,11 @@ var promoPopup = {
      This can no longer move money however often it is called: the credit
      was spent when the card was served. That is the only reason it is safe
      to leave unauthenticated. */
-  count(kind){
+  async count(kind){
     if (!this.cur) return;
     try {
-      fetch('/api/promo/event', { method:'POST', headers:{ 'content-type':'application/json' },
+      var h = window.riffWallet ? await riffWallet.peekHeaders({ 'content-type':'application/json' }) : { 'content-type':'application/json' };
+      fetch('/api/promo/event', { method:'POST', headers: h,
         body: JSON.stringify({ id: this.cur.id, url: this.cur.url, kind: kind }) });
     } catch(e){}
   },

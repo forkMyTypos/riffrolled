@@ -102,6 +102,15 @@ not the mix's name.
 line). "Your promotions" is a separate registered panel with no dock button (`promoBoss.mine`).
 `/?promo=now` shows the poster card a few seconds after load for testing.
 
+**Never your own campaign.** The pop-up, DJ-brief and claim calls are anonymous, but the browser sends
+its wallet key when it has one (`riffWallet.peekHeaders()`), and the server uses it for exactly one
+thing: leaving that wallet's own campaigns out (`livePromotions` / `aiCampaignPool` take an
+`exceptWallet`). So a promoter is never shown, or charged for, their own track, a brief they copy
+never carries it, and their own plays and likes on it are not counted. It cannot tell two wallets
+apart that belong to the same person, so a second wallet on the same device still sees the first one's
+campaigns. Admin free campaigns belong to `riffrolled-admin`, so they are shown to everyone, which is
+what makes them usable for testing.
+
 **Free test promotions** are made in the admin tool (Promotions tab). They are ordinary rows in
 `promotions` owned by the pseudo-wallet `riffrolled-admin`, which has no `wallets` or `ledger` rows,
 so nothing is debited or refunded; everything after that (credit spending, brief matching, the

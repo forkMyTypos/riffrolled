@@ -479,8 +479,16 @@ export async function walletTotals(db, walletId) {
    balance — which is what stops one person draining a rival's campaign
    with a curl loop. */
 
-/** Campaigns that can still be shown: credits left, not paused, not expired. */
-export async function livePromotions(db, now, limit = 20, mode = 'popup') {
+/**
+ * Campaigns that can still be shown: credits left, not paused, not expired.
+ *
+ * `exceptWallet` is the viewer's own public key, if they sent one. A person
+ * is never shown their own campaign: a credit is one OTHER person's
+ * attention, and showing a promoter their own track would spend their
+ * credits (and inflate their numbers) on nobody. The empty string matches
+ * no wallet, so an anonymous viewer excludes nothing.
+ */
+export async function livePromotions(db, now, limit = 20, mode = 'popup', exceptWallet = '') {
   const { results } = await db.prepare(
     `SELECT id, url, name, label, modes, expires_at, views, plays, likes, dislikes,
             replays, tokens, credits_remaining
@@ -488,10 +496,17 @@ export async function livePromotions(db, now, limit = 20, mode = 'popup') {
       WHERE credits_remaining > 0 AND paused = 0
         AND (expires_at = '' OR expires_at > ?1)
         AND (',' || modes || ',') LIKE ?2
+        AND wallet_id != ?4
       ORDER BY credits_remaining DESC, created_at DESC
       LIMIT ?3`
-  ).bind(now, `%,${mode},%`, limit).all();
+  ).bind(now, `%,${mode},%`, limit, exceptWallet || '').all();
   return results || [];
+}
+
+/** Who owns a campaign (its wallet's public key), or '' if it is gone. */
+export async function campaignOwner(db, id) {
+  const row = await db.prepare(`SELECT wallet_id FROM promotions WHERE id = ?1`).bind(id).first();
+  return row ? row.wallet_id : '';
 }
 
 /**
@@ -513,11 +528,12 @@ export async function spendCredit(db, id, now) {
 }
 
 /** Engagement counters a campaign's owner sees. Never money. */
-export async function bumpCampaignStat(db, id, kind) {
+export async function bumpCampaignStat(db, id, kind, exceptWallet = '') {
   const col = kind === 'like' ? 'likes' : kind === 'dislike' ? 'dislikes'
             : kind === 'replay' ? 'replays' : 'plays';
-  const res = await db.prepare(`UPDATE promotions SET ${col} = ${col} + 1 WHERE id = ?1`)
-    .bind(id).run();
+  // the owner playing or liking their own track is not engagement to report
+  const res = await db.prepare(`UPDATE promotions SET ${col} = ${col} + 1 WHERE id = ?1 AND wallet_id != ?2`)
+    .bind(id, exceptWallet || '').run();
   return !!(res.meta && res.meta.changes);
 }
 
@@ -605,7 +621,7 @@ export async function pruneBriefOffers(db, now, hours = 24) {
  * per tag. If the pool ever stops being small, this is the query to
  * change — not the scoring.
  */
-export async function aiCampaignPool(db, now, limit = 200) {
+export async function aiCampaignPool(db, now, limit = 200, exceptWallet = '') {
   const { results } = await db.prepare(
     `SELECT id, url, name, label, tags, credits_remaining
        FROM promotions
@@ -613,9 +629,10 @@ export async function aiCampaignPool(db, now, limit = 200) {
         AND credits_remaining > 0
         AND (',' || modes || ',') LIKE '%,ai,%'
         AND (expires_at = '' OR expires_at > ?1)
+        AND wallet_id != ?3
       ORDER BY credits_remaining DESC
       LIMIT ?2`
-  ).bind(now, limit).all();
+  ).bind(now, limit, exceptWallet || '').all();
   return results || [];
 }
 

@@ -52,6 +52,15 @@ var riffWallet = {
     try { return await this._making; } finally { this._making = null; }
   },
 
+  /** headers for the anonymous calls (pop-up card, DJ brief placements) —
+   *  they carry the key only if this browser already has one, and never
+   *  make one. The server uses it for a single thing: not showing you your
+   *  own campaign. */
+  async peekHeaders(extra){
+    var w = this._w || (window.dbBoss ? await dbBoss.getSetting('wallet') : '');
+    return Object.assign(w ? { 'X-Riff-Key': w } : {}, extra || {});
+  },
+
   /** the PUBLIC key: what riffrolled's server knows this wallet as */
   async publicKey(){
     var w = await this.get();

@@ -27,7 +27,7 @@ import {
   walletBalance, addLedger, ensureWallet,
   walletPromotions, getOwnedPromotion, pausePromotion, resumePromotion,
   // campaigns / consumption billing
-  livePromotions, spendCredit, bumpCampaignStat, liveCampaignFor,
+  livePromotions, spendCredit, bumpCampaignStat, liveCampaignFor, campaignOwner,
   addCredits, addCampaign,
   // AI brief placements
   aiCampaignPool, offerBriefCandidate, unchargedOffers, claimBriefOffer,
@@ -39,6 +39,13 @@ import {
    goes straight into a keyed lookup, and anything that is not 32 hex
    characters is a client bug or someone poking at the endpoint. */
 const BRIEF_RE = /^[0-9a-f]{32}$/;
+
+/** The viewer's public key if they sent a valid private key, else ''. Used
+ *  only to leave their own campaigns out; it grants nothing. */
+async function viewerWallet(env, request, body = null) {
+  try { return (await walletFrom(env, request, body, null)) || ''; }
+  catch (e) { return ''; }
+}
 
 export async function handlePromote(request, env) {
   const body = await readJson(request);
@@ -169,7 +176,12 @@ export async function handlePromotions(request, env) {
 export async function handlePromoNext(request, env, url) {
   const now = nowIso();
   const mode = url.searchParams.get('mode') === 'ai' ? 'ai' : 'popup';
-  const pool = await livePromotions(env.DB, now, 25, mode);
+  /* Never your own campaign. The viewer's key is optional (most people
+     have none and own nothing), but when it is there it is used to keep a
+     promoter from spending their credits on showing themselves their own
+     track. */
+  const viewer = await viewerWallet(env, request);
+  const pool = await livePromotions(env.DB, now, 25, mode, viewer);
   if (!pool.length) return json(env, { ok: true, promotion: null });
 
   /* Weighted by credits remaining, so a bigger campaign is shown more
@@ -216,18 +228,19 @@ export async function handlePromoEvent(request, env) {
     return errorJson(env, 'kind must be play, like, dislike or replay', 400);
   }
 
+  const viewer = await viewerWallet(env, request, body);
   const id = Number(body?.id);
   if (Number.isFinite(id) && id > 0) {
-    return json(env, { ok: true, counted: await bumpCampaignStat(env.DB, id, kind) });
+    return json(env, { ok: true, counted: await bumpCampaignStat(env.DB, id, kind, viewer) });
   }
 
   // by url: every live campaign for that track. One per owner, so this is
   // at most a handful of rows and each owner sees their own engagement.
   const canonical = canonicalYouTubeUrl(String(body?.url || ''));
   if (!canonical) return errorJson(env, 'An id or a YouTube url is required', 400);
-  const live = await livePromotions(env.DB, nowIso(), 25, 'popup');
+  const live = await livePromotions(env.DB, nowIso(), 25, 'popup', viewer);
   let counted = 0;
-  for (const p of live) if (p.url === canonical) { if (await bumpCampaignStat(env.DB, p.id, kind)) counted++; }
+  for (const p of live) if (p.url === canonical) { if (await bumpCampaignStat(env.DB, p.id, kind, viewer)) counted++; }
   return json(env, { ok: true, counted: counted > 0 });
 }
 
@@ -254,7 +267,8 @@ export async function handleBriefOffers(request, env) {
   if (!want || !briefTags.length) return json(env, { ok: true, promotions: [] });
 
   const now = nowIso();
-  const pool = await aiCampaignPool(env.DB, now);
+  const viewer = await viewerWallet(env, request, body);
+  const pool = await aiCampaignPool(env.DB, now, 200, viewer);
 
   /* Ranked by fit, and a campaign that fits nothing is not offered at
      all. An untargeted placement is worth less than nothing to everyone
@@ -306,6 +320,7 @@ export async function handleBriefClaim(request, env) {
   if (!BRIEF_RE.test(briefId)) return errorJson(env, 'Invalid brief id', 400);
 
   const now = nowIso();
+  const viewer = await viewerWallet(env, request, body);
   const owed = await unchargedOffers(env.DB, briefId);
   let charged = 0;
 
@@ -313,6 +328,11 @@ export async function handleBriefClaim(request, env) {
     // claim first: the row is the lock, so a second claim for the same
     // brief finds nothing to take however fast it arrives
     if (!(await claimBriefOffer(env.DB, briefId, id))) continue;
+    /* Offers already leave the viewer's own campaigns out, so this only
+       matters if the key arrived on the claim and not on the offer. Cheap
+       enough to check twice: a promoter copying a brief must not be
+       charged for being shown their own track. */
+    if (viewer && (await campaignOwner(env.DB, id)) === viewer) continue;
     /* If the campaign has run dry since it was offered, the placement
        still happened — the track is in the brief the person just copied.
        There is simply nothing left to take, and inventing a credit to

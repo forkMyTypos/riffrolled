@@ -2,66 +2,90 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
-## 0 · Decide first (these change what gets built)
-- [?] **Promote vs Share are different things.** Promote = spend riff credits so strangers see a track (the Promote panel and the promoted poster). Share = send a track, playlist or mix to a person. Proposed split: the gig flyer stays the **Promote** dock icon, the poster is the promoted card, and the cassette-and-arrow is the **Share** icon (see 3). Right?
-- [?] **Promoting a mix.** Can a whole mix be promoted, or only a single track? (Today a promotion is one track.)
-- [?] **5-minute cooldown.** Which actions earn credit today: mining, adding a new verified track, linking two tracks, anything else? Proposal: one credited action per wallet per kind every 5 minutes, enforced on the server. Does a like or a view earn anything?
-- [?] **"A reason to bring others."** Options: (a) a referral link that gives both people a few credits once the new person does something real (mines, or adds a verified track); (b) shared mixes show "shared by rr·…" with a play count; (c) credits for plays on your shared mixes. Pick one to start.
+## 0 · Decided (22 Oct)
+- [x] **Promote vs Share:** split. The gig flyer stays the **Promote** dock icon (spend credits so strangers see a track); the cassette-and-arrow is the **Share** button, right after prev / play / next (send a track, playlist or mix to a person).
+- [x] **Promoting a mix:** single tracks only for now. Revisit after launch.
+- [x] **5-minute cooldown:** contributions only (adding a verified track, linking two tracks): one credited action of each kind per wallet every 5 minutes. Mining keeps its own brake (difficulty). Likes and views earn nothing.
+- [x] **A reason to bring others:** start with (b): shared mixes show who shared them (short public key) and how many plays they have had. No credits involved.
 
 ## 1 · DJ AI
-- [ ] Make the chosen mode obvious: Text vs Track Rolled Journey look almost the same when selected. Stronger selected state (fill + tick + outline), not just a tint.
-- [ ] Refine the track-find prompt (Link Hunter): tighter wording, one clear output format, fewer "SEARCH FAILED" replies. Keep the site and the admin tool word-for-word identical (a test enforces it).
-- [ ] `public/js/selftest.js` has 3 out-of-date DJ prompt expectations ("time budget stated", "speed template used", "DISCOVERY only when there is something to say"); update them with the prompt work.
-- [ ] Add **Grok** next to ChatGPT and Gemini in "open in your AI" (check whether it takes a prefilled `?q=`; if not, copy + open like Gemini).
+- [x] The chosen mode is obvious: filled, outlined twice and ticked ✓ (the others are plain).
+- [x] Link Hunter rewritten: one job, three searches per track, clear match rules, one output format. SEARCH FAILED now only means "could not search the web at all"; if the AI could search, the answer is an ID or NOT FOUND. Site and admin copies are word for word the same (tested).
+- [x] `selftest.js` brought up to date with the current prompts (26 of 26 pass on `riffrolled.com/#test`).
+- [x] **Grok** next to ChatGPT, Claude and Gemini. grok.com takes `?q=`, but every DJ prompt is far too long for a link, so like the others it opens plain and the brief goes by the clipboard.
 
 ## 2 · Playlists as windows (desktop only)
-- [ ] Hover the Playlist dock icon: a small list of the open playlists, click one to bring it to the front.
-- [ ] A minimize button on every playlist window.
-- [ ] Close closes the window but the music keeps playing.
-- [ ] Only one playlist plays at a time (starting another stops the first; the playing one is marked).
-- [ ] Phones keep one playlist window.
+- [x] ⧉ next to a playlist in the playlist list opens it in a window of its own.
+- [x] Hover the Playlist dock button: the open playlists (minimized ones too, and the playing one even if its window is closed); click one to bring it to the front.
+- [x] A minimize button (–) on every playlist window, the main one included.
+- [x] Close closes the window; the music keeps playing.
+- [x] One playlist plays at a time: starting a track in another window switches to it, and the playing window says "♪ playing". Showing another playlist does not hijack what is playing.
+- [x] Open windows come back after a reload. Phones keep one playlist window.
 
 ## 3 · Share
-- [ ] New share icon: your cassette-and-arrow picture (file ready, 6 KB; used for Share, not Promote).
-- [ ] Move Share to just after the transport controls (prev, play, next).
-- [x] Mixes shareable by link: random code, `riffrolled.com/?m=<code>`; the page opens the Mixes panel on it. (Random, not 1, 2, 3, so people can't browse everything.) Needs schema 24. Link previews in chat apps can't show the mix name (the site is static), they show the generic riffrolled card.
-- [ ] Share links for a single playlist (opt-in, same rules).
+- [x] SHARE key with your cassette-and-arrow picture, right after NEXT. Menu: copy a link to this track (`riffrolled.com/?t=<id>`), a link to this playlist (only people you send it to), share this playlist in Community, and your shared mixes with their plays. The menu never covers the YouTube player (on a phone it is a sheet above the tab bar).
+- [x] Mixes shareable by link (`?m=<code>`).
+- [x] Share links for a single playlist: link-only mixes (kind `link`: in no list, opened by the link). Same rules as Community: wallet key, daily limit, and a new key's first share waits for your OK in admin → Mixes.
+- [x] Opening a track link puts it in "Shared with me" and shows it; nothing plays until pressed.
 
 ## 4 · Credits and reasons to come back
-- [ ] 5-minute cooldown on every credited action (see 0). Server-enforced, one place in the code, a config key to change it.
-- [ ] A reason to bring people to riffrolled (see 0).
-- [x] Admin tool: promote tracks of my choosing, to test the whole system. Admin → Promotions → "Promote a track for free": search the catalogue or paste a link, choose pop-up card / DJ brief / both, moods, credits. It's a normal campaign (listeners see "Promoted"), logged in the audit log, and never touches a wallet or the ledger. Pause, add credits, end from the same tab.
+- [x] 5-minute cooldown on credited contributions (add a track, link two tracks), per wallet and per kind, server-side in one place (`src/contrib.js`). Setting: `CONTRIB_COOLDOWN_SEC` (300; 0 = off). Only matters once `CONTRIB_POOL_PER_EPOCH` is switched on.
+- [x] A reason to bring people: shared mixes can show "shared by rr·abc123" (only if the sharer ticks the box; older mixes never do) and their play count. Mixes → Community → **Yours** lists what you shared, link-only and waiting ones included, with plays.
+- [x] Admin tool: free test promotions.
 
 ## 5 · Your music
-- [ ] Liked tracks: a place to see your most liked tracks, in order.
-- [ ] Track views / plays per track, kept on your device (Dexie), shown next to likes.
+- [x] History (new icon) has tabs: 👍 Liked (most liked first), ▶ Most played, Recent, DJ sets. Play or add any row; "Make a playlist of these". Kept in the browser only.
+- [x] Plays per track on the deck (▶ next to 👍 👎), counted in this browser.
 
 ## 6 · Mixes
-- [ ] Create our premade mixes (admin tool → Mixes → the three steps).
-- [ ] Move "Random Mix" in under Mixes instead of its own dock button.
-- [ ] Optional: a cover picture for a premade mix.
-- [ ] Deploy, then check `/api/health` says `"schema":24` (share approval = 23, mix link codes = 24).
+- [ ] **Create our premade mixes** (admin tool → Mixes → the three steps). Dan-side, also in "Before going public".
+- [x] Random Mix is now the fourth door in Mixes; its dock button is gone.
+- [x] A premade mix can have a cover picture: admin → Mixes → Tracks → "Use as cover" on any of its own tracks (schema 26).
 
 ## 7 · Playlist menu, search, genres, windows
-- [ ] Playlist menu needs a proper design pass.
-- [ ] Drop-down next to the playlist name input (switch playlist). May be replaced by the open-playlists list in 2.
-- [ ] Search "does nothing": reproduce, find out why, fix.
-- [ ] Genres: a rule for new genres (auto-join the list or after review).
-- [ ] Vertical scroll bars: audit every panel.
-- [ ] New History icon.
+- [x] Playlist window pass: ▾ switcher next to the name (drops the list below it), clearer search placeholder, the name looks editable, Share uses the cassette icon. A bigger visual redesign wants your eye: say what you would change.
+- [x] Search fixed. It only matched track titles, so typing an artist found nothing; now every word must appear in title, artist, genre or tags. Below your library it shows riffrolled's catalogue (free), and "Search YouTube" is an explicit button. Clicking a playlist opens it.
+- [x] Genres rule: **after review, never automatically.** Admin → Catalogue → "Genres waiting for a decision" lists words that matched no genre, most common first. Keep one by adding a rule or a genre in `src/genres.js`, then deploy.
+- [x] Scroll audit of every panel (desktop, small laptop, phone): nothing cut off, no scroll inside scroll; Search and History now scroll their list, not the whole panel.
+- [x] New History icon.
 
 ## 8 · Promote panel
-- [x] Redesigned as four numbered steps: pick a track (search shows pictures and artist; "Playing now"; paste a link), where it appears (a picture of each option, with your track in it), moods (only if the DJ option is ticked), credits (quick amounts and a plain "costs / shown to / left after" line).
-- [x] "Your promotions" is its own window (opened by a button, and by itself when a campaign starts).
-- [x] `riffrolled.com/?promo=now` shows the poster card within a few seconds (it takes a real credit from a real campaign, so use it with a free admin campaign).
-- [ ] Genre targeting for promotions (today only moods).
-- [ ] Promoting a whole mix (decide in 0).
-- [ ] Look at the new Promote panel on your own screen and say what still feels confusing.
+- [x] Four numbered steps; "Your promotions" window; `?promo=now`.
+- [x] Change a running campaign's look: 🎨 Look in "Your promotions" (live preview; free).
+- [x] Genre targeting (optional, up to 3): the pop-up only shows while someone plays one of those genres; none = anyone. The pop-up sends the genre of the track on the deck. Admin free promotions can target too.
+- [ ] Promoting a whole mix: decided no for now (see 0).
+- [ ] Look at the Promote panel on your own screen and say what still feels confusing.
 
-## Before going public (Dan-side)
-- [ ] WAF rate limiting on `/api/*` (Cloudflare). Matters most for `GET /api/promotions/next`: it needs no sign-in and each call spends a credit, so anyone could loop it and use up a campaign (yours included).
-- [ ] First deploy settings: `MINE_TARGET_PER_HOUR=0`, `CONTRIB_POOL_PER_EPOCH=0`.
-- [ ] Batch link checks.
+## Before going public (Dan-side) — do these in order
+1. [ ] **Deploy the latest zip, then open `https://riffrolled.com/api/health`.** It must say `"schema":27`. If it says a lower number, the new version is not live yet.
+2. [ ] **Cloudflare rate limit on `/api/*` (the one real blocker).** Without it, one script could hammer every API route. The admin tool now does this for you:
+   1. Close the admin tool if it is open, then start it again (double-click **start-admin.bat**). A dark-orange bar at the top of every page says "⚠ The Cloudflare rate limit on /api/ is not on yet".
+   2. Press **Turn it on** in that bar (it opens the **Cloudflare** tab), then press **Turn it on** again in the "Rate limit on /api/" box.
+   3. If it says your token can't see rate-limiting rules: go to https://dash.cloudflare.com (sign in yourself) → your profile icon, top right → **My Profile** → **API Tokens** → the token you use for riffrolled → **…** → **Edit**. Under Permissions add a row **Zone · Zone · Read** and another **Zone · Zone WAF · Edit**. Under Zone Resources choose **Include · Specific zone · riffrolled.com**. **Continue to summary** → **Update token**. The token's value does not change, so nothing needs re-entering. Back in the admin tool press **Check again**, then **Turn it on**.
+   4. When it is on, the box says "✓ On for riffrolled.com: 30 requests per 10 seconds per visitor, then blocked for 10 seconds" and the orange bar disappears.
+   The rule it creates: URI Path starts with `/api/`, 30 requests per 10 seconds per IP, block for 10 seconds (the free plan allows exactly one rule, and 10 seconds is its only period). If real listeners get blocked later, raise 30 to 60 in the dashboard. Many people on one shared network (a school, an office) count as one IP.
+   *If you would rather click it yourself:* riffrolled.com → **Security** → **WAF** → **Rate limiting rules** → **Create rate limiting rule**; name `api-limit`; Field **URI Path**, Operator **starts with**, Value `/api/`; characteristics **IP**; **30** per **10 seconds**; action **Block**, duration **10 seconds**; **Deploy**.
+3. [ ] **First-deploy settings.** `CONTRIB_POOL_PER_EPOCH` already defaults to 0 (rewards off), so leave it. Optional: stop difficulty auto-adjusting while there are almost no users. Open `wrangler.toml`, find the line `# MINE_TARGET_PER_HOUR = "60"` in the `[vars]` block, remove the `#` and change it to `MINE_TARGET_PER_HOUR = "0"`, then deploy again. (Turn it back on, i.e. put the `#` back, once real people are mining.)
+4. [ ] **Restrict the YouTube API key** (5 minutes). https://console.cloud.google.com → APIs & Services → **Credentials** → click the key riffrolled uses → **API restrictions**: **Restrict key** → tick only **YouTube Data API v3** → **Save**. Leave "Application restrictions" on **None** (the key is used by the Worker, not a browser). It then can't be used for anything else if it ever leaks.
+5. [ ] **Make 2 or 3 premade mixes** (and pick a cover for each with "Use as cover") (admin tool → Mixes → the three steps), so the Mixes panel is not empty on day one. Copy each mix's link with the new **Copy link** button and open it in a private window to check it works.
+6. [ ] **Run the batch link check** on the catalogue (admin tool), so listeners do not hit dead videos.
+7. [ ] **Put a free campaign on a couple of good tracks** (admin → Promotions → "Promote a track for free", pop-up + DJ brief), then open `riffrolled.com/?promo=now` in a private window and see the record appear. (Admin campaigns never wait for review.)
+8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
+9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
+
+## Safety and security (22 Oct pass)
+- [x] **Rate limit**: the admin tool checks for the rule and creates it with your own token (step 2 above). It never replaces a rule you already have; if a different rule is in the one free slot it tells you instead.
+- [x] **A looping pop-up can't drain a campaign any more**: each person (a hash of their address, never the address) is charged once per campaign per `PROMO_REPEAT_HOURS` (6). After that they are shown nothing. Kept 7 days, then swept.
+- [x] **New promoters wait for your OK**: a key's first campaign is paid for but held until you approve that key. Admin → Promotions → **Waiting for your OK**: *OK this one*, *OK this key* (the same approval as mix sharing, so later campaigns go straight up), *End + refund*, *End*. A blocked key cannot promote. Turn it off with `PROMO_REVIEW = false`.
+- [x] **⚑ Report on the promoted card** (press twice to confirm). One report per person per campaign; `PROMO_REPORTS_TO_HOLD` (3) different people put it on hold, credits kept, and it appears in Waiting for your OK. Its owner can't resume out of a hold.
+- [x] **Daily cap on YouTube searches** from the search box: `SEARCH_YT_DAILY` (30 a day for the whole site; 0 = catalogue only). After that the catalogue answers and the listener is told why. Protects your YouTube quota.
+- [x] **Shared track links (`?t=`) ask first** ("Add it") instead of adding straight to the listener's playlist.
+- [x] **Terms**: credits have no cash value, can't be bought, sold or exchanged, and can be removed for abuse; promotion and sharing rules; the YouTube search allowance. **Privacy**: shared-by is opt-in, link-only mixes are unlisted (anyone with the link can open them, they are not private), counting uses a one-way hash, the genre of the playing track is sent when asking for a promotion.
+- [ ] **Your Cloudflare token**: keep it to what the admin tool needs: Account · D1 · Edit, Account · Workers Scripts · Edit, Zone · Zone · Read, Zone · Zone WAF · Edit (riffrolled.com only). If your laptop is ever lost or stolen, delete the token at dash.cloudflare.com → My Profile → API Tokens, and the GitHub one at github.com → Settings → Developer settings → Fine-grained tokens. Both live only in `C:\Users\Dan\.riffrolled-admin.json`.
+- [ ] **Private keys can't be recovered.** Nobody, you included, can get a listener's credits back if they lose their key. The 🔑 Your keys panel already tells them to save it; worth saying again in launch posts.
+- [ ] **If the database is ever damaged** (a bad delete, a bad migration): D1 keeps a 7-day history on the free plan (30 on paid). In a Command Prompt in the project folder: `npx wrangler d1 time-travel info riffrolled` shows where you are; `npx wrangler d1 time-travel restore riffrolled --timestamp=2026-10-22T09:00:00Z` (a time before the damage, in UTC) puts it back. The restore replaces everything after that time, so note down anything new first. Use the database name from `wrangler.toml`.
+- [ ] **Decide: YouTube's 30-day rule.** YouTube's developer policies let an app keep YouTube data (titles, channel names) for at most 30 days unless it refreshes them. The catalogue keeps titles indefinitely. Options: refresh titles older than 30 days from the batch link check (it already asks YouTube about each video), or keep only the video ID and the listener's own name for it. Not urgent for a quiet launch, but worth deciding before riffrolled grows.
+- [ ] **Fake wallets (Sybil)**: one person can make many keys. What limits it today: mining is slow and capped per day, contributions have a 5-minute cooldown and rewards are off (`CONTRIB_POOL_PER_EPOCH = 0`), sharing and promoting wait for your OK, and a promoter is never charged for their own pop-up. Keep rewards off until you see real use.
 
 ## Later / parked
 - [ ] Sync playlists to another device with the same private key.
@@ -71,11 +95,14 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [ ] Phone-friendly pass on DJ AI (44px tap targets, bigger text).
 
 ## Done
+- [x] **Poster or record, and a color, per campaign.** Promote window step 2: pick Record or Poster from two live tiles, pick one of nine colors (Classic, Neon, Hot pink, Sunset, Gold, Toxic, Ice, Violet, Mono) or any color with the free picker, and check it in "What listeners will see". Stored on the campaign (needs schema 25: check `/api/health` says `"schema":25` after deploying) and shown on each row of "Your promotions". The Promoted tag stays gold whatever the color. Admin tool: same choice on the free-promotion form (record by default), and the table shows each campaign's look.
+- [x] **Promoted card stays up a full minute** (was 25 s), or until the listener clicks ✕ / presses Escape / uses Play or Add. Holding the pointer on it keeps it; it lingers 8 s after the pointer leaves, never less than the minute.
+- [x] **Preview of the ad in the Promote window**: step 2 now has "What listeners will see", the real record card (your track's picture as its label, your campaign name as the title, hover for Play / Add / Close, the Promoted tag). Preview only: nothing is shown to anyone and no credits are used.
 - [x] A promoter is never shown (or charged for) their own campaign: pop-up, DJ briefs and claims all leave your own wallet's campaigns out, and your own plays/likes on it aren't counted. To test a paid campaign, use a second browser profile (or another private key); admin free campaigns still show to you.
 - [x] Free test promotions from the admin tool; Promotions tab rewritten for credits (it was still counting hours).
 - [x] Fixed an old stylesheet bug that left the "Your promotions" list unstyled.
 - [x] Menus no longer appear under the record player.
-- [x] The promoted item is now the gig-flyer poster (your artwork, background cut out, 38 KB) at the bottom right, with the track's picture taped on. "Promoted" tag always visible; buttons and title on hover; replaces the spinning record.
+- [x] **The promoted ad is the spinning record again**, with the video's picture as the round label (this is what other listeners see). "Promoted" tag always visible below it; Play / Add / Close appear on hover (always on touch screens); the title sits above. The gig-flyer poster is now only the artwork at the top of the Promote panel.
 - [x] DJ AI first in the dock; One-shot prompt and **The Riffenator 🤖🎸** (full vocabulary); Track Rolled Journey; Link Hunter pop-up wizard; prompts ask for bare video IDs.
 - [x] "🌍 Share with community" with per-wallet limits, 10-at-a-time community list and search.
 - [x] **Share approval**: every wallet starts at sharing:false; first shares wait in admin → Mixes → "Waiting for your OK" (schema 23).

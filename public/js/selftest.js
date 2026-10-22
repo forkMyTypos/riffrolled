@@ -17,7 +17,7 @@ async function runSelfTests(){
          a label somebody typed — reach an HTML sink without escapeHtml
          around it? A field merely being tested (`t.artist ? … : ''`) is
          not being rendered, so it doesn't count. */
-      const FILES = ['db','ui','player','playlist','panels-music','panels-tokens',
+      const FILES = ['db','ui','player','playlist','playlist-windows','share','mixes','panels-music','panels-tokens',
                      'dj-data','aidj','dj-menu','info','promo-popup','dock','tutorial','selftest'];
       const RISKY = /\.(name|artist|genre|ytTitle|title|label|channel|playlistName|request|reason|msg)\b/g;
       const SINK  = /(innerHTML|outerHTML)\s*\+?=\s*([\s\S]*?);\n|insertAdjacentHTML\s*\(([\s\S]*?)\);/g;
@@ -278,17 +278,21 @@ async function runSelfTests(){
       await djAi.rollAll({});
       djAi.state.count = 12; djAi.state.minutes = 48; djAi.state.maxTrackMin = 7;
       const p = await djAi.buildDetailsPrompt();
+      /* The Riffenator's first prompt: the DJ picks the music and writes a
+         draft. Finding links is Link Hunter's job, so this one must not ask
+         for any — and must say so. */
       assert(p.indexOf('Exactly 12 tracks') > 0, 'track count stated');
-      assert(p.indexOf('about 48 minutes') > 0, 'time budget stated');
-      assert(p.indexOf('No single track longer than 7 minutes') > 0, 'ceiling stated');
-      assert(p.indexOf('YOUTUBE LINKS') > 0 && p.indexOf('riffrolled plays YouTube videos and nothing else') > 0, 'link instructions present');
-      assert(p.indexOf('HARD REQUIREMENT') > 0, 'and the hard requirement');
-      assert(p.indexOf('Never rely on') > 0, 'memory is not an acceptable source');
-      assert(p.indexOf('RIFFROLLED-PLAYLIST') > 0, 'reply format present');
-      assert(!/chatgpt|claude|gemini|openai/i.test(p), 'no AI provider is named');
+      assert(p.indexOf('roughly 48-minute') > 0 && p.indexOf('44-52 minutes') > 0, 'time budget stated');
+      assert(p.indexOf('No individual track longer than 7 minutes') > 0, 'ceiling stated');
+      assert(p.indexOf('RIFFROLLED-DJ-DRAFT') > 0, 'draft reply format present');
+      assert(p.indexOf('Use exactly 12 numbered track lines') > 0, 'the count reaches the format');
+      assert(p.indexOf('Do not include YouTube URLs at this stage') > 0, 'no links in the draft: Link Hunter does that');
+      assert(p.indexOf('Never invent a track') > 0, 'nothing may be invented');
+      assert(p.indexOf('{{') < 0, 'every placeholder filled');
+      assert(!/chatgpt|claude|gemini|openai|grok/i.test(p), 'no AI provider is named');
       djAi.state.shareContext = false;
       const blind = await djAi.buildDetailsPrompt();
-      assert(blind.indexOf('have not shared my listening history') > 0, 'the share toggle is honoured');
+      assert(blind.indexOf('WHAT I ALREADY LISTEN TO') < 0, 'the share toggle is honoured: nothing about my listening goes out');
       djAi.state.shareContext = true;
     }],
     ['DJ AI speed mode: defaults, prompt and the dice', async () => {
@@ -307,17 +311,19 @@ async function runSelfTests(){
       djAi.state.count = 15; djAi.state.minutes = 60; djAi.state.maxTrackMin = 8;
       djAi.state.shareContext = false;
       const p = await djAi.buildSpeedPrompt();
-      assert(p.indexOf('PHASE 1 — BE THE DJ') > 0, 'speed template used');
-      assert(p.indexOf('PHASE 2 — FIND THE YOUTUBE LINKS') > 0, 'the two phases are separate');
-      assert(p.indexOf('PHASE 1') < p.indexOf('PHASE 2'), 'and in that order — taste before lookup');
-      assert(p.indexOf('Never invent, guess, or recall a YouTube video ID') > 0, 'ids may not be recalled');
-      assert(p.indexOf('Choose exactly 15 tracks') > 0 && p.indexOf('complete 15-track playlist') > 0,
-        'the count reaches both phases');
+      /* The one-shot prompt: curate, find the links, verify and repair in
+         one go, reply with a finished RIFFROLLED-PLAYLIST. */
+      assert(p.indexOf('THE DJ — ONE-SHOT PROMPT') === 0, 'one-shot template used');
+      assert(p.indexOf('Complete the entire task in one run') > 0, 'one run, no second step');
+      assert(p.indexOf('Never invent IDs') > 0 && p.indexOf('Never fabricate a URL') > 0, 'ids and links may not be invented');
+      assert(p.indexOf('Tracks: exactly 15') > 0 && p.indexOf('Write 15 track lines') > 0, 'the count reaches the brief and the format');
+      assert(p.indexOf('Total duration: about 60 minutes') > 0 && p.indexOf('Longest single track: 8 minutes') > 0, 'time budget stated');
       assert(p.indexOf('{{') < 0, 'every placeholder filled');
-      assert(p.indexOf('Tracks: 15') > 0 && p.indexOf('Return exactly 15 tracks') > 0, 'count in both places');
       assert(p.indexOf('WHAT I ALREADY LISTEN TO') < 0, 'listening block gone when not sharing');
       assert(p.indexOf('Nothing in particular') > 0, 'don\'t-mind reads as a sentence, not a label');
-      assert(p.indexOf('| duration | genre') > 0, 'speed output format, no why column');
+      assert(p.indexOf('Artist - Exact Track Title | YOUTUBE_VIDEO_ID | Duration | Genre') > 0, 'one-shot output format');
+      assert(p.indexOf('NOT FOUND') > 0 && p.indexOf('SEARCH FAILED') > 0, 'honest gaps have their words');
+      assert(!/chatgpt|claude|gemini|openai|grok/i.test(p), 'no AI provider is named');
     }],
     ['DJ AI speed mode: extras reach the prompt and the estimate', async () => {
       await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
@@ -343,23 +349,22 @@ async function runSelfTests(){
       assert(djAi.estimateLabel().indexOf('min') > 0, 'label reads in minutes');
       djAi.state.textMode = 'speed';
     }],
-    ['DJ AI speed mode: DISCOVERY appears only when there is something to say', async () => {
+    ['DJ AI one-shot: discovery and familiarity reach the brief', async () => {
       await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
       djAi.state.textMode = 'speed'; djAi.state.picks = {}; djAi.state.shareContext = false;
       djAi.state.familiarity = 30; djAi.state.chaos = false;
       const bare = await djAi.buildSpeedPrompt();
-      assert(bare.indexOf('DISCOVERY') < 0, 'left alone, the DJ decides');
-      assert(bare.indexOf('{{') < 0 && !/\n\n\n\n/.test(bare), 'and the gap closes cleanly');
-      // moving familiarity alone is enough to say something
+      assert(bare.indexOf("Discovery: Don't care") > 0, 'left alone, the DJ decides the discovery balance');
+      assert(bare.indexOf('Familiarity: 30% familiar / 70% discovery') > 0, 'familiarity stated');
+      assert(bare.indexOf('{{') < 0 && !/\n\n\n\n/.test(bare), 'and the gaps close cleanly');
       djAi.state.familiarity = 50;
       const fam = await djAi.buildSpeedPrompt();
-      assert(fam.indexOf('DISCOVERY') > 0 && fam.indexOf('Roughly 50% things I might know') > 0, 'familiarity shows');
-      // a discovery pick brings its own line plus the fixed caveat
+      assert(fam.indexOf('Familiarity: 50% familiar / 50% discovery') > 0, 'moving familiarity changes it');
       const d = djAi.cat('discovery');
       await djAi.pick('discovery', d.options.find(o => o.label === 'Under-discovered artists').id);
       const both = await djAi.buildSpeedPrompt();
-      assert(both.indexOf('people doing real work without much of an audience') > 0, 'the discovery line');
-      assert(both.indexOf('Do not turn this into an obscure-music exercise') > 0, 'and the caveat');
+      assert(both.indexOf('Discovery: Under-discovered artists') > 0, 'the discovery pick');
+      assert(both.indexOf('Under-discovered artists: artists with worthwhile music') > 0, 'and the template explains it');
       djAi.state.familiarity = 30;
     }],
     ['DJ AI speed mode shares the top ten, and only when asked', async () => {

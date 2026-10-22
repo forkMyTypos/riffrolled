@@ -343,7 +343,14 @@ var dbBoss = {
     try {
       const t = await db.tracks.where('ytId').equals(ytId).first();
       await db.playHistory.add({ trackId: t ? t.id : null, ytId: ytId, ts: Date.now() });
+      document.dispatchEvent(new CustomEvent('riffrolled:music', { detail: { ytId: ytId, kind: 'play' } }));
     } catch(e){}
+  },
+
+  /** how many times this track has played in this browser */
+  getPlayCount: async function(ytId){
+    if (!ytId) return 0;
+    try { return await db.playHistory.where('ytId').equals(ytId).count(); } catch(e){ return 0; }
   },
 
   // bundle everything into a portable, id-independent object
@@ -642,6 +649,7 @@ var dbBoss = {
       if (kind === 'like') statsBoss.like(ytId);
       else if (kind === 'dislike') statsBoss.dislike(ytId);
     }
+    document.dispatchEvent(new CustomEvent('riffrolled:music', { detail: { ytId: ytId, kind: kind } }));
   },
   /* ── PLAY ORDER, recorded automatically ──────────────────────────────
      One track following another is evidence that they go together — but

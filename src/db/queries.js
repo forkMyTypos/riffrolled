@@ -1,6 +1,7 @@
 // ── D1 query layer ────────────────────────────────────────────────────
 // All SQL lives here as prepared statements with bound parameters.
 // Table: tracks { id (auto), name, artist, genre, genre_raw, url }
+import { cleanStyle, cleanColor, cleanGenres } from '../cardlook.js';
 import { normalizeGenre } from '../genres.js';
 
 /** Canonicalise any YouTube link/id form to https://www.youtube.com/watch?v=ID,
@@ -410,11 +411,11 @@ export async function extendPromotion(db, id, addTokens, expiresAt) {
  */
 export async function walletPromotions(db, walletId, now, limit = 25) {
   const { results } = await db.prepare(
-    `SELECT id, url, name, label, modes, tags,
+    `SELECT id, url, name, label, modes, tags, style, color, genres, held, reports,
             created_at, ended_at,
             views, plays, likes, dislikes, replays,
             tokens, credits_remaining, paused,
-            CASE WHEN credits_remaining > 0 AND paused = 0
+            CASE WHEN credits_remaining > 0 AND paused = 0 AND held = 0
                   AND (expires_at = '' OR expires_at > ?2)
                  THEN 1 ELSE 0 END AS live
        FROM promotions WHERE wallet_id = ?1
@@ -488,18 +489,24 @@ export async function walletTotals(db, walletId) {
  * credits (and inflate their numbers) on nobody. The empty string matches
  * no wallet, so an anonymous viewer excludes nothing.
  */
-export async function livePromotions(db, now, limit = 20, mode = 'popup', exceptWallet = '') {
+export async function livePromotions(db, now, limit = 20, mode = 'popup', exceptWallet = '', genre = null) {
+  /* `genre` is the genre of what the listener is playing, for genre
+     targeting. null = no targeting filter (lists). '' = the listener's
+     track has no genre, so only untargeted campaigns qualify. A name =
+     untargeted campaigns plus those that asked for that genre. */
+  const gLike = genre === null ? '' : '%,' + (String(genre).replace(/[%_,]/g, '') || '\u0001none') + ',%';
   const { results } = await db.prepare(
-    `SELECT id, url, name, label, modes, expires_at, views, plays, likes, dislikes,
+    `SELECT id, url, name, label, modes, style, color, genres, expires_at, views, plays, likes, dislikes,
             replays, tokens, credits_remaining
        FROM promotions
-      WHERE credits_remaining > 0 AND paused = 0
+      WHERE credits_remaining > 0 AND paused = 0 AND held = 0
         AND (expires_at = '' OR expires_at > ?1)
         AND (',' || modes || ',') LIKE ?2
         AND wallet_id != ?4
+        AND (?5 = '' OR genres = '' OR (',' || genres || ',') LIKE ?5)
       ORDER BY credits_remaining DESC, created_at DESC
       LIMIT ?3`
-  ).bind(now, `%,${mode},%`, limit, exceptWallet || '').all();
+  ).bind(now, `%,${mode},%`, limit, exceptWallet || '', gLike).all();
   return results || [];
 }
 
@@ -522,7 +529,7 @@ export async function spendCredit(db, id, now) {
     `UPDATE promotions
         SET credits_remaining = credits_remaining - 1, views = views + 1,
             ended_at = CASE WHEN credits_remaining - 1 <= 0 THEN ?2 ELSE ended_at END
-      WHERE id = ?1 AND credits_remaining > 0 AND paused = 0`
+      WHERE id = ?1 AND credits_remaining > 0 AND paused = 0 AND held = 0`
   ).bind(id, now).run();
   return !!(res.meta && res.meta.changes);
 }
@@ -625,7 +632,7 @@ export async function aiCampaignPool(db, now, limit = 200, exceptWallet = '') {
   const { results } = await db.prepare(
     `SELECT id, url, name, label, tags, credits_remaining
        FROM promotions
-      WHERE paused = 0
+      WHERE paused = 0 AND held = 0
         AND credits_remaining > 0
         AND (',' || modes || ',') LIKE '%,ai,%'
         AND (expires_at = '' OR expires_at > ?1)
@@ -723,8 +730,10 @@ export async function addCampaign(db, c) {
   const res = await db.prepare(
     `INSERT INTO promotions
        (wallet_id, url, name, label, modes, created_at, expires_at, tokens,
-        credits_remaining, plays, likes, dislikes, replays, views, paused, remaining_ms, ended_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?7, 0, 0, 0, 0, 0, 0, 0, '')`
-  ).bind(c.wallet, c.url, String(c.name || '').slice(0, 300), c.label, c.modes, c.now, c.credits).run();
+        credits_remaining, plays, likes, dislikes, replays, views, paused, remaining_ms, ended_at,
+        style, color, genres, held)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?7, 0, 0, 0, 0, 0, 0, 0, '', ?8, ?9, ?10, ?11)`
+  ).bind(c.wallet, c.url, String(c.name || '').slice(0, 300), c.label, c.modes, c.now, c.credits,
+         cleanStyle(c.style), cleanColor(c.color), cleanGenres(c.genres).join(','), c.held ? 1 : 0).run();
   return Number(res.meta && res.meta.last_row_id) || 0;
 }

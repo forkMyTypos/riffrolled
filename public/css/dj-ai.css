@@ -22,14 +22,26 @@
 
 .dj-mode-state { font-size:8px; letter-spacing:0.05em; padding:1px 5px; border-radius:20px; margin-top:2px; }
 
-.dj-mode.live {
-  background:color-mix(in srgb, var(--accent,#ff9de2) 18%, transparent);
-  border-color:color-mix(in srgb, var(--accent,#ff9de2) 50%, transparent);
+/* A mode you can pick but have not: plain, so the chosen one is unmistakable. */
+.dj-mode.live { position:relative; cursor:pointer; transition:background .15s, border-color .15s, box-shadow .15s; }
+.dj-mode.live:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.22); }
+.dj-mode.live .dj-mode-state { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.55); }
+.dj-mode.live .dj-mode-state.new { background:rgba(255,204,77,0.18); color:#ffcc4d; }
+
+/* The chosen mode: filled, outlined twice, ticked. Three signals, not a tint. */
+.dj-mode.live.on {
+  background:color-mix(in srgb, var(--accent,#ff9de2) 34%, rgba(10,10,18,0.6));
+  border-color:var(--accent,#ff9de2);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent,#ff9de2) 55%, transparent), 0 4px 14px rgba(0,0,0,0.35);
 }
-
-.dj-mode.live .dj-mode-ico, .dj-mode.live .dj-mode-label { color:#fff; }
-
-.dj-mode.live .dj-mode-state { background:rgba(90,184,138,0.25); color:#8fdcb2; }
+.dj-mode.live.on::after {
+  content:'✓'; position:absolute; top:4px; right:5px; width:15px; height:15px; border-radius:50%;
+  background:var(--accent,#ff9de2); color:#1a1024; font-size:10px; font-weight:800; line-height:15px; text-align:center;
+}
+.dj-mode.live.on .dj-mode-ico, .dj-mode.live.on .dj-mode-label { color:#fff; }
+.dj-mode.live.on .dj-mode-sub { color:rgba(255,255,255,0.7); }
+.dj-mode.live.on .dj-mode-state { background:rgba(90,184,138,0.3); color:#a6f0c8; }
+.dj-mode:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
 .dj-mode.soon { opacity:0.5; cursor:default; }
 
@@ -544,3 +556,24 @@ body.mobile .dj-seed-body { padding-left:10px; }
 .dj-community-note { font-size:10.5px; line-height:1.45; color:rgba(255,255,255,0.45); margin-bottom:6px; }
 .dj-community-status { margin-top:6px; }
 body.mobile .dj-community { min-height:40px; }
+
+/* ── History: Liked · Most played · Recent · DJ sets ── */
+.hist-tabs { display:flex; gap:3px; padding:8px 8px 2px; flex-wrap:wrap; }
+.hist-tab { flex:1 1 auto; font-size:11px; padding:5px 7px; border-radius:6px; background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.6); cursor:pointer; }
+.hist-tab:hover { background:rgba(255,255,255,0.08); color:#fff; }
+.hist-tab.on { background:rgba(154,164,192,0.22); border-color:rgba(154,164,192,0.6); color:#fff; }
+.hist-music[hidden], .hist-sets[hidden], .ym-foot[hidden] { display:none; }
+.hist-music { display:flex; flex-direction:column; min-height:0; flex:1; }
+.ym-list { display:flex; flex-direction:column; gap:2px; overflow-y:auto; min-height:0; flex:1; }
+.ym-row { display:flex; align-items:center; gap:7px; padding:6px 6px; border-radius:6px; }
+.ym-row:hover { background:rgba(255,255,255,0.06); }
+.ym-row.now .ym-name { color:#c3b6ff; }
+.ym-n { width:16px; text-align:right; font-size:10.5px; color:rgba(255,255,255,0.28); flex-shrink:0; }
+.ym-txt { flex:1; min-width:0; cursor:pointer; }
+.ym-name { font-size:12px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ym-meta { font-size:10px; color:rgba(255,255,255,0.42); display:flex; gap:4px; flex-wrap:wrap; margin-top:1px; }
+.ym-play, .ym-add { width:26px; height:26px; padding:0; border-radius:50%; font-size:11px; flex-shrink:0; }
+.ym-foot { padding:6px 2px 0; }
+.ym-make { width:100%; font-size:11.5px; }
+.ym-note { font-size:10px; color:rgba(255,255,255,0.3); padding:4px 10px 8px; }

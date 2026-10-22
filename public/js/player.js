@@ -187,11 +187,19 @@ var player = {
       }
       this.el.likeCount.forEach(function(n){ n.textContent = rc.like; });
       this.el.dislikeCount.forEach(function(n){ n.textContent = rc.dislike; });
+      this.showPlays(ytId);
       /* The Track info panel fills its own fields. It used to be filled
          from here, which is why it could only ever show the track playing
          now — see track-info.js. */
       if (window.trackInfo) trackInfo.follow(ytId);
     } catch (e) { /* meta is best-effort */ }
+  },
+
+  /** the deck's ▶ count: plays of this track in this browser */
+  showPlays: async function (ytId) {
+    var n = await dbBoss.getPlayCount(ytId);
+    if (this.currentYtId !== ytId) return;
+    document.querySelectorAll('#deck .play-count, .np-area .play-count').forEach(function(e){ e.textContent = n; });
   },
 
   toggle: function () {
@@ -555,3 +563,9 @@ function onYouTubeIframeAPIReady() { player.initApi(); }
     });
   }
 })();
+
+// a play just logged for the track on the deck: its ▶ count goes up
+document.addEventListener('riffrolled:music', function (e) {
+  var d = e && e.detail;
+  if (d && d.kind === 'play' && d.ytId && d.ytId === player.currentYtId) player.showPlays(d.ytId);
+});

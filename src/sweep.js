@@ -92,6 +92,16 @@ export async function sweep(env, now = new Date().toISOString()) {
     out.errors.push('mix_shares: ' + (err && err.message));
   }
 
+  // who-saw-which-campaign is only needed for PROMO_REPEAT_HOURS (a week at most);
+  // reports go with their campaign
+  try {
+    const week = new Date(Date.parse(now) - 7 * 24 * 3600_000).toISOString();
+    await env.DB.prepare(`DELETE FROM promo_seen WHERE at < ?1`).bind(week).run();
+    await env.DB.prepare(`DELETE FROM promo_reports WHERE promo_id NOT IN (SELECT id FROM promotions)`).run();
+  } catch (err) {
+    out.errors.push('promo_seen: ' + (err && err.message));
+  }
+
   /* Contribution rewards for any epoch that has closed. This is the one
      step here that creates credits rather than deleting rows, so it is
      also the one where a retry must not repeat itself — contrib.js

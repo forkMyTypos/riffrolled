@@ -1,12 +1,12 @@
 // ── campaigns: spend riff tokens to put a catalogue track in front of
 //    people, billed by attention rather than by the clock ──────────────
 //
-//   POST /api/promote          { wallet, url, credits, modes, label }
+//   POST /api/promote          { wallet, url, credits, modes, label, style, color }
 //   GET  /api/promotions       → the live campaigns, for display only
 //   GET  /api/promotions/next  → one campaign to show, one credit spent
 //   POST /api/promo/event      → engagement, never money
 //   GET  /api/promotions/mine  → the owner's own numbers
-//   POST /api/promotion/action → pause, resume, add credits
+//   POST /api/promotion/action → pause, resume, add credits, change the look
 //
 // One credit = one person's attention. riffrolled does not promise a
 // play, only the chance of one, so the billable moment is the one thing
@@ -22,6 +22,8 @@ import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { parseTags, tagScore } from '../tags.js';
+import { cleanStyle, cleanColor, cleanGenres } from '../cardlook.js';
+import { normalizeGenre } from '../genres.js';
 import {
   WALLET_RE, canonicalYouTubeUrl, getTrackByUrl,
   walletBalance, addLedger, ensureWallet,
@@ -39,6 +41,19 @@ import {
    goes straight into a keyed lookup, and anything that is not 32 hex
    characters is a client bug or someone poking at the endpoint. */
 const BRIEF_RE = /^[0-9a-f]{32}$/;
+
+async function sha256hex(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** A stand-in for one person, for counting only: their network address,
+ *  hashed with a purpose so the same value cannot be joined across tables.
+ *  Never stored as an address. */
+async function whoFor(request, purpose) {
+  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for') || 'local';
+  return (await sha256hex(ip + '|' + purpose)).slice(0, 32);
+}
 
 /** The viewer's public key if they sent a valid private key, else ''. Used
  *  only to leave their own campaigns out; it grants nothing. */
@@ -109,7 +124,24 @@ export async function handlePromote(request, env) {
       409, 'already_live');
   }
 
+  /* Review. Anyone can add any real YouTube video to the catalogue, so
+     anyone could pay to put something nasty in front of every listener.
+     A key's campaigns are therefore held — paid for, not shown — until
+     the owner of riffrolled has approved the key once, in the admin tool.
+     It is the same approval as sharing mixes (the sharers table): a key
+     trusted to share is trusted to promote. A blocked key can do neither. */
+  const cfgR = await getConfig(env);
+  const sharer = await env.DB.prepare(`SELECT sharing FROM sharers WHERE pub = ?1`).bind(wallet).first();
+  const trust = sharer ? Number(sharer.sharing) : 0;
+  if (trust < 0) return errorJson(env, 'This key can’t start promotions', 403, 'blocked');
+  const held = cfgR.PROMO_REVIEW && trust !== 1;
+
   const label = String(body?.label || track.name || '').trim().slice(0, 120);
+  // how the pop-up card looks: decoration only (src/cardlook.js)
+  const style = cleanStyle(body?.style);
+  const color = cleanColor(body?.color);
+  // genre targeting for the pop-up: only while someone plays one of these (empty = anyone)
+  const genres = modes.includes('popup') ? cleanGenres(body?.genres) : [];
 
   await ensureWallet(env.DB, wallet, now);
   const balance = await walletBalance(env.DB, wallet);
@@ -120,12 +152,16 @@ export async function handlePromote(request, env) {
   await addLedger(env.DB, wallet, -spend, 'promote', canonical, now);
   const id = await addCampaign(env.DB, {
     wallet, url: canonical, name: track.name, label,
-    modes: modes.join(','), credits: spend, now,
+    modes: modes.join(','), credits: spend, now, style, color, genres, held,
   });
+  if (held) {
+    // the key gets its row, which is what puts it in front of the owner
+    await env.DB.prepare(`INSERT OR IGNORE INTO sharers (pub, sharing, first_at) VALUES (?1, 0, ?2)`).bind(wallet, now).run();
+  }
   if (tags.length) await setCampaignTags(env.DB, id, tags.join(','));
 
   return json(env, {
-    ok: true, id, label, modes, tags, credits: spend,
+    ok: true, id, label, modes, tags, style, color, genres, credits: spend, held,
     balance: balance - spend,
   }, 201);
 }
@@ -154,6 +190,7 @@ export async function handlePromotions(request, env) {
      /api/promotions/mine instead. */
   return json(env, list.map((p) => ({
     id: p.id, url: p.url, name: p.name, label: p.label, modes: p.modes,
+    style: p.style, color: p.color,
     views: p.views, plays: p.plays, likes: p.likes,
     dislikes: p.dislikes, replays: p.replays,
   })));
@@ -181,7 +218,15 @@ export async function handlePromoNext(request, env, url) {
      promoter from spending their credits on showing themselves their own
      track. */
   const viewer = await viewerWallet(env, request);
-  const pool = await livePromotions(env.DB, now, 25, mode, viewer);
+  /* Genre targeting. The page says what genre the listener is playing
+     (its own guess, from the track's genre; nothing about the listener).
+     A campaign that asked for genres is only in the draw while one of
+     them is playing; a campaign that asked for none is always in it.
+     The genre is normalised onto the closed list, so a made-up value
+     simply matches no targeted campaign. Brief offers (mode=ai) are
+     matched on mood instead and ignore this. */
+  const genre = mode === 'popup' ? normalizeGenre(url.searchParams.get('genre') || '').genre : null;
+  const pool = await livePromotions(env.DB, now, 25, mode, viewer, genre);
   if (!pool.length) return json(env, { ok: true, promotion: null });
 
   /* Weighted by credits remaining, so a bigger campaign is shown more
@@ -190,8 +235,25 @@ export async function handlePromoNext(request, env, url) {
      straight away" without that being able to force a particular result. */
   const skip = new Set(String(url.searchParams.get('exclude') || '')
     .split(',').map(Number).filter(Boolean));
-  let choices = pool.filter((p) => !skip.has(p.id));
-  if (!choices.length) choices = pool;
+
+  /* Not the same person twice within PROMO_REPEAT_HOURS. Without this a
+     script on one address could ask for card after card and spend a
+     campaign down on nobody; with it, one address can cost a campaign at
+     most one credit per window. A campaign this person has seen recently
+     is simply not in their draw. */
+  const cfgN = await getConfig(env);
+  const who = cfgN.PROMO_REPEAT_HOURS > 0 ? await whoFor(request, 'promo-seen') : '';
+  let fresh = pool;
+  if (who) {
+    const since = new Date(Date.parse(now) - cfgN.PROMO_REPEAT_HOURS * 3600_000).toISOString();
+    const { results: seenRows } = await env.DB.prepare(
+      `SELECT promo_id FROM promo_seen WHERE who = ?1 AND at > ?2`).bind(who, since).all();
+    const seen = new Set((seenRows || []).map((r) => r.promo_id));
+    fresh = pool.filter((p) => !seen.has(p.id));
+    if (!fresh.length) return json(env, { ok: true, promotion: null }, 200, { 'Cache-Control': 'no-store' });
+  }
+  let choices = fresh.filter((p) => !skip.has(p.id));
+  if (!choices.length) choices = fresh;
 
   const total = choices.reduce((n, p) => n + Math.max(1, p.credits_remaining), 0);
   let r = Math.random() * total;
@@ -203,11 +265,17 @@ export async function handlePromoNext(request, env, url) {
      simply gets no ad rather than a free one. */
   const got = await spendCredit(env.DB, pick.id, now);
   if (!got) return json(env, { ok: true, promotion: null });
+  if (who) {
+    await env.DB.prepare(
+      `INSERT INTO promo_seen (who, promo_id, at) VALUES (?1, ?2, ?3)
+       ON CONFLICT(who, promo_id) DO UPDATE SET at = excluded.at`).bind(who, pick.id, now).run();
+  }
 
   return json(env, {
     ok: true,
     promotion: {
       id: pick.id, url: pick.url, name: pick.name, label: pick.label, modes: pick.modes,
+      style: pick.style, color: pick.color,
     },
   }, 200, { 'Cache-Control': 'no-store' });
 }
@@ -242,6 +310,32 @@ export async function handlePromoEvent(request, env) {
   let counted = 0;
   for (const p of live) if (p.url === canonical) { if (await bumpCampaignStat(env.DB, p.id, kind, viewer)) counted++; }
   return json(env, { ok: true, counted: counted > 0 });
+}
+
+/**
+ * POST /api/promo/report  { id }
+ *
+ * A listener saying "this shouldn't be here" about a promoted card. One
+ * report per person per campaign (counted by a hashed address, never the
+ * address). When PROMO_REPORTS_TO_HOLD different people have reported it,
+ * the campaign is held — not shown, credits kept — until the owner of
+ * riffrolled looks at it in the admin tool. Refunding or ending it is
+ * theirs to decide there.
+ */
+export async function handlePromoReport(request, env) {
+  const body = await readJson(request);
+  const id = Number(body?.id);
+  if (!Number.isInteger(id) || id <= 0) return errorJson(env, 'Invalid promotion id', 400);
+  const exists = await env.DB.prepare(`SELECT id FROM promotions WHERE id = ?1`).bind(id).first();
+  if (!exists) return errorJson(env, 'No such promotion', 404);
+  const who = await whoFor(request, 'promo-report');
+  await env.DB.prepare(`INSERT OR IGNORE INTO promo_reports (promo_id, who, created_at) VALUES (?1, ?2, ?3)`)
+    .bind(id, who, nowIso()).run();
+  const n = (await env.DB.prepare(`SELECT COUNT(*) AS n FROM promo_reports WHERE promo_id = ?1`).bind(id).first())?.n || 0;
+  const cfg = await getConfig(env);
+  const held = n >= cfg.PROMO_REPORTS_TO_HOLD;
+  await env.DB.prepare(`UPDATE promotions SET reports = ?2${held ? ', held = 1' : ''} WHERE id = ?1`).bind(id, n).run();
+  return json(env, { ok: true, held });
 }
 
 /**
@@ -404,5 +498,14 @@ export async function handlePromotionAction(request, env) {
     });
   }
 
-  return errorJson(env, "action must be 'pause', 'resume' or 'extend'", 400);
+  /* Change how the pop-up looks while the campaign runs: style and color
+     only. Free, because nothing about who sees it or how often changes. */
+  if (action === 'look') {
+    const style = cleanStyle(body?.style);
+    const color = cleanColor(body?.color);
+    await env.DB.prepare(`UPDATE promotions SET style = ?2, color = ?3 WHERE id = ?1`).bind(id, style, color).run();
+    return json(env, { ok: true, style, color });
+  }
+
+  return errorJson(env, "action must be 'pause', 'resume', 'extend' or 'look'", 400);
 }

@@ -394,6 +394,57 @@ const MIGRATIONS = [
       }
     }
   }},
+  { id: 25, name: 'promotion-look', sql: [
+    /* How a promoted card looks: its style ('record' or 'poster') and a
+       color ('#rrggbb', or '' for the original look). Decoration only; see
+       src/cardlook.js. Existing campaigns keep the record they always had. */
+    `ALTER TABLE promotions ADD COLUMN style TEXT NOT NULL DEFAULT 'record'`,
+    `ALTER TABLE promotions ADD COLUMN color TEXT NOT NULL DEFAULT ''`,
+  ] },
+  { id: 26, name: 'cooldown-and-sharer', sql: [
+    /* One credited contribution of each kind per wallet per cooldown
+       (CONTRIB_COOLDOWN_SEC, see src/contrib.js). One row per wallet and
+       kind, holding when it last earned. */
+    `CREATE TABLE IF NOT EXISTS contrib_cooldown (
+       wallet_id TEXT NOT NULL,
+       kind      TEXT NOT NULL,
+       at        TEXT NOT NULL,
+       PRIMARY KEY (wallet_id, kind))`,
+    /* A shared mix may show "shared by rr·abc123" (the first characters of
+       the sharer's PUBLIC key). Only when the sharer ticked the box: mixes
+       shared before this existed were shared on the promise that the key
+       is not shown, so they all start at 0. */
+    `ALTER TABLE mixes ADD COLUMN show_by INTEGER NOT NULL DEFAULT 0`,
+    /* A mix's cover picture: the video id of one of its own tracks, chosen
+       in the admin tool. Empty = the first track's picture, as before. */
+    `ALTER TABLE mixes ADD COLUMN cover TEXT NOT NULL DEFAULT ''`,
+    /* Genre targeting for a pop-up campaign: up to three names from the
+       closed genre list (src/genres.js), comma-separated. Empty = shown
+       whatever is playing, which is every campaign made before this. */
+    `ALTER TABLE promotions ADD COLUMN genres TEXT NOT NULL DEFAULT ''`,
+  ] },
+  { id: 27, name: 'promo-safety', sql: [
+    /* held = 1: the campaign is paid for but not shown until the owner of
+       riffrolled has looked at it — a new key's campaigns (PROMO_REVIEW),
+       or one that enough listeners reported (PROMO_REPORTS_TO_HOLD). */
+    `ALTER TABLE promotions ADD COLUMN held INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE promotions ADD COLUMN reports INTEGER NOT NULL DEFAULT 0`,
+    // one report per person per campaign; `who` is a hash, not an address
+    `CREATE TABLE IF NOT EXISTS promo_reports (
+       promo_id   INTEGER NOT NULL,
+       who        TEXT NOT NULL,
+       created_at TEXT NOT NULL,
+       PRIMARY KEY (promo_id, who))`,
+    /* Who has been shown which campaign lately, so the same person is not
+       charged for twice within PROMO_REPEAT_HOURS: a credit is one
+       person's attention, and a script looping the pop-up from one
+       address can no longer drain a campaign. Hashed; pruned weekly. */
+    `CREATE TABLE IF NOT EXISTS promo_seen (
+       who      TEXT NOT NULL,
+       promo_id INTEGER NOT NULL,
+       at       TEXT NOT NULL,
+       PRIMARY KEY (who, promo_id))`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

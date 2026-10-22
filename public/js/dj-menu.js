@@ -36,7 +36,12 @@ var DJ_SITES = [
   // may refuse the tab and because the reply has to come back somehow.
   { key: 'chatgpt', label: 'ChatGPT', url: 'https://chatgpt.com/', q: 'q' },
   { key: 'claude',  label: 'Claude',  url: 'https://claude.ai/new' },
-  { key: 'gemini',  label: 'Gemini',  url: 'https://gemini.google.com/app' }
+  { key: 'gemini',  label: 'Gemini',  url: 'https://gemini.google.com/app' },
+  // grok.com reads ?q= on load, fills the box and submits (checked 2026-10-22;
+  // third-party link builders recommend keeping it under ~2,000 characters).
+  // Every DJ prompt is far longer than PREFILL_MAX, so in practice Grok opens
+  // plain and the brief goes by the clipboard, exactly like Claude and Gemini.
+  { key: 'grok',    label: 'Grok',    url: 'https://grok.com/', q: 'q' }
 ];
 
 var DJAI_SVG =
@@ -1509,15 +1514,40 @@ var djMenuBoss = {
 /* ── HISTORY ───────────────────────────────────────────────────────────
    Local only, and deliberately small: what you asked for, what came back,
    and a way to reopen the playlist it became. ── */
+/* A clock with an arrow running back round it: History. */
+var HISTORY_SVG =
+  "<svg viewBox='0 0 24 24' aria-hidden='true' fill='none' stroke='#9aa4c0' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'>" +
+    "<path d='M3.6 12a8.4 8.4 0 1 0 2.5-6'/>" +
+    "<path d='M3.2 3.8v4.1h4.1'/>" +
+    "<path d='M12 7.6V12l3 2'/>" +
+  "</svg>";
+
+/* History: what you have listened to and liked (Liked, Most played,
+   Recent), and the DJ sets you have built. Everything here is read from
+   this browser's own database: likes, plays and sets never leave the
+   device, and nothing here is sent anywhere. */
 var djHistoryBoss = {
+  tab: 'liked',
+
   setup(){
     var main =
-      "<div class='sec'>" +
+      "<div class='hist-tabs' role='tablist' data-testid='hist-tabs'>" +
+        "<button class='hist-tab' role='tab' data-tab='liked' data-testid='hist-tab-liked'>👍 Liked</button>" +
+        "<button class='hist-tab' role='tab' data-tab='played' data-testid='hist-tab-played'>▶ Most played</button>" +
+        "<button class='hist-tab' role='tab' data-tab='recent' data-testid='hist-tab-recent'>Recent</button>" +
+        "<button class='hist-tab' role='tab' data-tab='sets' data-testid='hist-tab-sets'>DJ sets</button>" +
+      "</div>" +
+      "<div class='sec hist-music' data-testid='hist-music'>" +
+        "<div class='ym-list scrollable'></div>" +
+        "<div class='ym-foot'><button class='ym-make' data-testid='ym-make'>Make a playlist of these</button></div>" +
+      "</div>" +
+      "<div class='sec hist-sets' hidden>" +
         "<div class='sec-head'>Your DJ sets</div>" +
         "<div class='dj-hist scrollable'></div>" +
-        "<div class='status-bar dj-hist-status'></div>" +
-      "</div>";
-    this.el = menuB.createMenu('🕘 History', main);
+      "</div>" +
+      "<div class='status-bar dj-hist-status'></div>" +
+      "<div class='ym-note'>Kept in this browser only. Nothing here is sent anywhere.</div>";
+    this.el = menuB.createMenu(HISTORY_SVG + ' History', main);
     menuB.place(this.el, { right:'1160px', top:'80px', width:'300px', height:'420px' });
 
     var self = this;
@@ -1548,7 +1578,135 @@ var djHistoryBoss = {
       self.status('Opened “' + pl.name + '”', 'ok');
     });
 
-    this.render();
+    this.el.querySelector('.hist-tabs').addEventListener('click', function(e){
+      var b = e.target.closest('.hist-tab'); if (b) self.show(b.dataset.tab);
+    });
+    this.el.querySelector('.ym-list').addEventListener('click', function(e){ self.onMusic(e); });
+    this.el.querySelector('.ym-make').addEventListener('click', function(){ self.makePlaylist(); });
+    // a like or a play elsewhere refreshes the list, if it is on screen
+    document.addEventListener('riffrolled:music', function(){
+      if (!self.el.classList.contains('is-hidden') && self.tab !== 'sets') self.renderMusic();
+    });
+    // fresh numbers every time the panel is opened
+    var wasHidden = true;
+    new MutationObserver(function(){
+      var hidden = self.el.classList.contains('is-hidden');
+      if (wasHidden && !hidden) self.show(self.tab, true);
+      wasHidden = hidden;
+    }).observe(this.el, { attributes: true, attributeFilter: ['class'] });
+    (async function(){
+      try { var t = await dbBoss.getSetting('historyTab'); if (t) self.tab = t; } catch(e){}
+      self.show(self.tab, true);
+    })();
+  },
+
+  show(tab, quiet){
+    if (['liked', 'played', 'recent', 'sets'].indexOf(tab) < 0) tab = 'liked';
+    this.tab = tab;
+    var el = this.el;
+    el.querySelectorAll('.hist-tab').forEach(function(b){
+      var on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    el.querySelector('.hist-sets').hidden = tab !== 'sets';
+    el.querySelector('.hist-music').hidden = tab === 'sets';
+    if (!quiet) try { dbBoss.setSetting('historyTab', tab); } catch(e){}
+    if (tab === 'sets') this.render(); else this.renderMusic();
+  },
+
+  /* ── your music: liked, most played, recent ── */
+  async musicRows(tab){
+    var tracks = await db.tracks.toArray();
+    var byYt = {};
+    tracks.forEach(function(t){ if (t.ytId) byYt[t.ytId] = t; });
+    var plays = await dbBoss.getPlayCounts();
+    var likes = {}, dislikes = {}, lastLike = {};
+    (await db.reactions.toArray()).forEach(function(r){
+      if (r.kind === 'like'){ likes[r.ytId] = (likes[r.ytId] || 0) + 1; lastLike[r.ytId] = Math.max(lastLike[r.ytId] || 0, r.ts || 0); }
+      else if (r.kind === 'dislike') dislikes[r.ytId] = (dislikes[r.ytId] || 0) + 1;
+    });
+    var ids;
+    if (tab === 'liked'){
+      // most liked first; a tie goes to the one liked most recently
+      ids = Object.keys(likes).sort(function(a, b){ return (likes[b] - likes[a]) || (lastLike[b] - lastLike[a]); });
+    } else if (tab === 'played'){
+      ids = Object.keys(plays).sort(function(a, b){ return plays[b] - plays[a]; });
+    } else {
+      var seen = {}, recent = await db.playHistory.orderBy('ts').reverse().limit(400).toArray();
+      ids = [];
+      recent.forEach(function(h){ if (h.ytId && !seen[h.ytId]){ seen[h.ytId] = h.ts; ids.push(h.ytId); } });
+      this._when = seen;
+    }
+    return ids.filter(function(id){ return byYt[id] && byYt[id].playable !== 0; }).slice(0, 50).map(function(id){
+      var t = byYt[id];
+      return { ytId: id, id: t.id, name: t.name || id, artist: t.artist || '', likes: likes[id] || 0, dislikes: dislikes[id] || 0, plays: plays[id] || 0 };
+    });
+  },
+
+  async renderMusic(){
+    var box = this.el.querySelector('.ym-list');
+    var tab = this.tab;
+    var rows = await this.musicRows(tab);
+    if (this.tab !== tab) return;
+    this._rows = rows;
+    this.el.querySelector('.ym-foot').hidden = rows.length < 2;
+    if (!rows.length){
+      box.innerHTML = "<div class='empty' data-testid='ym-empty'>" + (tab === 'liked'
+        ? 'Nothing liked yet.<br>Press 👍 on the deck when a track hits.'
+        : 'Nothing played yet.') + "</div>";
+      return;
+    }
+    var when = this._when || {};
+    box.innerHTML = rows.map(function(r, i){
+      var meta = [];
+      meta.push("<span title='Times you liked it'>👍 " + r.likes + "</span>");
+      meta.push("<span title='Times it played in this browser'>▶ " + r.plays + (r.plays === 1 ? ' play' : ' plays') + "</span>");
+      if (tab === 'recent' && when[r.ytId]) meta.push("<span>" + escapeHtml(djHistoryBoss.ago(when[r.ytId])) + "</span>");
+      return "<div class='ym-row" + (r.ytId === player.currentYtId ? ' now' : '') + "' data-yt='" + escapeHtml(r.ytId) + "' data-testid='ym-row'>" +
+        "<span class='ym-n'>" + (i + 1) + "</span>" +
+        "<div class='ym-txt'>" +
+          "<div class='ym-name'>" + (r.artist ? "<span class='track-artist'>" + escapeHtml(r.artist) + "</span>" : '') + escapeHtml(r.name) + "</div>" +
+          "<div class='ym-meta'>" + meta.join(" <span class='mx-dot'>·</span> ") + "</div>" +
+        "</div>" +
+        "<button class='ym-play' title='Play it now' aria-label='Play it now'>▶</button>" +
+        "<button class='ym-add' title='Add to the playlist in the Playlist window' aria-label='Add to the current playlist'>＋</button>" +
+      "</div>";
+    }).join('');
+  },
+
+  ago(ts){
+    var sec = Math.max(0, (Date.now() - ts) / 1000);
+    if (sec < 90) return 'just now';
+    if (sec < 5400) return Math.round(sec / 60) + 'm ago';
+    if (sec < 172800) return Math.round(sec / 3600) + 'h ago';
+    return Math.round(sec / 86400) + 'd ago';
+  },
+
+  async onMusic(e){
+    var row = e.target.closest('.ym-row'); if (!row) return;
+    var r = (this._rows || []).find(function(x){ return x.ytId === row.dataset.yt; });
+    if (!r) return;
+    if (e.target.closest('.ym-add')){
+      if (!plBoss.activeId){ this.status('Open or make a playlist first', 'err'); return; }
+      var res = await dbBoss.addToPlaylist(plBoss.activeId, r.id);
+      plBoss.afterDbChange();
+      this.status(res === 'added' ? 'Added to the playlist' : 'It’s already in that playlist', 'ok');
+      return;
+    }
+    if (e.target.closest('.ym-play') || e.target.closest('.ym-txt')) player.load(r.ytId, r.name);
+  },
+
+  /** The list on screen, as a playlist of its own. */
+  async makePlaylist(){
+    var rows = this._rows || [];
+    if (!rows.length) return;
+    var name = { liked: 'Liked tracks', played: 'Most played', recent: 'Recently played' }[this.tab] || 'Your music';
+    var id = await dbBoss.createPl(name + ' · ' + new Date().toLocaleDateString());
+    for (var i = 0; i < rows.length; i++) await dbBoss.addToPlaylist(id, rows[i].id);
+    await plBoss.setActivePlaylist(id);
+    await plBoss.renderTracks();
+    plBoss.renderPlaylists();
+    if (window.dock) dock.openPanel(plBoss.currentEl);
+    this.status('Made a playlist of ' + rows.length + ' tracks', 'ok');
   },
 
   status(msg, kind){

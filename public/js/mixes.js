@@ -5,6 +5,8 @@
                 admin tool, kept in the shared database)
      AI DJ      not a list at all — it opens the DJ AI panel
      Community  mixes listeners chose to share
+     Random     not a list either — it opens Random Mix (a mix rolled from
+                your own library), which used to have its own dock button
 
    A mix is a named list of YouTube videos. riffrolled does not supply the
    music — the videos play from YouTube, in YouTube's player, exactly like
@@ -15,11 +17,17 @@
    rename it, add to it. The playlist remembers which mix it came from, so
    pressing Play twice reuses it rather than filling the library with copies.
 
-   SHARING is opt-in and happens here, from the Share button in the Playlist
-   panel. The sheet says exactly what leaves the browser: track titles,
+   SHARING is opt-in and happens here, from the SHARE key on the deck or the
+   Share button in the Playlist panel. A playlist can go to everyone (listed
+   in Community) or to the people you send its link to (link-only: in no
+   list). The sheet says exactly what leaves the browser: track titles,
    artists and YouTube links, plus the name you choose — and the wallet's
-   PUBLIC key, logged for the owner to trace abuse, never shown. Nothing else —
-   riffrolled does not know who you are.
+   PUBLIC key, logged for the owner to trace abuse. It is shown on the mix
+   ("shared by rr·abc123", the first six characters) only if you tick that
+   box. Nothing else — riffrolled does not know who you are.
+
+   YOURS (Community → Yours) lists what you shared, link-only and waiting
+   ones included, with how many plays each has had.
 
    The default is everything closed: the panel opens on the three doors and
    nothing is fetched until you pick one. */
@@ -59,10 +67,11 @@ var mixesBoss = {
     var tiles = [
       ['premade',   'Premade',   'By Us'],
       ['ai',        'AI DJ',     'Make a Mix'],
-      ['community', 'Community', 'Mixes']
+      ['community', 'Community', 'Mixes'],
+      ['random',    'Random',    'Roll a Mix']
     ].map(function(t){
       return "<button class='mx-tile' data-v='" + t[0] + "' data-testid='mx-tile-" + t[0] + "' aria-pressed='false'>" +
-        "<span class='mx-ico'>" + MX_ICONS[t[0]] + "</span>" +
+        "<span class='mx-ico'>" + (t[0] === 'random' && window.MIX_DICE_SVG ? MIX_DICE_SVG.replace(/mxg/g, 'mxgM') : MX_ICONS[t[0]]) + "</span>" +
         "<span class='mx-t1'>" + t[1] + "</span><span class='mx-t2'>" + t[2] + "</span></button>";
     }).join('');
 
@@ -78,6 +87,7 @@ var mixesBoss = {
             "<div class='mx-sorts' hidden>" +
               "<button class='mx-sort on' data-s='new'>Newest</button>" +
               "<button class='mx-sort' data-s='popular'>Popular</button>" +
+              "<button class='mx-sort' data-s='mine' data-testid='mx-sort-mine' title='What you shared, and how many plays each has had'>Yours</button>" +
             "</div>" +
             "<select class='mx-genre' aria-label='Filter by genre' data-testid='mx-genre'>" + genreOpts + "</select>" +
             "<input type='search' class='mx-q' placeholder='Search mixes, artists, tracks, moods…' aria-label='Search mixes, artists, tracks and DJ choices' maxlength='60'>" +
@@ -85,10 +95,17 @@ var mixesBoss = {
           "<div class='mx-list scrollable' data-testid='mx-list'></div>" +
         "</div>" +
         "<div class='mx-share' hidden data-testid='mx-share'>" +
-          "<div class='sec-head'>Share this mix with everyone</div>" +
+          "<div class='sec-head mx-sh-head'>Share this playlist</div>" +
+          "<div class='mx-sh-who' role='radiogroup' aria-label='Who can open it'>" +
+            "<label class='mx-who'><input type='radio' name='mx-who' value='everyone' checked data-testid='mx-who-everyone'> " +
+              "<span><b>Everyone</b><small>Listed in Community for anyone to find</small></span></label>" +
+            "<label class='mx-who'><input type='radio' name='mx-who' value='link' data-testid='mx-who-link'> " +
+              "<span><b>Only people I send the link to</b><small>In no list; the link is copied for you</small></span></label>" +
+          "</div>" +
           "<label class='mx-lbl'>Name<input type='text' class='mx-sh-name' maxlength='80' data-testid='mx-share-name'></label>" +
           "<label class='mx-lbl'>One line about it (optional)<input type='text' class='mx-sh-blurb' maxlength='200'></label>" +
           "<label class='mx-lbl'>Genre (optional)<select class='mx-sh-genre'>" + shareGenre + "</select></label>" +
+          "<label class='mx-chk'><input type='checkbox' class='mx-sh-by' data-testid='mx-share-by'> <span>Show “shared by <b class='mx-sh-byname'>rr·…</b>” on it (the start of your public key — nothing else about you)</span></label>" +
           "<label class='mx-chk mx-sh-briefrow' hidden><input type='checkbox' class='mx-sh-brief' checked> <span>Show the DJ AI choices that made this (what you were doing, the feeling, the direction…) next to the mix</span></label>" +
           "<p class='mx-fine mx-sh-what'></p>" +
           "<div class='mx-sh-btns'><button class='mx-sh-go' data-testid='mx-share-go'>Share</button><button class='mx-sh-cancel'>Cancel</button></div>" +
@@ -113,9 +130,9 @@ var mixesBoss = {
       var b = e.target.closest('.mx-sort'); if (!b) return;
       self.sort = b.dataset.s;
       el.querySelectorAll('.mx-sort').forEach(function(x){ x.classList.toggle('on', x === b); });
-      self.load('community', true);
+      if (self.sort === 'mine') self.loadMine(); else self.load('community', true);
     });
-    el.querySelector('.mx-genre').addEventListener('change', function(){ self.genre = this.value; self.load(self.view, true); });
+    el.querySelector('.mx-genre').addEventListener('change', function(){ self.genre = this.value; if (self.sort === 'mine' && self.view === 'community') self.loadMine(); else self.load(self.view, true); });
     el.querySelector('.mx-q').addEventListener('input', function(){
       var v = this.value; clearTimeout(self._qt);
       self._qt = setTimeout(function(){ self.q = v.trim(); self.load(self.view, true); }, 250);
@@ -123,6 +140,7 @@ var mixesBoss = {
     el.querySelector('.mx-list').addEventListener('click', function(e){ self.onList(e); });
     el.querySelector('.mx-sh-cancel').addEventListener('click', function(){ self.choose('home'); });
     el.querySelector('.mx-sh-go').addEventListener('click', function(){ self.submitShare(); });
+    el.querySelector('.mx-sh-who').addEventListener('change', function(){ self.syncWho(); });
   },
 
   status(msg, kind){
@@ -142,6 +160,10 @@ var mixesBoss = {
       if (window.dock && window.djMenuBoss) dock.openPanel(djMenuBoss.el);
       return;
     }
+    if (v === 'random'){
+      if (window.dock && window.mixBoss) dock.openPanel(mixBoss.el);
+      return;
+    }
     // choosing the open door again closes it: back to the three doors
     if (v === this.view && v !== 'home') v = 'home';
     this.view = v;
@@ -155,7 +177,58 @@ var mixesBoss = {
     el.querySelector('.mx-sorts').hidden = v !== 'community';
     this.status('');
     el.setAttribute('data-view', v);
+    if (v === 'community' && this.sort === 'mine'){ this.loadMine(); return; }
     if (isList) this.load(v, true);
+  },
+
+  /* ── Yours: what this browser's key shared, with plays ──────────── */
+  async loadMine(){
+    var list = this.el.querySelector('.mx-list');
+    list.innerHTML = "<div class='empty'>Loading…</div>";
+    try {
+      var r = await fetch('/api/mixes/mine', { headers: window.riffWallet ? await riffWallet.peekHeaders() : {} });
+      if (r.status === 401){ this._list.community = []; list.innerHTML = "<div class='empty' data-testid='mx-mine-empty'>You haven’t shared anything yet.<br>Press SHARE on the deck, or Share in a playlist.</div>"; return; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var j = await r.json();
+      if (this.view !== 'community' || this.sort !== 'mine') return;
+      var rows = (j.mixes || []).filter(function(m){ return !mixesBoss.genre || m.genre === mixesBoss.genre; });
+      var q = (this.q || '').toLowerCase();
+      if (q) rows = rows.filter(function(m){ return (m.name || '').toLowerCase().indexOf(q) >= 0; });
+      this._list.community = rows; this._more.community = false;
+      if (!rows.length){
+        list.innerHTML = "<div class='empty' data-testid='mx-mine-empty'>You haven’t shared anything yet.<br>Press SHARE on the deck, or Share in a playlist.</div>";
+        return;
+      }
+      var total = rows.reduce(function(n, m){ return n + Number(m.plays || 0); }, 0);
+      list.innerHTML = "<div class='mx-mine-head' data-testid='mx-mine-head'>" + rows.length + (rows.length === 1 ? ' mix' : ' mixes') +
+        " shared · <b>" + total + (total === 1 ? ' play' : ' plays') + "</b> so far</div>" +
+        rows.map(function(m){ return mixesBoss.card(m); }).join('');
+    } catch(e){
+      list.innerHTML = "<div class='empty'>Couldn’t load what you shared just now.</div>";
+    }
+  },
+
+  /** From the SHARE key: Community → Yours. */
+  openMine(){
+    this.open();
+    this.sort = 'mine';
+    this.el.querySelectorAll('.mx-sort').forEach(function(x){ x.classList.toggle('on', x.dataset.s === 'mine'); });
+    if (this.view === 'community'){ this.view = 'home'; }
+    this.choose('community');
+  },
+
+  syncWho(){
+    var el = this.el;
+    var link = (el.querySelector("input[name='mx-who']:checked") || {}).value === 'link';
+    el.querySelector('.mx-sh-head').textContent = link ? 'Link to this playlist' : 'Share this playlist with everyone';
+    el.querySelector('.mx-sh-go').textContent = link ? 'Make the link' : 'Share';
+    var n = this._shareFor ? this._shareFor.rows.length : 0;
+    el.querySelector('.mx-sh-what').textContent =
+      n + ' tracks will be shared: their titles, artists and YouTube links, in this order, with the name above. ' +
+      (link ? 'Anyone you send the link to can play it; it is not listed anywhere. '
+            : 'Anyone will be able to find it in Community and play it. ') +
+      'Your wallet’s public key is recorded so abuse can be traced. It is shown on the mix only if you tick the box above, and nothing else about you goes with it. ' +
+      'The first share from a new key gets a quick check by a person before it works for others.';
   },
 
   /* ── lists ───────────────────────────────────────────────────────── */
@@ -206,7 +279,11 @@ var mixesBoss = {
     var meta = [];
     if (m.genre) meta.push("<span class='mx-chip'>" + escapeHtml(m.genre) + "</span>");
     meta.push(m.tracks + (m.tracks === 1 ? ' track' : ' tracks'));
-    if (m.kind === 'community' && m.plays) meta.push(m.plays + (m.plays === 1 ? ' play' : ' plays'));
+    if (m.kind !== 'premade' && (m.plays || this.sort === 'mine')) meta.push("<span class='mx-plays'>" + Number(m.plays || 0) + (m.plays === 1 ? ' play' : ' plays') + "</span>");
+    if (m.by) meta.push("<span class='mx-by'>" + (m.kind === 'premade' ? 'by ' : 'shared by ') + escapeHtml(m.by) + "</span>");
+    if (m.pending) meta.push("<span class='mx-chip mx-wait' title='The first share from a new key gets a quick check by a person'>waiting for a check</span>");
+    if (m.hidden) meta.push("<span class='mx-chip mx-wait'>hidden</span>");
+    if (m.kind === 'link') meta.push("<span class='mx-chip mx-linkonly' title='In no list: only people with the link can open it'>link only</span>");
     return "<div class='mx-card' data-id='" + Number(m.id) + "' data-slug='" + escapeHtml(m.slug || '') + "' data-testid='mx-card'>" +
       cover +
       "<div class='mx-info'>" +
@@ -217,6 +294,8 @@ var mixesBoss = {
       "<div class='mx-acts'>" +
         "<button class='mx-play' title='Play this mix' aria-label='Play this mix' data-testid='mx-play'>▶</button>" +
         "<button class='mx-save' title='Save to my playlists' aria-label='Save to my playlists' data-testid='mx-save'>＋</button>" +
+        (this.sort === 'mine' && this.view === 'community' && m.slug && !m.pending && !m.hidden
+          ? "<button class='mx-link mx-link-btn' title='Copy its link' aria-label='Copy its link' data-testid='mx-mine-link'><img class='mx-link-ico' src='img/share-icon.webp' alt='' width='16' height='16'></button>" : '') +
         "<button class='mx-tog' title='Show the tracks' aria-label='Show the tracks' aria-expanded='false'>▾</button>" +
       "</div>" +
       "<div class='mx-tracks' hidden></div>" +
@@ -348,7 +427,7 @@ var mixesBoss = {
     this.choose('home');                       // reset the doors, then show one mix on its own
     var el = this.el;
     var items = m.items || [];
-    m.cover = items[0] ? items[0].ytId : '';
+    m.cover = m.cover || (items[0] ? items[0].ytId : '');
     m.artists = items.map(function(t){ return t.artist; }).filter(function(a, i, arr){ return a && arr.indexOf(a) === i; }).slice(0, 3);
     this.view = 'linked';
     el.setAttribute('data-view', 'linked');
@@ -427,7 +506,8 @@ var mixesBoss = {
   /* ── sharing ─────────────────────────────────────────────────────── */
   MIN_TRACKS: 3,
 
-  async openShare(playlistId){
+  async openShare(playlistId, opts){
+    opts = opts || {};
     var id = playlistId || (window.plBoss && plBoss.activeId);
     var pl = id && await db.playlists.get(id);
     if (!pl){ appNotify('Pick a playlist to share first', 'warn'); return; }
@@ -451,10 +531,13 @@ var mixesBoss = {
     var bRow = el.querySelector('.mx-sh-briefrow');
     bRow.hidden = !this._shareFor.brief;
     el.querySelector('.mx-sh-brief').checked = true;
-    el.querySelector('.mx-sh-what').textContent =
-      this._shareFor.rows.length + ' tracks will be shared: their titles, artists and YouTube links, in this order, with the name above. ' +
-      'Anyone will be able to play it. Your wallet’s public key is recorded so abuse can be traced — it isn’t shown to anyone, and nothing else about you goes with it. ' +
-      'The first share from a new key gets a quick check by a person before it’s listed.';
+    el.querySelector("input[name='mx-who'][value='" + (opts.listed === false ? 'link' : 'everyone') + "']").checked = true;
+    el.querySelector('.mx-sh-by').checked = false;
+    try {
+      var pub = window.riffWallet && riffWallet.publicKey ? await riffWallet.publicKey() : '';
+      el.querySelector('.mx-sh-byname').textContent = pub ? 'rr·' + String(pub).slice(0, 6) : 'rr·…';
+    } catch(e){}
+    this.syncWho();
     el.querySelector('.mx-sh-go').disabled = false;
     el.querySelector('.mx-sh-name').focus();
   },
@@ -475,6 +558,8 @@ var mixesBoss = {
           blurb: el.querySelector('.mx-sh-blurb').value.trim(),
           genre: el.querySelector('.mx-sh-genre').value,
           brief: (s.brief && el.querySelector('.mx-sh-brief').checked) ? s.brief : undefined,
+          listed: (el.querySelector("input[name='mx-who']:checked") || {}).value !== 'link',
+          showBy: el.querySelector('.mx-sh-by').checked,
           tracks: s.rows.map(function(t){
             return { name: t.name || '', artist: t.artist || '', genre: t.genre || '', url: 'https://www.youtube.com/watch?v=' + t.ytId };
           })
@@ -484,6 +569,16 @@ var mixesBoss = {
       if (!r.ok) throw new Error((j && j.error) || 'That didn’t work (HTTP ' + r.status + ')');
       try { await db.playlists.update(s.id, { sharedMixId: j.id, sharedSlug: j.slug || '' }); } catch(e){}
       this._shareFor = null;
+      if (j.listed === false || (j.existing && !j.pending && (el.querySelector("input[name='mx-who']:checked") || {}).value === 'link')){
+        // link-only: straight to the link, and to Yours where its plays will show
+        this.openMine();
+        if (j.pending){
+          this.status('Your link is made. It starts working once your first share has had its quick check by a person — after that, every link you make works straight away.', '');
+        } else {
+          await this.copyLink(j.slug, j.name);
+        }
+        return;
+      }
       this.sort = 'new';
       this.view = 'home';
       this.choose('community');

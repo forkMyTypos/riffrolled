@@ -268,3 +268,28 @@ body.mobile .skin-nav { display:none; }
   opacity:0; pointer-events:none; transition:opacity 0.25s, transform 0.25s;
 }
 .skin-name.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── SHARE: a key after NEXT, with its menu (share.js places the menu
+   wherever it is clear of the YouTube player) ── */
+.t-share { position:relative; flex-shrink:0; }
+.key-share .share-ico { width:16px; height:16px; display:block; border-radius:3px; pointer-events:none; }
+#deck[data-layout="deck"] .remote .key-share { width:38px; height:22px; }
+#deck[data-layout="deck"] .remote .key-share .share-ico { width:15px; height:15px; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked .t-share { position:absolute; left:232px; bottom:30px; width:38px; height:22px; pointer-events:auto; }
+body:not(.mobile) #deck[data-layout="deck"] .remote.docked #btnShare { position:relative; left:0; bottom:0; }
+body.mobile #deck .remote .key-share { width:44px; height:40px; }
+body.mobile #deck .remote .key-share .share-ico { width:20px; height:20px; }
+body.mobile #deck .remote .transport { gap:9px; }
+#deck[data-layout="strip"] .remote .key-share .share-ico { filter:invert(1) brightness(.2); }
+
+/* two ids, so these beat every layout's own .t-menu placement */
+#deck #shareMenu, #shareMenu { min-width:260px; z-index:80; transform:none; }
+#deck #shareMenu.pos-below { top:calc(100% + 12px); bottom:auto; left:0; right:auto; }
+#deck #shareMenu.pos-above { bottom:calc(100% + 12px); top:auto; left:0; right:auto; }
+#deck #shareMenu.pos-left  { right:calc(100% + 12px); left:auto; bottom:0; top:auto; }
+#deck #shareMenu.pos-right { left:calc(100% + 12px); right:auto; bottom:0; top:auto; }
+.share-menu .t-mi small { display:block; font-size:10px; color:rgba(255,255,255,0.42); margin-top:1px; }
+.share-menu .t-mi:disabled { opacity:.4; cursor:default; }
+.share-menu .t-mi:disabled:hover { background:none; color:rgba(255,255,255,0.72); }
+#shareMenu.pos-sheet { position:fixed; left:12px; right:12px; top:auto; bottom:calc(84px + env(safe-area-inset-bottom)); min-width:0; }
+#shareMenu.pos-sheet .t-mi { font-size:13px; padding:10px; }

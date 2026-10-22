@@ -83,6 +83,8 @@ export const SCHEMA = {
     note: 'Points for publishing a link between two tracks nobody had linked.' },
   CONTRIB_MAX_POINTS_PER_EPOCH: { type: 'num', def: 40, min: 1, max: 100000,
     note: 'Ceiling per wallet per epoch, so one prolific adder cannot take the whole pool.' },
+  CONTRIB_COOLDOWN_SEC: { type: 'num', def: 300, min: 0, max: 86400,
+    note: 'Seconds between credited contributions of the same kind (add / link) for one wallet. 0 = no cooldown.' },
 
   // ── link verification (shipped, live) ──
   VERIFY_LINKS:         { type: 'bool', def: true,
@@ -99,6 +101,18 @@ export const SCHEMA = {
     note: 'Different people who must report a community mix before it hides itself. You can still hide or restore any mix in the admin tool.' },
   MIX_MIN_TRACKS:       { type: 'num', def: 3, min: 1, max: 20,
     note: 'Fewest tracks a shared mix may have. A one-track mix is a link, not a mix.' },
+
+  // ── promotion safety ──
+  PROMO_REVIEW:         { type: 'bool', def: true,
+    note: 'A key\'s campaigns wait for your OK (admin → Promotions) until you approve the key once — the same approval as sharing mixes.' },
+  PROMO_REPORTS_TO_HOLD:{ type: 'num', def: 3, min: 1, max: 100,
+    note: 'Different people who must report a promoted card before its campaign is held for you to look at.' },
+  PROMO_REPEAT_HOURS:   { type: 'num', def: 6, min: 0, max: 168,
+    note: 'One person (network address) is shown — and charged for — the same campaign at most once in this many hours. 0 = off.' },
+
+  // ── YouTube search from the Search panel ──
+  SEARCH_YT_DAILY:      { type: 'num', def: 30, min: 0, max: 100,
+    note: 'YouTube searches a day, site-wide, when /api/search falls through to YouTube. Each costs 100 of 10,000 quota units. 0 = catalogue only.' },
 
   // ── AI DJ resolution (dormant) ──
   AI_YT_DAILY:          { type: 'num', def: 40, min: 0,  max: 100,

@@ -4,7 +4,8 @@
 // Quota/rate-limit problems degrade to whatever the cache holds.
 
 import { json, errorJson } from '../utils/response.js';
-import { searchTracks, insertTracks } from '../db/queries.js';
+import { searchTracks, insertTracks, countAiLookups, addAiLookups } from '../db/queries.js';
+import { getConfig } from '../config.js';
 import { searchYouTube, YouTubeError } from '../services/youtube.js';
 
 const MIN_LOCAL_RESULTS = 8;   // fewer local hits than this triggers a YouTube fetch
@@ -27,6 +28,19 @@ export async function handleSearch(request, env, url) {
 
   if (results.length >= Math.min(MIN_LOCAL_RESULTS, limit)) {
     return json(env, results, 200, { 'X-Riff-Source': 'db' });
+  }
+
+  /* A daily cap, site-wide (SEARCH_YT_DAILY). search.list costs 100 of
+     the key's 10,000 units a day, so without one, anybody looping this
+     could use up the day's YouTube searching for everyone in minutes. The
+     counter shares the AI DJ's table under its own key; it is taken before
+     the call, so racing requests cannot overshoot. Over the cap, the
+     catalogue's answer stands. */
+  const cfg = await getConfig(env);
+  const dayKey = 'search:' + new Date().toISOString().slice(0, 10);
+  await addAiLookups(env.DB, dayKey, 1, new Date().toISOString());
+  if ((await countAiLookups(env.DB, dayKey)) > cfg.SEARCH_YT_DAILY) {
+    return json(env, results, 200, { 'X-Riff-Source': 'db', 'X-Riff-Warning': 'search_cap' });
   }
 
   // 2) Not enough — YouTube, cache, re-query.

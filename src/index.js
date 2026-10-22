@@ -12,9 +12,9 @@ import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleResolve } from './routes/resolve.js';
 import { handleSavePlaylist } from './routes/playlists.js';
-import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMixReport } from './routes/mixes.js';
+import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMixReport, handleMyMixes } from './routes/mixes.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
-import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, handleMyPromotions, handlePromotionAction, handleBriefOffers, handleBriefClaim } from './routes/promote.js';
+import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, handleMyPromotions, handlePromotionAction, handleBriefOffers, handleBriefClaim, handlePromoReport } from './routes/promote.js';
 import { handlePublicConfig } from './routes/config.js';
 import { handleStats, handleLink } from './routes/stats.js';
 import { sweep } from './sweep.js';
@@ -30,6 +30,7 @@ const ROUTES = [
   ['POST', /^\/api\/playlist\/save$/, (req, env) => handleSavePlaylist(req, env)],
   ['GET',  /^\/api\/mixes$/,            (req, env, url) => handleListMixes(req, env, url)],
   ['POST', /^\/api\/mixes\/share$/,     (req, env) => handleShareMix(req, env)],
+  ['GET',  /^\/api\/mixes\/mine$/,      (req, env) => handleMyMixes(req, env)],
   ['GET',  /^\/api\/mixes\/(\d+|[a-hj-km-np-z2-9]{8})$/, (req, env, url) => handleGetMix(req, env, url)],
   ['POST', /^\/api\/mixes\/\d+\/play$/,   (req, env, url) => handleMixPlay(req, env, url)],
   ['POST', /^\/api\/mixes\/\d+\/report$/, (req, env, url) => handleMixReport(req, env, url)],
@@ -45,6 +46,7 @@ const ROUTES = [
   ['GET',  /^\/api\/promotions$/,       (req, env) => handlePromotions(req, env)],
   ['POST', /^\/api\/promo\/event$/,     (req, env) => handlePromoEvent(req, env)],
   ['POST', /^\/api\/promotion\/action$/, (req, env) => handlePromotionAction(req, env)],
+  ['POST', /^\/api\/promo\/report$/,     (req, env) => handlePromoReport(req, env)],
   // AI brief placements: offered free, charged on copy
   ['POST', /^\/api\/promotions\/brief\/claim$/, (req, env) => handleBriefClaim(req, env)],
   ['POST', /^\/api\/promotions\/brief$/,        (req, env) => handleBriefOffers(req, env)],

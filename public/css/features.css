@@ -399,40 +399,61 @@
      · the "Promoted" tag — it is the disclosure, so it is always shown, on the
        flyer's bottom edge, outside the part that dims on hover
      · on a touchscreen the buttons are shown, because there is no hover
-   Escape and the 25-second timeout close it too.
+   Escape closes it too; otherwise it stays up for a minute (held while hovered).
 
    Bottom-right, beside the dock rail: the record player and its controls live
    on the left, so it never covers them (promo-popup.js steps it to the other
    corner, or skips it, if it would). ── */
 .promo-pop {
   position:fixed; right:78px; bottom:30px; z-index:2600;      /* beside the dock rail; the deck's own controls are bottom-left */
-  width:150px; height:208px;
-  opacity:0; transform:translateY(12px) rotate(2deg) scale(.96);
+  width:190px; height:190px; border-radius:50%;
+  opacity:0; transform:translateY(12px) scale(.94);
   transition:opacity .22s ease, transform .22s ease;
 }
-.promo-pop.show { opacity:1; transform:rotate(-3deg); }
-.promo-pop.show:hover, .promo-pop.show:focus-within { transform:rotate(-1deg) scale(1.03); }
+.promo-pop.show { opacity:1; transform:none; }
+.promo-pop.show:hover, .promo-pop.show:focus-within { transform:scale(1.04); }
 .promo-pop[hidden] { display:none; }
 
-.pp-disc { position:absolute; inset:0; }
+.pp-disc { position:absolute; inset:0; border-radius:50%; }
 
-/* The flyer: a torn-edged gig poster (a picture with transparent edges),
-   with the video's still taped on top. */
-.pp-sheet {
-  position:absolute; inset:0;
-  filter:drop-shadow(0 7px 10px rgba(0,0,0,0.6));
+/* The advertisement is a record: black vinyl with fine grooves and a sheen,
+   the video's picture as the centre label, a spindle hole in the middle.
+   It turns until the pointer is over it (then it holds still under the
+   buttons) and not at all if the person has asked for reduced motion. */
+.pp-vinyl {
+  position:absolute; inset:0; border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 33%, rgba(255,255,255,0.05) 33.4%, transparent 34%,
+      transparent 44%, rgba(255,255,255,0.045) 44.4%, transparent 45%,
+      transparent 55%, rgba(255,255,255,0.04) 55.4%, transparent 56%,
+      transparent 66%, rgba(255,255,255,0.035) 66.4%, transparent 67%),
+    repeating-radial-gradient(circle at 50% 50%, var(--pp-g1, #0b0b11) 0 1.5px, var(--pp-g2, #15151d) 1.5px 3px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.65), 0 0 22px var(--pp-glow, transparent), inset 0 0 0 2px var(--pp-rim, rgba(255,255,255,0.07));
+  animation:pp-spin 5s linear infinite;
   transition:filter .2s ease;
 }
-.pp-paper { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; user-select:none; pointer-events:none; }
-
-/* the taped-up photo: the video's picture, a little crooked, in the middle of the starburst */
-.pp-art {
-  position:absolute; left:50%; top:50%; width:100px; height:57px; margin:-28px 0 0 -50px;
-  object-fit:cover; display:block; transform:rotate(2.5deg);
-  border:3px solid #f3ecd8; box-sizing:content-box; border-radius:1px;
-  box-shadow:0 3px 7px rgba(0,0,0,0.55);
+/* the sheen sits on the disc and turns with it, which is what reads as vinyl */
+.pp-vinyl::after {
+  content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  background:conic-gradient(from 20deg, transparent 0 8%, var(--pp-sh1, rgba(255,255,255,0.13)) 14%, transparent 22%,
+    transparent 50%, var(--pp-sh2, rgba(255,255,255,0.10)) 64%, transparent 72%, transparent 100%);
 }
-.pp-art::after { content:none; }
+@keyframes pp-spin { to { transform:rotate(360deg); } }
+
+/* the taped-up rectangle is gone: the picture is the record's label, cropped round */
+.pp-art {
+  position:absolute; left:50%; top:50%; width:62%; height:62%; transform:translate(-50%,-50%);
+  border-radius:50%; object-fit:cover; display:block; box-sizing:border-box;
+  border:3px solid var(--pp-c, #1c1c26); box-shadow:0 0 0 2px rgba(0,0,0,0.5);
+  margin:0;
+}
+.pp-hole {
+  position:absolute; left:50%; top:50%; width:9%; height:9%; transform:translate(-50%,-50%);
+  border-radius:50%; background:#0b0b11; box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.28), 0 0 0 2px rgba(0,0,0,0.45);
+  z-index:2;
+}
+
+@media (prefers-reduced-motion: reduce) { .pp-vinyl { animation:none !important; } }
 
 /* the disclosure: always shown, on the flyer's bottom edge, never inside the part that dims */
 .pp-tag {
@@ -449,9 +470,10 @@
   opacity:0; transition:opacity .16s ease; pointer-events:none;
 }
 .promo-pop:hover .pp-acts, .promo-pop:focus-within .pp-acts { opacity:1; pointer-events:auto; }
-.promo-pop:hover .pp-sheet, .promo-pop:focus-within .pp-sheet { filter:drop-shadow(0 7px 10px rgba(0,0,0,0.6)) brightness(.4); }
+.promo-pop:hover .pp-vinyl, .promo-pop:focus-within .pp-vinyl { filter:brightness(.4); animation-play-state:paused; }
+.promo-pop:hover .pp-sheet, .promo-pop:focus-within .pp-sheet { filter:drop-shadow(0 8px 14px rgba(0,0,0,0.65)) brightness(.4); }
 .pp-acts button {
-  width:38px; height:38px; border-radius:50%; padding:0; font-size:15px; line-height:1;
+  width:42px; height:42px; border-radius:50%; padding:0; font-size:15px; line-height:1;
   display:flex; align-items:center; justify-content:center; cursor:pointer;
   background:rgba(14,14,24,0.92); border:1px solid rgba(255,255,255,0.55); color:#fff;
   transition:background .14s, border-color .14s, transform .14s;
@@ -483,12 +505,12 @@
 /* touch has no hover, so the buttons and the title are simply shown */
 @media (hover: none) {
   .pp-acts, .pp-foot { opacity:1; pointer-events:auto; }
-  .pp-sheet { filter:drop-shadow(0 7px 10px rgba(0,0,0,0.6)) brightness(.55); }
+  .pp-vinyl { filter:brightness(.55); }
+  .pp-sheet { filter:drop-shadow(0 8px 14px rgba(0,0,0,0.65)) brightness(.55); }
 }
 /* phone: smaller, tucked at the right above the tab bar so it stays off the controls under the
    record; the title goes to its left (it is always shown here — there is no hover) */
-body.mobile .promo-pop { left:auto; right:12px; bottom:calc(80px + env(safe-area-inset-bottom)); width:136px; height:189px; }
-body.mobile .pp-art { width:84px; height:47px; margin:-24px 0 0 -42px; }
+body.mobile .promo-pop { left:auto; right:12px; bottom:calc(80px + env(safe-area-inset-bottom)); width:150px; height:150px; }
 body.mobile .pp-acts { gap:3px; }
 body.mobile .pp-acts button { width:36px; height:36px; font-size:15px; }
 body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; transform:translateY(-50%); width:min(176px, calc(100vw - 180px)); }
@@ -639,10 +661,6 @@ body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; 
 .promo-mode .pv { grid-area:pv; grid-row:1 / span 2; align-self:center; }
 .promo-mode.on { border-color:rgba(255,204,77,0.55); background:rgba(255,204,77,0.07); }
 .pv { display:block; pointer-events:none; }
-.pv-popup { position:relative; width:64px; height:88px; transform:rotate(-3deg); }
-.pv-popup .pp-sheet { position:absolute; inset:0; filter:drop-shadow(0 4px 5px rgba(0,0,0,0.6)); }
-.pv-popup .pp-art { width:42px; height:24px; margin:-12px 0 0 -21px; border-width:2px; }
-.pv-popup .pp-art.empty { visibility:hidden; }
 .pv-ai { width:122px; padding:6px 7px; border-radius:6px; background:#0c0c16; border:1px solid rgba(255,255,255,0.14);
   font:9px/1.45 ui-monospace,Menlo,Consolas,monospace; color:rgba(255,255,255,0.7); text-align:left; overflow:hidden; }
 .pv-ai-h { display:block; font-weight:700; color:#ffcc4d; letter-spacing:.04em; margin-bottom:2px; }
@@ -663,6 +681,12 @@ body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; 
 .promo-go { margin-top:0; height:36px; font-size:13px; font-weight:700;
   background:rgba(255,204,77,0.2); border-color:rgba(255,204,77,0.6); color:#ffe29a; }
 .promo-go:hover { background:rgba(255,204,77,0.34); }
+
+/* the menu's own artwork: the gig poster belongs here, in the Promote window, not on the listener's screen */
+.promo-hero { display:flex; align-items:center; gap:12px; }
+.promo-poster { width:62px; height:auto; flex:0 0 auto; transform:rotate(-4deg); filter:drop-shadow(0 4px 6px rgba(0,0,0,0.55)); user-select:none; pointer-events:none; }
+.promo-hero-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.promo-hero-t { font-size:13px; font-weight:700; color:#fff; }
 
 /* second window: Your promotions */
 .promo-mine-top { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:8px; }
@@ -724,3 +748,161 @@ body.mobile .pp-foot { left:auto; right:calc(100% + 6px); bottom:auto; top:50%; 
 .wallet-move .wallet-new { flex:1 1 auto; min-width:120px; width:auto; }
 .wallet-move .wallet-save { flex:0 0 auto; width:auto; }
 .wallet-move .wallet-new { background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.14); border-radius:6px; padding:6px 8px; }
+
+/* ── the preview of the ad inside the Promote window ──
+   Same card, same classes, but sitting in the flow instead of fixed to the corner. */
+.promo-live { margin-top:10px; padding:10px 8px 8px; border:1px dashed rgba(255,204,77,0.4); border-radius:10px; text-align:center; }
+.promo-live[hidden] { display:none; }
+.promo-live-h { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#ffcc4d; }
+.promo-pop.pp-inline, body.mobile .promo-pop.pp-inline {
+  position:relative; right:auto; left:auto; bottom:auto; z-index:auto; margin:62px auto 18px;
+  width:190px; height:190px; opacity:1; transform:none;
+}
+.promo-pop.pp-inline.show:hover, .promo-pop.pp-inline.show:focus-within { transform:none; }
+body.mobile .pp-inline .pp-foot { left:50%; right:auto; top:auto; bottom:calc(100% + 8px); transform:translateX(-50%); width:min(230px, 80vw); }
+body.mobile .pp-inline .pp-acts button { width:42px; height:42px; }
+body.mobile .pp-inline .pp-acts { gap:6px; }
+.promo-live-note { font-size:10.5px; line-height:1.4; color:rgba(255,255,255,0.5); }
+
+/* ── the poster style ──
+   The gig flyer, tilted, with the video's picture taped across its burst.
+   Its yellow and red are turned to the chosen color with a hue rotation
+   (and its saturation scaled), so any pick gives a poster in that color. */
+.promo-pop.pp-style-poster { width:150px; height:209px; border-radius:4px; }
+body.mobile .promo-pop.pp-style-poster { width:130px; height:181px; }
+.pp-style-poster .pp-disc { border-radius:0; }
+.pp-sheet { position:absolute; inset:0; transform:rotate(-3deg); filter:drop-shadow(0 8px 14px rgba(0,0,0,0.65)); transition:filter .2s ease; }
+.pp-sheet-bg { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; user-select:none;
+  filter:hue-rotate(var(--pp-hue, 0deg)) saturate(var(--pp-sat, 1)); }
+.pp-style-poster .pp-art {
+  width:74%; height:auto; aspect-ratio:16 / 9; top:49%; border-radius:2px; border:3px solid #f2ecdc;
+  box-shadow:0 2px 6px rgba(0,0,0,0.6); transform:translate(-50%,-50%) rotate(-2deg); z-index:1;
+}
+.pp-style-poster .pp-acts { gap:4px; }
+.pp-style-poster .pp-acts button, body.mobile .pp-style-poster .pp-acts button { width:36px; height:36px; font-size:14px; }
+.pp-style-poster .pp-tag { bottom:-12px; }
+.pp-tinted .pp-tag { border-color:rgba(255,204,77,0.55); }     /* the disclosure never takes the advertiser's color */
+body.mobile .pp-style-poster .pp-foot { right:calc(100% + 10px); }
+
+/* the preview in the Promote window is the same poster, sitting in the flow */
+.promo-pop.pp-inline.pp-style-poster, body.mobile .promo-pop.pp-inline.pp-style-poster { width:150px; height:209px; }
+
+/* small inert copies: the two style tiles and the picture in the option card */
+body .promo-pop.pp-mini { position:relative; right:auto; left:auto; bottom:auto; z-index:auto; margin:0 auto;
+  width:92px; height:92px; opacity:1; transform:none; pointer-events:none; }
+body .promo-pop.pp-mini.pp-style-poster { width:66px; height:92px; }
+.pp-mini .pp-acts, .pp-mini .pp-foot, .pp-mini .pp-tag { display:none; }
+.pp-mini .pp-vinyl { box-shadow:0 4px 10px rgba(0,0,0,0.6), 0 0 12px var(--pp-glow, transparent), inset 0 0 0 1.5px var(--pp-rim, rgba(255,255,255,0.07)); }
+.pv-pop { width:78px; height:78px; display:flex; align-items:center; justify-content:center; }
+.pv-pop .pp-mini { width:72px; height:72px; }
+.pv-pop .pp-mini.pp-style-poster { width:52px; height:72px; }
+
+/* style tiles, color swatches */
+.promo-live-h { margin-top:10px; }
+.promo-live-h:first-child { margin-top:0; }
+.promo-looks { display:flex; gap:8px; margin-top:6px; }
+.promo-look { position:relative; flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px 7px;
+  border-radius:10px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.03); cursor:pointer;
+  color:rgba(255,255,255,0.8); font-size:11.5px; }
+.promo-look input { position:absolute; opacity:0; pointer-events:none; }
+.promo-look.on { border-color:rgba(255,204,77,0.65); background:rgba(255,204,77,0.08); color:#fff; }
+.promo-look:focus-within { outline:2px solid #fff; outline-offset:2px; }
+.promo-look-stage { display:flex; align-items:center; justify-content:center; height:100px; width:100%; }
+.promo-swatches { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
+.promo-sw { position:relative; width:30px; height:30px; padding:0; border-radius:50%; cursor:pointer; box-sizing:border-box;
+  border:2px solid rgba(255,255,255,0.25); background:#333; overflow:hidden; }
+.promo-sw:hover { border-color:rgba(255,255,255,0.7); }
+.promo-sw.on { outline:2px solid #fff; outline-offset:2px; border-color:transparent; }
+.promo-sw:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.promo-sw-classic { background:linear-gradient(135deg, #15151d 50%, #ffcc4d 50%); }
+.promo-sw-custom { background:conic-gradient(#f33, #fd3, #3d5, #3df, #35f, #f3d, #f33); }
+.promo-sw-custom input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; padding:0; border:0; }
+.promo-color-name { text-align:center; margin-top:6px; font-size:10.5px; color:rgba(255,255,255,0.55); }
+.promo-look-chip { font-size:10.5px; color:rgba(255,255,255,0.55); margin-top:2px; }
+.promo-dot { display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:middle; border:1px solid rgba(255,255,255,0.4); }
+
+/* ── playlists as windows (playlist-windows.js) ── */
+.panel-min { margin-left:auto; background:transparent; border:0; color:rgba(255,255,255,0.45); font-size:16px; line-height:1;
+  padding:0 6px 2px; cursor:pointer; border-radius:5px; flex-shrink:0; font-weight:700; }
+.panel-min:hover { color:#fff; background:rgba(255,255,255,0.12); }
+.panel-min + .panel-close { margin-left:2px; }
+.pl-playing-badge { flex-shrink:0; font-size:9.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:#a6f0c8; background:rgba(90,184,138,0.18); border:1px solid rgba(90,184,138,0.45); border-radius:10px; padding:1px 7px; }
+.pl-playing-badge[hidden] { display:none; }
+.pl-playing-badge:not([hidden]) + .panel-min { margin-left:6px; }
+.pl-title-name + .pl-playing-badge { margin-left:4px; }
+.panel.pl-is-playing { box-shadow:0 0 0 1px rgba(90,184,138,0.55), 0 12px 30px rgba(0,0,0,0.45); }
+
+.pl-win .mainC { display:flex; flex-direction:column; min-height:0; }
+.plw-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
+.plw { display:flex; flex-direction:column; flex:1; min-height:0; height:100%; }
+.plw-top { display:flex; align-items:center; gap:6px; padding:8px 10px 4px; }
+.plw-status { font-size:11px; color:rgba(255,255,255,0.4); }
+.plw-status.on { color:#5ab88a; }
+.plw-count { font-size:11px; color:rgba(255,255,255,0.3); margin-right:auto; }
+.plw-top .icon-btn { width:26px; height:26px; font-size:11px; }
+
+.pl-open-win { background:none; border:none; color:rgba(255,255,255,0.35); font-size:12px; cursor:pointer; padding:0 5px;
+  border-radius:3px; flex-shrink:0; }
+.pl-open-win:hover { color:#fff; background:rgba(255,255,255,0.12); }
+
+/* the dock's list of open playlists */
+.pl-dock-pop { position:fixed; z-index:55; width:250px; padding:6px; border-radius:10px; background:#1c1c30;
+  border:1px solid rgba(255,255,255,0.14); box-shadow:0 12px 30px rgba(0,0,0,0.55); }
+.pl-dock-pop[hidden] { display:none; }
+.pdp-h { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,0.45); padding:2px 6px 6px; }
+.pdp-item { display:flex; align-items:center; gap:6px; width:100%; text-align:left; padding:7px 8px; border-radius:7px;
+  background:transparent; border:0; color:rgba(255,255,255,0.85); cursor:pointer; font-size:12px; }
+.pdp-item:hover, .pdp-item:focus-visible { background:rgba(157,140,255,0.16); outline:none; }
+.pdp-item.playing { color:#fff; }
+.pdp-dot { width:12px; color:#5ab88a; flex-shrink:0; }
+.pdp-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pdp-state { font-size:10px; color:rgba(255,255,255,0.38); flex-shrink:0; }
+.pdp-empty, .pdp-hint { font-size:10.5px; color:rgba(255,255,255,0.4); padding:6px; }
+.pdp-hint { border-top:1px solid rgba(255,255,255,0.08); margin-top:4px; }
+
+/* phones keep one playlist window */
+body.mobile .pl-win, body.mobile .pl-open-win, body.mobile .panel-min, body.mobile .pl-dock-pop { display:none !important; }
+
+/* Search: beyond your library */
+.st-remote:empty { display:none; }
+.st-wait { font-size:11px; color:rgba(255,255,255,0.4); padding:4px 8px 8px; }
+.st-yt { display:block; width:calc(100% - 12px); margin:6px; font-size:11.5px; }
+.st-item .track-artist { color:rgba(255,255,255,0.42); }
+
+/* Playlist window: the name reads as editable, ▾ switches playlist */
+.pl-switch { flex-shrink:0; width:26px; height:26px; font-size:12px; }
+.active-pl-name:hover { background:rgba(255,255,255,0.04); border-radius:5px; }
+.pl-pop.open[style*="top"] { max-height:260px; }
+
+/* Scroll audit: in Search and History the list scrolls, not the whole panel,
+   so the search box, the scope buttons and the tabs stay in view. */
+.searchC .srh-top, .searchC .srh-limits, .hist-tabs, .ym-foot, .ym-note { flex-shrink:0; }
+.mainC > .sec.searchC { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+.searchC .st-results { flex:1 1 auto; min-height:0; overflow-y:auto; }
+.mainC > .sec.hist-music { flex:1 1 auto; min-height:0; }
+.mainC > .sec.hist-sets { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+.hist-sets .dj-hist { flex:1 1 auto; min-height:0; overflow-y:auto; }
+
+/* genre targeting chips (Promote, step 2) */
+.promo-genre-note { font-size:10.5px; color:rgba(255,255,255,0.45); margin:2px 0 6px; line-height:1.4; }
+.promo-genres { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+.promo-genre-btn { font-size:10.5px; padding:3px 8px; border-radius:11px; background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.62); cursor:pointer; }
+.promo-genre-btn.on { background:rgba(255,204,77,0.16); border-color:#ffcc4d; color:#ffcc4d; font-weight:600; }
+.promo-live-h small { font-weight:400; text-transform:none; letter-spacing:0; color:rgba(255,255,255,0.4); }
+
+/* Your promotions: change the look of a running campaign */
+.promo-look-row { display:none; flex-direction:column; gap:7px; margin-top:7px; padding:8px; border:1px dashed rgba(255,204,77,0.35); border-radius:8px; }
+.promo-row.looking .promo-look-row { display:flex; }
+.pl-look-styles { display:flex; gap:5px; }
+.pl-st.on { border-color:#ffcc4d; color:#ffcc4d; }
+.pl-sw { justify-content:flex-start; margin-top:0; }
+.pl-look-prev { display:flex; justify-content:center; padding:4px 0; }
+.pl-look-btns { display:flex; gap:5px; }
+
+/* the promoted card's two small links; and a held campaign in Your promotions */
+.pp-links { display:flex; justify-content:center; gap:10px; }
+.pp-report { margin-top:3px; background:transparent; border:0; padding:0; font-size:9px; color:rgba(255,255,255,0.45); cursor:pointer; }
+.pp-report:hover, .pp-report.sure { color:#ffb38a; text-decoration:underline; }
+.promo-held { font-size:10.5px; color:#ffd9a0; background:rgba(255,184,107,0.1); border:1px solid rgba(255,184,107,0.35); border-radius:6px; padding:4px 7px; margin:4px 0 2px; line-height:1.4; }

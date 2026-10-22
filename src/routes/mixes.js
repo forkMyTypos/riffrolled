@@ -3,7 +3,10 @@
 //   GET  /api/mixes?kind=premade|community&sort=new|popular&genre=&q=&limit=&offset=
 //        q matches mix names and blurbs, the DJ choices, and the artists and titles of the tracks
 //   GET  /api/mixes/:id                 the mix and its tracks, in order
-//   POST /api/mixes/share               a listener shares a mix (community); may carry the DJ AI choices as `brief`
+//   POST /api/mixes/share               a listener shares a mix; may carry the DJ AI choices as `brief`.
+//                                       `listed: false` makes it link-only (kind 'link': opened by its
+//                                       link, never in a list); `showBy: true` shows "shared by rr·abc123"
+//   GET  /api/mixes/mine                the mixes this wallet shared (needs the key), with their plays
 //   POST /api/mixes/:id/play            a play, for the Popular sort
 //   POST /api/mixes/:id/report          "this shouldn't be here"
 //
@@ -117,6 +120,12 @@ function briefOut(raw) {
   return cleanBrief(raw);          // stored JSON is re-cleaned on the way out too
 }
 
+/** The cover the admin tool chose: a bare 11-character video id, or nothing. */
+function coverOf(m) {
+  const c = String((m && m.cover) || '');
+  return /^[A-Za-z0-9_-]{11}$/.test(c) ? c : '';
+}
+
 function ytId(url) {
   const m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(url || '');
   return m ? m[1] : '';
@@ -127,8 +136,19 @@ function shape(r, extra = {}) {
   return {
     id: r.id, kind: r.kind, name: r.name, blurb: r.blurb, genre: r.genre,
     tags: r.tags ? String(r.tags).split(',').map((s) => s.trim()).filter(Boolean) : [],
-    tracks: r.tracks, plays: r.plays, created_at: r.created_at, slug: r.slug || '', ...extra,
+    tracks: r.tracks, plays: r.plays, created_at: r.created_at, slug: r.slug || '',
+    by: byLine(r), ...extra,
   };
+}
+
+/** Who a mix is from, as listeners see it: riffrolled for premade mixes,
+ *  "rr·" and the first six characters of the sharer's PUBLIC key when the
+ *  sharer chose to show it, otherwise nothing. Never the private key, and
+ *  never the whole public key. */
+function byLine(r) {
+  if (r.kind === 'premade') return 'riffrolled';
+  const c = String(r.creator || '');
+  return Number(r.show_by) === 1 && /^[0-9a-f]{64}$/.test(c) ? 'rr·' + c.slice(0, 6) : '';
 }
 
 /** Give any mix that has no share code one (mixes the admin tool wrote, or that
@@ -165,6 +185,7 @@ export async function handleListMixes(request, env, url) {
 
   const { results } = await env.DB.prepare(
     `SELECT m.id, m.kind, m.name, m.blurb, m.genre, m.tags, m.plays, m.created_at, m.slug,
+            m.creator, m.show_by, m.cover,
             (SELECT COUNT(*) FROM mix_tracks mt WHERE mt.mix_id = m.id) AS tracks
        FROM mixes m
       WHERE m.kind = ?1 AND m.hidden = 0 AND m.pending = 0
@@ -201,7 +222,7 @@ export async function handleListMixes(request, env, url) {
 
   return json(env, {
     kind, sort, offset,
-    mixes: mixes.map((m) => shape(m, { cover: (taste.get(m.id) || {}).cover || '', artists: (taste.get(m.id) || {}).artists || [] })),
+    mixes: mixes.map((m) => shape(m, { cover: coverOf(m) || (taste.get(m.id) || {}).cover || '', artists: (taste.get(m.id) || {}).artists || [] })),
   }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
@@ -215,7 +236,7 @@ export async function handleGetMix(request, env, url) {
   const id = bySlug ? 0 : parseInt(key, 10);
   if (!bySlug && !id) return errorJson(env, 'No such mix', 404);
   const m = await env.DB.prepare(
-    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief, slug FROM mixes
+    `SELECT id, kind, name, blurb, genre, tags, plays, created_at, brief, slug, creator, show_by, cover FROM mixes
       WHERE ${bySlug ? 'slug = ?1' : 'id = ?1'} AND hidden = 0 AND pending = 0`
   ).bind(bySlug ? key : id).first();
   if (!m) return errorJson(env, 'No such mix', 404);
@@ -226,7 +247,8 @@ export async function handleGetMix(request, env, url) {
       WHERE mt.mix_id = ?1 ORDER BY mt.position`
   ).bind(m.id).all();
   const tracks = (results || []).map((t) => ({ ...t, note: cleanNote(t.note), ytId: ytId(t.url) })).filter((t) => t.ytId);
-  return json(env, { ...shape({ ...m, tracks: tracks.length }), brief: briefOut(m.brief), items: tracks }, 200, { 'Cache-Control': 'public, max-age=30' });
+  return json(env, { ...shape({ ...m, tracks: tracks.length }), cover: coverOf(m) || (tracks[0] ? tracks[0].ytId : ''),
+                     brief: briefOut(m.brief), items: tracks }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
 // ── POST /api/mixes/share ─────────────────────────────────────────────
@@ -290,8 +312,16 @@ export async function handleShareMix(request, env) {
 
   // the same tracks in the same order are the same mix, whatever it is called
   const fingerprint = (await sha256hex(ids.join(','))).slice(0, 32);
-  const existing = await env.DB.prepare(`SELECT id, name, pending, slug FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
+  const listed = !(body && body.listed === false);
+  const showBy = !!(body && body.showBy === true);
+  const existing = await env.DB.prepare(`SELECT id, name, pending, slug, kind, creator FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
   if (existing) {
+    /* The same tracks were shared before. If it was link-only and is now
+       being shared with everyone, by the same key, it moves into the
+       Community list; nothing else about it changes. */
+    if (listed && existing.kind === 'link' && existing.creator === creator) {
+      await env.DB.prepare(`UPDATE mixes SET kind = 'community' WHERE id = ?1`).bind(existing.id).run();
+    }
     await fillSlugs(env, [existing]);
     return json(env, { id: existing.id, name: existing.name, slug: existing.slug, tracks: ids.length, existing: true,
                        ...(existing.pending ? { pending: true } : {}) });
@@ -303,9 +333,10 @@ export async function handleShareMix(request, env) {
   const brief = cleanBrief(body.brief);
   const slug = newMixSlug();
   const res = await env.DB.prepare(
-    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator, pending, slug)
-     VALUES ('community', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
-  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator, review ? 1 : 0, slug).run();
+    `INSERT INTO mixes (kind, name, blurb, genre, fingerprint, created_at, brief, creator, pending, slug, show_by)
+     VALUES (?10, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?11)`
+  ).bind(name, cleanBlurb(body.blurb), genre, fingerprint, nowIso(), brief ? JSON.stringify(brief) : '', creator, review ? 1 : 0, slug,
+         listed ? 'community' : 'link', showBy ? 1 : 0).run();
   const mixId = res.meta.last_row_id;
   const stmt = env.DB.prepare(`INSERT INTO mix_tracks (mix_id, track_id, position) VALUES (?1, ?2, ?3)`);
   await env.DB.batch(ids.map((tid, i) => stmt.bind(mixId, tid, i)));
@@ -314,8 +345,27 @@ export async function handleShareMix(request, env) {
   await env.DB.prepare(`INSERT OR IGNORE INTO sharers (pub, sharing, first_at) VALUES (?1, 0, ?2)`)
     .bind(creator, nowIso()).run();
 
-  return json(env, { id: mixId, name, slug, tracks: ids.length, ...(review ? { pending: true } : {}),
+  return json(env, { id: mixId, name, slug, tracks: ids.length, listed, ...(review ? { pending: true } : {}),
                      ...(dropped.length ? { dropped } : {}) }, review ? 202 : 201);
+}
+
+// ── GET /api/mixes/mine ───────────────────────────────────────────────
+// The sharer's own mixes, listed or link-only, waiting or not, with their
+// play counts: the reason to send the link to someone. Needs the wallet key
+// (the page sends it in a header); returns nothing for anyone else.
+export async function handleMyMixes(request, env) {
+  const creator = (await walletFrom(env, request, null, null)) || '';
+  if (!creator) return errorJson(env, 'Needs your wallet key', 401, 'needs_key');
+  const { results } = await env.DB.prepare(
+    `SELECT m.id, m.kind, m.name, m.blurb, m.genre, m.tags, m.plays, m.created_at, m.slug, m.pending, m.hidden,
+            m.creator, m.show_by,
+            (SELECT COUNT(*) FROM mix_tracks mt WHERE mt.mix_id = m.id) AS tracks
+       FROM mixes m WHERE m.creator = ?1 ORDER BY m.id DESC LIMIT 50`
+  ).bind(creator).all();
+  const rows = results || [];
+  await fillSlugs(env, rows);
+  return json(env, { mixes: rows.map((m) => shape(m, { pending: Number(m.pending) === 1, hidden: Number(m.hidden) === 1 })) },
+              200, { 'Cache-Control': 'no-store' });
 }
 
 // ── POST /api/mixes/:id/play ──────────────────────────────────────────
@@ -338,9 +388,9 @@ export async function handleMixReport(request, env, url) {
     .bind(id, who, nowIso()).run();
   const n = (await env.DB.prepare(`SELECT COUNT(*) AS n FROM mix_reports WHERE mix_id = ?1`).bind(id).first())?.n || 0;
   await env.DB.prepare(`UPDATE mixes SET reports = ?2 WHERE id = ?1`).bind(id, n).run();
-  // only a community mix hides itself; a premade one is yours to judge
+  // a shared mix (listed or link-only) hides itself; a premade one is yours to judge
   let hidden = false;
-  if (m.kind === 'community' && n >= cfg.MIX_REPORTS_TO_HIDE) {
+  if (m.kind !== 'premade' && n >= cfg.MIX_REPORTS_TO_HIDE) {
     await env.DB.prepare(`UPDATE mixes SET hidden = 1 WHERE id = ?1`).bind(id).run();
     hidden = true;
   }

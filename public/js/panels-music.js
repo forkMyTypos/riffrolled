@@ -5,7 +5,18 @@
 /* ── SEARCH TRACKS PANEL (search the whole library) ── */
 /* ── SEARCH — one box across your library. Scope: Tracks / Playlists / Both.
    The limits row caps how many result rows get built (DOM stays small as
-   the library grows); "All" is available but capped at 500 for safety. ── */
+   the library grows); "All" is available but capped at 500 for safety.
+
+   "Search does nothing" had three causes, all fixed here:
+     · it only matched track TITLES, so typing an artist found nothing.
+       Every word now has to appear somewhere in the title, artist, genre
+       or tags, in any order.
+     · with an empty (or small) library it said "No matches" and stopped.
+       Below your own results it now looks in riffrolled's shared
+       catalogue (free: no YouTube quota), and offers to search YouTube
+       itself as a separate, explicit step.
+     · clicking a playlist only switched to it, silently. It now opens the
+       Playlist window on it. ── */
 var searchBoss = {
   scope: 'both',
   limit: 20,
@@ -21,7 +32,7 @@ var searchBoss = {
           "</div>" +
           "<input type='text' class='st-search' placeholder='Search your library…'>" +
         "</div>" +
-        "<div class='st-results scrollable'></div>" +
+        "<div class='st-results scrollable'><div class='st-local'></div><div class='st-remote' data-testid='st-remote'></div></div>" +
         "<div class='srh-limits'>" +
           "<span class='srh-limits-label'>Show</span>" +
           "<button class='srh-limit' data-n='10'>10</button>" +
@@ -37,6 +48,7 @@ var searchBoss = {
     var self = this;
     var input = this.el.querySelector('.st-search');
     input.addEventListener('input', function(){ clearTimeout(self._t); self._t = setTimeout(function(){ self.render(); }, 140); });
+    input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ clearTimeout(self._t); self.render(); } });
 
     // scope + limit toggles (delegated)
     this.el.querySelector('.srh-scopes').addEventListener('click', function(e){
@@ -55,8 +67,14 @@ var searchBoss = {
     // one delegated handler for all result rows
     this.el.querySelector('.st-results').addEventListener('click', async function(e){
       var plRow = e.target.closest('.srh-pl');
-      if (plRow){ await plBoss.setActivePlaylist(Number(plRow.dataset.id)); self.status('Now on “' + plRow.dataset.name + '”', 'ok'); self.render(); return; }
+      if (plRow){
+        await plBoss.setActivePlaylist(Number(plRow.dataset.id));
+        if (window.dock) dock.openPanel(plBoss.currentEl);
+        self.status('Opened “' + plRow.dataset.name + '”', 'ok'); self.render(); return;
+      }
+      if (e.target.closest('.st-yt')){ self.remote(true); return; }
       var item = e.target.closest('.st-item'); if (!item) return;
+      if (item.classList.contains('st-cat')) return self.onCatalogue(e, item);
       if (e.target.closest('.st-play')){ ytPlay(item.dataset.yt, item.dataset.name); return; }
       if (e.target.closest('.st-add')){
         if (!window.plBoss || !plBoss.activeId){ self.status('Select a playlist first', 'err'); return; }
@@ -77,8 +95,16 @@ var searchBoss = {
     if (msg && kind === 'ok'){ clearTimeout(this._st); this._st = setTimeout(function(){ if (el.textContent === msg) self.status(''); }, 5000); }
   },
 
+  /** every word of the query appears in the title, artist, genre or tags */
+  matches(t, words){
+    if (!words.length) return true;
+    var hay = [t.name, t.artist, t.genre, Array.isArray(t.tags) ? t.tags.join(' ') : t.tags]
+      .filter(Boolean).join(' ').toLowerCase();
+    return words.every(function(w){ return hay.indexOf(w) >= 0; });
+  },
+
   async render(){
-    var results = this.el.querySelector('.st-results');
+    var results = this.el.querySelector('.st-local');
     var q = (this.el.querySelector('.st-search').value || '').trim().toLowerCase();
     var cap = this.limit, html = '', total = 0;
 
@@ -103,7 +129,9 @@ var searchBoss = {
     // tracks section
     if (this.scope !== 'playlists'){
       var all = await db.tracks.toArray();
-      var mt = q ? all.filter(function(t){ return (t.name || '').toLowerCase().includes(q); }) : all;
+      var words = q.split(/\s+/).filter(Boolean), self0 = this;
+      var mt = q ? all.filter(function(t){ return t.playable !== 0 && self0.matches(t, words); }) : all;
+      this._localYt = new Set(all.map(function(t){ return t.ytId; }));
       total += mt.length;
       var inList = new Set();
       if (plBoss.activeId){
@@ -115,17 +143,81 @@ var searchBoss = {
         html += "<div class='srh-sec-head'>Tracks</div>" + showT.map(function(t){
           return "<div class='st-item' data-id='" + t.id + "' data-yt='" + escapeHtml(t.ytId) + "' data-name='" + escapeHtml(t.name) + "'>"
             + "<button class='icon-btn st-play' title='Play now'>▶</button>"
-            + "<span class='name'>" + escapeHtml(t.name) + "</span>"
+            + "<span class='name'>" + (t.artist ? "<span class='track-artist'>" + escapeHtml(t.artist) + "</span>" : '') + escapeHtml(t.name) + "</span>"
             + (inList.has(t.id) ? "<span class='st-inlist'>✓ in list</span>" : "<button class='icon-btn st-add' title='Add to current playlist'>＋</button>")
             + "</div>";
         }).join('');
       }
     }
 
-    if (!html) html = "<div class='empty'>" + (q ? 'No matches' : 'Your library is empty') + "</div>";
+    if (!html) html = "<div class='empty'>" + (q ? 'Nothing in your library matches “' + escapeHtml(q) + '”' : 'Your library is empty — type an artist or a song to look further') + "</div>";
     results.innerHTML = html;   // one DOM write, capped row count
     var shown = Math.min(total, cap * (this.scope === 'both' ? 2 : 1));
     this.status(total > shown ? ('Showing ' + shown + ' of ' + total) : '');
+    this._q = q;
+    this.remote(false);
+  },
+
+  /* ── beyond your library ──────────────────────────────────────────
+     riffrolled's shared catalogue first: it costs nothing (source=db never
+     touches YouTube). "Search YouTube" is a separate press because it can
+     spend the site's YouTube quota; the server caches what it finds, so
+     the next person searching the same thing gets it from the catalogue. */
+  async remote(youtube){
+    var box = this.el.querySelector('.st-remote');
+    var q = this._q || '';
+    var seq = this._rseq = (this._rseq || 0) + 1;
+    if (this.scope === 'playlists' || q.length < 2){ box.innerHTML = ''; return; }
+    box.innerHTML = "<div class='srh-sec-head'>" + (youtube ? 'Searching YouTube…' : 'In riffrolled’s catalogue') + "</div><div class='st-wait'>Looking…</div>";
+    var rows = [];
+    try {
+      var r = await fetch('/api/search?limit=12&q=' + encodeURIComponent(q) + (youtube ? '' : '&source=db'));
+      if (seq !== this._rseq) return;                    // a newer search overtook this one
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      rows = await r.json();
+      // the site's daily YouTube allowance is used up: the catalogue answered instead
+      var capped = youtube && r.headers.get('X-Riff-Warning') === 'search_cap';
+    } catch(e){
+      if (seq !== this._rseq) return;
+      box.innerHTML = "<div class='srh-sec-head'>Beyond your library</div><div class='st-wait'>Couldn’t reach riffrolled just now.</div>";
+      return;
+    }
+    var mine = this._localYt || new Set();
+    var self = this;
+    var items = (Array.isArray(rows) ? rows : []).map(function(t){
+      var m = /[?&]v=([A-Za-z0-9_-]{11})/.exec(t.url || '');
+      return m ? { ytId: m[1], name: t.name || m[1], artist: t.artist || '', genre: t.genre || '' } : null;
+    }).filter(function(t){ return t && !mine.has(t.ytId); });
+    this._cat = items;
+    box.innerHTML = "<div class='srh-sec-head'>" + (youtube ? (capped ? 'In riffrolled’s catalogue' : 'From YouTube') : 'In riffrolled’s catalogue') + "</div>" +
+      (capped ? "<div class='st-wait' data-testid='st-capped'>YouTube searching is resting for today (riffrolled shares a daily allowance). Try again tomorrow, or paste a YouTube link in Import.</div>" : '') +
+      (items.length ? items.map(function(t, i){
+        return "<div class='st-item st-cat' data-i='" + i + "' data-yt='" + escapeHtml(t.ytId) + "'>"
+          + "<button class='icon-btn st-play' title='Play now'>▶</button>"
+          + "<span class='name'>" + (t.artist ? "<span class='track-artist'>" + escapeHtml(t.artist) + "</span>" : '') + escapeHtml(t.name) + "</span>"
+          + "<button class='icon-btn st-add' title='Add to the current playlist'>＋</button>"
+          + "</div>";
+      }).join('') : "<div class='st-wait'>" + (youtube ? 'YouTube found nothing new for that.' : 'Nothing more in the catalogue.') + "</div>") +
+      (youtube ? '' : "<button class='st-yt' data-testid='st-yt'>Search YouTube for “" + escapeHtml(q) + "”</button>");
+  },
+
+  async onCatalogue(e, item){
+    var t = (this._cat || [])[Number(item.dataset.i)];
+    if (!t) return;
+    var tid = await dbBoss.createTrack(t.ytId, t.name);
+    try {
+      var row = await dbBoss.getTrack(t.ytId), meta = {};
+      if (row && !row.artist && t.artist) meta.artist = t.artist;
+      if (row && !row.genre && t.genre) meta.genre = t.genre;
+      if (Object.keys(meta).length) await dbBoss.updateTrackMeta(t.ytId, meta);
+    } catch(err){}
+    if (e.target.closest('.st-play')){ ytPlay(t.ytId, t.name); return; }
+    if (e.target.closest('.st-add')){
+      if (!window.plBoss || !plBoss.activeId){ this.status('Open or make a playlist first — it’s saved to your library meanwhile', 'err'); return; }
+      var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+      this.status(r === 'dupe' ? 'Already in the current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
+      plBoss.afterDbChange();
+    }
   }
 };
 

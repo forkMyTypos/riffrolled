@@ -8,6 +8,7 @@
    ignored, and then promotions are worthless to the promoters too:
      · nothing for the first 40 seconds of a session
      · at most one on screen, never over the record
+     · up for a full minute (or until closed), held while it is hovered
      · a gap between appearances, and a session cap
      · dismissing one holds them off for longer
      · tracks you've already been shown aren't repeated in a session */
@@ -16,6 +17,8 @@ var promoPopup = {
   GAP: 300000,            // 5 minutes between cards
   DISMISS_GAP: 900000,    // 15 minutes if they closed the last one
   SESSION_CAP: 6,
+  MIN_UP: 60000,          // a card stays at least a minute, unless the person closes it
+  LEAVE_GRACE: 8000,      // after the pointer leaves it, it lingers at least this much longer
 
   shown: 0,
   seen: {},               // promotion ids already offered this session
@@ -42,10 +45,16 @@ var promoPopup = {
         self.add();
         return;
       }
+      if (e.target.closest('.pp-report')){ self.report(e.target.closest('.pp-report')); return; }
       if (e.target.closest('.pp-why')){
         appNotify('Someone spent riff tokens they mined to show you this track. Mine your own in the ⛏ Mine panel.', 'ok');
       }
     });
+
+    el.addEventListener('pointerenter', function(){ self.hold(); });
+    el.addEventListener('pointerleave', function(){ self.release(); });
+    el.addEventListener('focusin', function(){ self.hold(); });
+    el.addEventListener('focusout', function(){ if (!el.contains(document.activeElement)) self.release(); });
 
     // Escape closes it too — the poster should never feel like a trap
     document.addEventListener('keydown', function(e){
@@ -88,7 +97,13 @@ var promoPopup = {
   async showOne(){
     try {
       var ex = Object.keys(this.seen).slice(-6).join(',');
-      var r = await fetch('/api/promotions/next?mode=popup' + (ex ? '&exclude=' + encodeURIComponent(ex) : ''),
+      /* Genre targeting: the genre of the track on the deck, from this
+         browser's own library. Only the genre's name goes; the server uses
+         it to leave out campaigns aimed at other genres. */
+      var genre = '';
+      try { var tr = player.currentYtId && await dbBoss.getTrack(player.currentYtId); genre = (tr && tr.genre) || ''; } catch(e){}
+      var r = await fetch('/api/promotions/next?mode=popup' + (ex ? '&exclude=' + encodeURIComponent(ex) : '') +
+                          (genre ? '&genre=' + encodeURIComponent(genre) : ''),
                           { cache: 'no-store', headers: window.riffWallet ? await riffWallet.peekHeaders() : {} });
       if (!r.ok) return;
       var body = await r.json();
@@ -102,31 +117,16 @@ var promoPopup = {
       this.seen[p.id] = 1;
       this.shown++;
 
-      /* A gig flyer stuck to the wall, with the video's picture pasted onto
-         it like a taped-up photo. The title and the three buttons appear when
-         the pointer is over it.
+      /* A record, with the video's picture as its centre label. The title
+         and the three buttons appear when the pointer is over it (always,
+         on touch). Only the disc turns: the buttons are siblings of it, not
+         children, so they never rotate away from the cursor.
 
          The Promoted chip is not styling. It is the disclosure, so it is
-         always shown, sits on the flyer's bottom edge, and is never inside
-         the part that dims on hover. */
-      this.el.innerHTML =
-        "<div class='pp-disc'>"
-          + "<div class='pp-sheet'>"
-            + "<img class='pp-paper' src='img/promote-poster.webp' alt='' width='150' height='208' draggable='false'>"
-            + "<img class='pp-art' src='https://i.ytimg.com/vi/" + m[1] + "/mqdefault.jpg'"
-              + " alt='' width='320' height='180'>"
-          + "</div>"
-          + "<div class='pp-acts'>"
-            + "<button class='pp-play' title='Play now' aria-label='Play now'>\u25B6</button>"
-            + "<button class='pp-add' title='Add to your playlist' aria-label='Add to your playlist'>\uFF0B</button>"
-            + "<button class='pp-close' title='Close' aria-label='Close'>\u2715</button>"
-          + "</div>"
-        + "</div>"
-        + "<span class='pp-tag'>Promoted</span>"
-        + "<div class='pp-foot'>"
-          + "<div class='pp-name'>" + escapeHtml(this.cur.name) + "</div>"
-          + "<button class='pp-why' title='Why am I seeing this?'>why am I seeing this?</button>"
-        + "</div>";
+         always shown, sits on the record's lower edge, and is outside both
+         the spinning disc and the part that dims on hover. */
+      this.el.innerHTML = this.markup(m[1], this.cur.name, p.style);
+      this.dress(this.el, p.style, p.color);
       this.el.style.left = ''; this.el.style.right = '';
       this.el.hidden = false;
       /* Never over the YouTube player, and never over the record player itself
@@ -162,10 +162,111 @@ var promoPopup = {
       // nothing to report here
       this._next = Date.now() + this.GAP;
 
-      var self = this;
-      clearTimeout(this._auto);
-      this._auto = setTimeout(function(){ self.hide(); }, 25000);   // fades out on its own
+      /* It stays up for a full minute unless the person closes it (the ✕,
+         Escape, Play or Add). While the pointer or keyboard focus is on it,
+         it stays; once they let go it lingers a few seconds more, and never
+         goes before the minute is up. */
+      this._shownAt = Date.now();
+      this.arm(this.MIN_UP);
     } catch(e){ /* the popup is never worth an error */ }
+  },
+
+  /* The card's inside, shared by the real pop-up and by the preview in the
+     Promote window, so the preview is the advertisement and not a drawing of
+     it. Nothing in here is interactive until a click handler is attached to
+     whatever holds it. */
+  markup(ytId, name, style){
+    var art = "<img class='pp-art' src='https://i.ytimg.com/vi/" + ytId + "/mqdefault.jpg'"
+            + " alt='' width='320' height='180' draggable='false'>";
+    /* The picture is the record's label, or is taped onto the poster. Either
+       way the buttons are siblings of what turns or tilts, and the Promoted
+       tag is outside everything that dims or is tinted. */
+    var face = style === 'poster'
+      ? "<div class='pp-sheet'>"
+          + "<img class='pp-sheet-bg' src='img/promote-poster.webp' alt='' draggable='false'>"
+          + art
+        + "</div>"
+      : "<div class='pp-vinyl'>" + art + "<span class='pp-hole'></span></div>";
+    return "<div class='pp-disc'>" + face
+        + "<div class='pp-acts'>"
+          + "<button class='pp-play' title='Play now' aria-label='Play now'>\u25B6</button>"
+          + "<button class='pp-add' title='Add to your playlist' aria-label='Add to your playlist'>\uFF0B</button>"
+          + "<button class='pp-close' title='Close' aria-label='Close'>\u2715</button>"
+        + "</div>"
+      + "</div>"
+      + "<span class='pp-tag'>Promoted</span>"
+      + "<div class='pp-foot'>"
+        + "<div class='pp-name'>" + escapeHtml(name) + "</div>"
+        + "<div class='pp-links'>"
+          + "<button class='pp-why' title='Why am I seeing this?'>why am I seeing this?</button>"
+          + "<button class='pp-report' title='Tell riffrolled this shouldn’t be here' data-testid='pp-report'>⚑ report</button>"
+        + "</div>"
+      + "</div>";
+  },
+
+  /* The colors an advertiser can choose from with one click. The empty one
+     is the original look. A campaign stores only the hex (or nothing), so
+     adding a palette here changes no data. */
+  PALETTES: [
+    { id:'classic', name:'Classic', color:'' },
+    { id:'neon',    name:'Neon',    color:'#19e6ff' },
+    { id:'pink',    name:'Hot pink',color:'#ff3fb4' },
+    { id:'sunset',  name:'Sunset',  color:'#ff8a3d' },
+    { id:'gold',    name:'Gold',    color:'#ffcc4d' },
+    { id:'toxic',   name:'Toxic',   color:'#a6ff3d' },
+    { id:'ice',     name:'Ice',     color:'#7cc4ff' },
+    { id:'violet',  name:'Violet',  color:'#9b7bff' },
+    { id:'mono',    name:'Mono',    color:'#b8b8c4' }
+  ],
+
+  /* A chosen color -> the handful of CSS variables the card is tinted with.
+     Any color is allowed, so this clamps: the lightness is held between
+     .42 and .72 so a near-black pick still glows and a near-white one is
+     still a color. It only ever produces decoration, and none of it
+     touches the Promoted tag. The poster is recolored by turning its hue
+     (its artwork is yellow and red) and scaling its saturation, so a grey
+     pick gives a grey poster. */
+  look(color){
+    if (!/^#[0-9a-f]{6}$/i.test(color || '')) return null;
+    var r = parseInt(color.substr(1,2),16)/255, g = parseInt(color.substr(3,2),16)/255, b = parseInt(color.substr(5,2),16)/255;
+    var mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2, d = mx-mn, h = 0, sat = 0;
+    if (d){
+      sat = d / (1 - Math.abs(2*l - 1));
+      if (mx === r) h = ((g-b)/d) % 6; else if (mx === g) h = (b-r)/d + 2; else h = (r-g)/d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    var L = Math.min(.72, Math.max(.42, l));
+    var c = (1 - Math.abs(2*L - 1)) * sat, x = c * (1 - Math.abs((h/60) % 2 - 1)), m = L - c/2, q;
+    if (h < 60) q = [c,x,0]; else if (h < 120) q = [x,c,0]; else if (h < 180) q = [0,c,x];
+    else if (h < 240) q = [0,x,c]; else if (h < 300) q = [x,0,c]; else q = [c,0,x];
+    var rgb = q.map(function(v){ return Math.round((v + m) * 255); });
+    var mix = function(base, t){
+      return 'rgb(' + base.map(function(v, i){ return Math.round(v + (rgb[i] - v) * t); }).join(',') + ')';
+    };
+    var a = function(t){ return 'rgba(' + rgb.join(',') + ',' + t + ')'; };
+    return {
+      '--pp-c':    'rgb(' + rgb.join(',') + ')',
+      '--pp-g1':   mix([11,11,17], .20),
+      '--pp-g2':   mix([21,21,29], .32),
+      '--pp-rim':  a(.7),
+      '--pp-glow': a(.5),
+      '--pp-sh1':  a(.34),
+      '--pp-sh2':  a(.24),
+      '--pp-hue':  Math.round(h - 42) + 'deg',
+      '--pp-sat':  String(Math.min(1.25, Math.max(0, sat * 1.3)).toFixed(2))
+    };
+  },
+
+  /* Put a style and a color on a card element (the real one or a preview). */
+  dress(el, style, color){
+    var st = style === 'poster' ? 'poster' : 'record';
+    el.classList.remove('pp-style-record', 'pp-style-poster');
+    el.classList.add('pp-style-' + st);
+    ['--pp-c','--pp-g1','--pp-g2','--pp-rim','--pp-glow','--pp-sh1','--pp-sh2','--pp-hue','--pp-sat']
+      .forEach(function(k){ el.style.removeProperty(k); });
+    var lk = this.look(color);
+    if (lk) for (var k in lk) el.style.setProperty(k, lk[k]);
+    el.classList.toggle('pp-tinted', !!lk);
   },
 
   async add(){
@@ -197,6 +298,40 @@ var promoPopup = {
       fetch('/api/promo/event', { method:'POST', headers: h,
         body: JSON.stringify({ id: this.cur.id, url: this.cur.url, kind: kind }) });
     } catch(e){}
+  },
+
+  arm(ms){
+    var self = this;
+    clearTimeout(this._auto);
+    this._auto = setTimeout(function(){ self.hide(); }, ms);
+  },
+
+  hold(){ clearTimeout(this._auto); },
+
+  release(){
+    if (this.el.hidden) return;
+    this.arm(Math.max(this.LEAVE_GRACE, (this._shownAt || 0) + this.MIN_UP - Date.now()));
+  },
+
+  /* ⚑ report: "this shouldn't be here". Two presses (no browser dialog,
+     which would block the page), then the card goes and that campaign is
+     not offered again this visit. Enough different people reporting the
+     same campaign holds it for riffrolled's owner to look at. */
+  async report(btn){
+    if (!this.cur) return;
+    if (!btn.classList.contains('sure')){
+      btn.classList.add('sure');
+      btn.textContent = '⚑ press again to report';
+      var b = btn; setTimeout(function(){ if (b.isConnected){ b.classList.remove('sure'); b.textContent = '⚑ report'; } }, 4000);
+      return;
+    }
+    var id = this.cur.id;
+    this.seen[id] = 1;
+    this.dismiss();
+    try {
+      await fetch('/api/promo/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) });
+    } catch(e){}
+    if (window.appToast) appToast('Thanks — reported. You won’t see it again.', 'ok');
   },
 
   hide(){

@@ -76,6 +76,7 @@
                     <div class="np-react deck-react">
                         <button class="react-btn react-like" title="Like this track">👍 <span class="count like-count">0</span></button>
                         <button class="react-btn react-dislike" title="Dislike this track">👎 <span class="count dislike-count">0</span></button>
+                        <span class="np-plays" title="Times it has played in this browser (kept on this device only)" data-testid="deck-plays">▶ <span class="count play-count">0</span></span>
                     </div>
                 </div>
 
@@ -89,6 +90,30 @@
                         <button class="t-btn deck-key key-skip" id="btnPrev" title="Previous track" aria-label="Previous track" data-label="PREV"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h1.8v9H3.5zM13 3.5v9L6 8z"/></svg></button>
                         <button class="t-btn deck-key key-start play" id="btnPlay" title="Start / stop" aria-label="Play" data-label="START · STOP"><svg class="ic-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><svg class="ic-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 3.4h2.7v9.2H4.4zM8.9 3.4h2.7v9.2H8.9z"/></svg></button>
                         <button class="t-btn deck-key key-skip" id="btnNext" title="Next track" aria-label="Next track" data-label="NEXT"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.7 3.5h1.8v9h-1.8zM3 3.5v9L10 8z"/></svg></button>
+                        <!-- SHARE: send a track or a playlist to a person (a link), or share a
+                             playlist with everyone. Promote is something else: it spends
+                             riff credits so strangers see a track (the flyer in the dock). -->
+                        <div class="t-share">
+                            <button class="t-btn deck-key key-share" id="btnShare" title="Share a track or a playlist" aria-label="Share"
+                                    aria-haspopup="true" aria-expanded="false" data-label="SHARE" data-testid="btn-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
+                            <div class="t-menu share-menu" id="shareMenu" hidden role="menu" data-testid="share-menu">
+                                <div class="t-mi-lbl">Send to a person</div>
+                                <button class="t-mi" data-s="track" role="menuitem" data-testid="share-track">
+                                    <span class="t-mi-ico">♪</span><span class="t-mi-txt">Copy a link to this track</span>
+                                </button>
+                                <button class="t-mi" data-s="link" role="menuitem" data-testid="share-pl-link">
+                                    <span class="t-mi-ico">🔗</span><span class="t-mi-txt">Link to this playlist <small>only people you send it to</small></span>
+                                </button>
+                                <div class="t-mi-sep"></div>
+                                <div class="t-mi-lbl">Share with everyone</div>
+                                <button class="t-mi" data-s="everyone" role="menuitem" data-testid="share-pl-everyone">
+                                    <span class="t-mi-ico">🌍</span><span class="t-mi-txt">Share this playlist in Community</span>
+                                </button>
+                                <button class="t-mi" data-s="mine" role="menuitem" data-testid="share-mine">
+                                    <span class="t-mi-ico">📈</span><span class="t-mi-txt">Your shared mixes and their plays</span>
+                                </button>
+                            </div>
+                        </div>
                         <!-- what happens when a track or the playlist ends.
                              A menu rather than three more buttons on the
                              transport: it is set once and then left alone. -->
@@ -261,6 +286,7 @@
 <script defer src="js/player.js"></script>
 <script defer src="js/track-info.js"></script>
 <script defer src="js/playlist.js"></script>
+<script defer src="js/playlist-windows.js"></script>
 <script defer src="js/artist.js"></script>
 <script defer src="js/remote.js"></script>
 <script defer src="js/skins.js"></script>
@@ -273,6 +299,7 @@
 <script defer src="js/dj-menu.js"></script>
 <script defer src="js/info.js"></script>
 <script defer src="js/mixes.js"></script>
+<script defer src="js/share.js"></script>
 <script defer src="js/promo-popup.js"></script>
 <script defer src="js/dock.js"></script>
 <script defer src="js/agent.js"></script>

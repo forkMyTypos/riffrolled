@@ -1172,60 +1172,43 @@ Now read the listener's brief, do the work, and build the journey.
 
 var DJ_LINK_HUNTER_PROMPT = `LINK HUNTER
 
-SEARCH ENGINES — DUCKDUCKGO, BRAVE, BANDCAMP & YOUTUBE SEARCH
+YOUR JOB
 
-Use DuckDuckGo, Brave Search, Bandcamp, and YouTube search to locate and verify YouTube recordings.
+Find the real YouTube video for each track in the playlist below and fill in its video ID. Do nothing else: do not change, add, drop or reorder tracks.
 
-ROTATE SEARCH SOURCES TO REDUCE RATE LIMITING
+HOW TO SEARCH
 
-Alternate between the available search sources across tracks rather than relying on one source exclusively. Spread requests across DuckDuckGo, Brave Search, Bandcamp, and YouTube search to reduce the likelihood of rate limiting or access restrictions.
+1. Search for each track on its own, using whatever web search you have. Use your own built-in search or browsing tool first.
+2. Try up to three searches per track, stopping at the first one that gives a match:
+   - Artist "Exact track title"
+   - Artist "Exact track title" official audio
+   - Artist Exact track title youtube
+3. If a search finds the release on Bandcamp, Discogs or the label's site but not on YouTube, use the album or label name in one more YouTube search. Those sites help you search; they are not an answer.
+4. If one route is blocked or rate-limited, switch to another and carry on: YouTube search, DuckDuckGo (https://duckduckgo.com/?q=...), Brave Search, Bing. Do not stop at the first blocked one, and do not keep retrying it.
 
-For each track, search individually. Construct and open direct search URLs where possible, and inspect the results.
+WHAT COUNTS AS A MATCH
 
-Try multiple queries when necessary, including:
-- Artist + exact track title
-- Artist + exact track title + official
-- Artist + exact track title + audio
-- Artist + exact track title + YouTube
-- Artist + exact track title + record label
+- The video's artist and title match the track: an official upload, an auto-generated "Topic" channel, the label's channel or a faithful upload of the same recording.
+- Not a cover, a live version, a remix, a sped-up or slowed edit, or a different song with a similar name, unless the playlist line asks for that version.
+- You saw the video in your search results or opened it. Never write an ID from memory, and never guess or build one.
 
-SEARCH SOURCE GUIDELINES
+WHAT GOES IN THE ID FIELD (exactly one of these)
 
-- DuckDuckGo: Use direct search URLs in the format https://duckduckgo.com/?q=URL_ENCODED_QUERY.
-- Brave Search: Use Brave's search engine to find indexed YouTube recordings.
-- Bandcamp: Search for the artist and exact track title to identify the correct recording, release, album, or record label. Use this information to refine YouTube searches. Bandcamp results alone do not count as verified YouTube URLs.
-- YouTube search: Search directly for the artist and exact track title. Open candidate videos whenever possible to verify the recording.
+- The YouTube video ID: the 11 characters after watch?v= in the address (for example dQw4w9WgXcQ). The ID on its own: not a full URL, not a link, not Markdown.
+- NOT FOUND: you searched (all three searches) and no matching video turned up.
+- SEARCH FAILED: only when you could not search the web at all for this track (no search tool, or every route blocked). If you were able to search, the answer is an ID or NOT FOUND, never SEARCH FAILED.
 
-Rotate sources between tracks and switch sources when a search engine becomes inaccessible, returns poor results, or starts rate limiting requests. Use additional queries or another available source when necessary. Do not repeatedly hammer an inaccessible source.
+OUTPUT
 
-VERIFICATION REQUIREMENTS
-
-- Genuinely attempt to locate every track individually.
-- Open and inspect candidate YouTube results whenever possible.
-- Verify that the artist, title, and recording match the requested track.
-- Return the YouTube video ID only when it has been found and sufficiently verified: the 11 characters after watch?v= in the address (for example dQw4w9WgXcQ). Give the ID on its own — not a full URL, not a link, not Markdown.
-- Never invent URLs, video IDs, titles, or verification results.
-- Preserve the original playlist order and track details.
-- Do not redesign, replace, reorder, or otherwise modify the playlist.
-- Distinguish NOT FOUND from SEARCH FAILED:
-  - NOT FOUND — reasonable searches across accessible sources did not locate a matching, verifiable YouTube recording.
-  - SEARCH FAILED — the required searches could not be completed because sources were inaccessible, blocked, rate-limited, or otherwise unavailable after reasonable retries.
-- If some sources fail but others remain accessible, continue searching using the available sources. Do not report SEARCH FAILED for an individual track if other available sources can still be used to make a reasonable attempt.
-- Never claim to have opened, inspected, or verified a result unless that action actually occurred.
-
-OUTPUT FORMAT
-
-Output a plain-text, ready-to-copy list using the existing required playlist format:
+Reply with the playlist and nothing else: no introduction, notes, Markdown table or code formatting. Same name, same tracks, same order, every field exactly as given except the ID field.
 
 RIFFROLLED-PLAYLIST
-NAME: [original playlist name]
+NAME: [the playlist name, unchanged]
 1 | Artist | Title | YOUTUBE_VIDEO_ID or NOT FOUND or SEARCH FAILED | duration | genre | ...
 END
 
-Preserve all original track details and playlist order. Change only the verification status and video ID fields as required. No Markdown tables, commentary, explanations, or additional text outside the playlist output.
-
 THE PLAYLIST TO CHECK
-(Every video ID field below reads UNCHECKED. Replace each one with a verified 11-character YouTube video ID, NOT FOUND or SEARCH FAILED. Keep everything else exactly as it is.)
+(Every ID field below reads UNCHECKED. Replace each one with a video ID, NOT FOUND or SEARCH FAILED.)
 
 {{playlist}}
 `;

@@ -100,7 +100,7 @@ not the mix's name.
 **Promote panel.** Four steps: track (catalogue search with pictures, or a link), where it appears
 (each option shows what it looks like), moods (only with the DJ option), credits (with a plain cost
 line). "Your promotions" is a separate registered panel with no dock button (`promoBoss.mine`).
-`/?promo=now` shows the poster card a few seconds after load for testing.
+`/?promo=now` shows the record card a few seconds after load for testing.
 
 **Never your own campaign.** The pop-up, DJ-brief and claim calls are anonymous, but the browser sends
 its wallet key when it has one (`riffWallet.peekHeaders()`), and the server uses it for exactly one
@@ -152,14 +152,40 @@ promotions match on; the lint suite checks they stay in that set), and personali
 built-ins take the new wording but keep favourites, built-ins that left the list are hidden
 (`retired`), and a listener's own options are never touched. DJ AI is first in the dock.
 
-The promoted pop-up is a gig flyer (`img/promote-poster.webp`, a torn-edged poster
-with transparent edges) stuck at a slight angle, with the video's picture taped
-onto it. The title and the Play / Add / Close buttons appear only
-on hover or keyboard focus; on touch screens they are always shown. The small
-"Promoted" tag on its bottom edge is always visible, because it is the disclosure. It
-sits bottom-right (the deck controls own bottom-left), falls back to the left
-if the right would cover the player, and is skipped if neither fits. Add puts
+The promoted pop-up has two styles, chosen per campaign by the advertiser, and a color.
+
+*Record* (the default): a round vinyl (`.pp-vinyl`, `pp-spin` 5 s) with the video's picture as the round label
+(`.pp-art`, 62% of the disc) and a spindle hole. *Poster* (`.pp-sheet`): the gig flyer
+(`img/promote-poster.webp`), tilted, with the picture taped across its burst. Both are 190 px (record) /
+150×209 px (poster) on desktop and 150 / 130×181 on a phone. Hovering dims the card and shows Play / Add / Close;
+on touch screens the buttons are always shown; reduced motion stops the record spinning. The small "Promoted"
+tag sits outside the disc or poster, always visible and always the site's own gold, because it is the
+disclosure and no chosen color touches it. The card sits bottom-right (the deck controls own bottom-left),
+falls back to the left if the right would cover the player, and is skipped if neither fits. Add puts
 the track in the current playlist. A skipped card does not refund its credit.
+
+**Style and color** are stored on the campaign (schema 25: `promotions.style` `'record'|'poster'`, default
+`'record'`; `promotions.color` `'#rrggbb'` or `''` for the original colors) and cleaned on the server by
+`src/cardlook.js` (anything else becomes the record / no color; the browser cleans it again). They are
+decoration only: they change nothing about who sees a card, how often, or what it costs. `/api/promote`
+takes `style` and `color`; `/api/promotions/next`, `/api/promotions` and `/api/promotions/mine` return them.
+Older campaigns have the default and look exactly as before.
+
+`promoPopup.look(color)` turns a color into CSS variables (`--pp-c`, `--pp-g1/2` groove tint, `--pp-rim`,
+`--pp-glow`, `--pp-sh1/2` sheen, `--pp-hue`, `--pp-sat`), clamping lightness to .42–.72 so a near-black pick
+still glows and a near-white one is still a color. The record is tinted with those; the poster is recolored
+by a hue rotation of its yellow and red (and a saturation scale, so a grey pick gives a grey poster).
+`promoPopup.dress(el, style, color)` applies it; `promoPopup.PALETTES` is the nine ready-made colors
+(Classic, Neon, Hot pink, Sunset, Gold, Toxic, Ice, Violet, Mono). The admin tool's list is the same, and a
+test checks they match.
+
+In the Promote window, step 2 shows the pop-up option with two style tiles (Record, Poster: each a real, small,
+inert card wearing your track and color), nine swatches plus a free color picker, and "What listeners will see":
+the actual card at full size (`.promo-live-card`, hover for the buttons). All of it is built by
+`promoPopup.markup()`/`dress()`, the same code the real card uses, and none of it calls the server.
+The choice is kept for your next campaign and shown on each row of "Your promotions".
+
+A card stays up for a full minute (`promoPopup.MIN_UP`) unless the listener closes it (✕, Escape, Play or Add). Hovering or focusing it holds it; after the pointer leaves it lingers 8 s more (`LEAVE_GRACE`) and never goes before the minute is up. `promoPopup.markup()` builds the card's inside; the Promote window uses the same function for its "What listeners will see" preview (`.promo-live`, an inert copy of the real card that shows the picked track's picture, the campaign name, hover buttons and the Promoted tag, and never calls the server).
 
 Newer frontend pieces: `newhere.js` (first-run state; on a phone a newcomer sees
 only Player, Playlist, Search, DJ AI and ⋯ until they play something),
@@ -191,8 +217,9 @@ To change the schema, append a migration there — never edit an old one.
 `GET /api/health` → `{ ok, build, schema }` — which build is serving and whether the
 database caught up.
 
-One-time setup that still lives in the Cloudflare dashboard: the `YT_API_KEY` secret, the
-custom domain, and the WAF rate-limiting rules on `/api/*`.
+One-time setup that still lives in the Cloudflare dashboard: the `YT_API_KEY` secret and the
+custom domain. The rate-limiting rule on `/api/*` can be created from the admin tool
+(Cloudflare tab → Turn it on) or by hand under Security → WAF → Rate limiting rules.
 
 The hourly Cron Trigger comes from `wrangler.toml`, so it arrives with a deploy — no
 dashboard step. To confirm it took: Worker → Settings → Triggers → Cron Triggers.
@@ -210,7 +237,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":24`).
+the tables are missing (`/api/health` should show `"schema":26`).
 
 ## Endpoints
 
@@ -235,6 +262,8 @@ the tables are missing (`/api/health` should show `"schema":24`).
 | GET    | /api/promotions/next    | `?mode=popup\|ai&exclude=`        | one campaign, **and one credit spent** |
 | GET    | /api/promotions/mine?wallet= | —                            | the owner's campaigns and their numbers |
 | POST   | /api/promotion/action   | `{wallet, id, action, credits?}`  | pause / resume / add credits |
+| POST   | /api/promo/report       | `{id}`                            | one per person; `PROMO_REPORTS_TO_HOLD` people hold the campaign |
+| GET    | /api/mixes/mine         | key header                        | the sharer's own mixes with plays |
 | POST   | /api/promo/event        | `{id\|url, kind}`                 | engagement only — cannot move money |
 | POST   | /api/promotions/brief   | `{brief_id, tags:[]}`             | up to 3 matching placements, **free** |
 | POST   | /api/promotions/brief/claim | `{brief_id}`                  | charges one credit per placement, once |
@@ -520,3 +549,75 @@ Edit `public/index.html` (or any Worker file) on GitHub → commit → Cloudflar
 - **Auth**: add a bearer-token check in `index.js`'s route loop.
 - **More tables** (playlists, reactions): add them to `schema.sql` and a route file each when you actually need them server-side — the earlier full-spec version of this backend is the blueprint.
 - **New endpoints**: one file in `src/routes/`, one line in the `ROUTES` table.
+
+## Schema 27: the security pass
+
+**Schema 27** (`promo-safety`): `promotions.held`, `promotions.reports`, `promo_reports (promo_id, who)`,
+`promo_seen (who, promo_id, at)`. `/api/health` should say `"schema":27`. `who` is always
+`sha256(ip + '|' + purpose)`; no address is stored.
+
+| Setting | Default | |
+|---|---|---|
+| `PROMO_REVIEW` | true | a key whose `sharers.sharing` isn't 1 gets its campaign created, paid for and `held`; a `sharers` row is added so it shows in the admin queue. `sharing = -1` → 403 `blocked` |
+| `PROMO_REPORTS_TO_HOLD` | 3 | distinct reporters on `POST /api/promo/report` before a campaign is held (credits kept; resume can't clear it) |
+| `PROMO_REPEAT_HOURS` | 6 | `/api/promotions/next` skips campaigns this person was already charged for in the window (0 = off); rows swept after 7 days |
+| `SEARCH_YT_DAILY` | 30 | YouTube `search.list` calls a day from `/api/search` for the whole site; over it, catalogue only plus `X-Riff-Warning: search_cap` (0 = never call YouTube) |
+
+None of these are published by `/api/config`. Held campaigns are left out of `/next`, DJ briefs,
+claims and the public list, and show to their owner as held. Frontend: ⚑ on the promoted card
+(press twice), a "waiting for approval" note in Promote, the search-cap message, and `?t=` links
+now ask "Add it" before adding. Terms and Privacy in `js/info.js` were updated to match.
+
+Tests that check serving mechanics set `PROMO_REVIEW: 'false'` and `PROMO_REPEAT_HOURS: '0'` in env.
+
+**Recovering the database.** D1 Time Travel is always on (7 days on Free, 30 on Paid):
+`npx wrangler d1 time-travel info riffrolled`, then
+`npx wrangler d1 time-travel restore riffrolled --timestamp=<UTC time or unix seconds>`.
+
+## Schema 26 and the October 22 checklist pass
+
+**Schema 26** (`cooldown-and-sharer`): `contrib_cooldown` (one row per wallet and kind),
+`mixes.show_by`, `mixes.cover`, `promotions.genres`. `/api/health` should say `"schema":26`.
+
+**Contribution cooldown.** `credit()` in `src/contrib.js` claims a per-wallet, per-kind slot with one
+upsert that only moves forward when the last credited one is `CONTRIB_COOLDOWN_SEC` old (default 300;
+0 = off). Racing requests cannot both earn. The track or link always goes in; only the reward waits.
+
+**Link-only mixes and "shared by".** `POST /api/mixes/share` takes `listed: false` (kind `link`: never
+in a list, opened by `?m=<code>`) and `showBy: true` (the mix shows `rr·` + the first 6 characters of the
+sharer's public key; off unless ticked, and never for mixes made before schema 26). Same approval,
+daily limit and report rules as Community. Sharing the same tracks with everyone later moves a link-only
+mix into Community (same key only). `GET /api/mixes/mine` (wallet header) lists the sharer's own mixes
+with plays, pending and link-only included; the Mixes panel shows it as Community → **Yours**. Lists and
+single mixes carry `by` (`riffrolled` for premade) and `cover` (the admin's choice, else the first track).
+
+**SHARE key** (`js/share.js`): after NEXT on the deck. Track link `?t=<id>` (opening one adds the track to
+a "Shared with me" playlist, plays nothing), link-only playlist link, Community share, Yours. The menu
+picks the first position (below, left, right, above; a bottom sheet on phones, moved into `<body>`
+because the deck is transformed) that is on screen and clear of the YouTube player.
+
+**Playlists as windows** (`js/playlist-windows.js`, desktop). `plBoss` now separates the playing
+`queue`/`playingId` from the main window's `view`/`activeId`; the queue follows the main window unless a
+track from another playlist is playing. `playIndex(i)` plays from the main window, `playFrom(id, tracks,
+i)` from anywhere, `playQueue(i)` moves within the queue. Extra windows (⧉ in the playlist list) list a
+playlist, play from it, remove tracks; every playlist window has – (minimize); the dock's Playlist
+button lists open ones on hover. Open windows are remembered (`playlistWindows` setting). Hidden on
+phones. Panels registered with `noButton` are now closed at start by `dock.render()` itself.
+
+**History / Your music.** Tabs Liked (like count, then most recently liked), Most played, Recent,
+DJ sets; `HISTORY_SVG` icon. `dbBoss.getPlayCount`, a `riffrolled:music` event on every like and logged
+play; the deck shows ▶ plays.
+
+**Search.** Every word must appear in title, artist, genre or tags. Below local results:
+`/api/search?source=db` (catalogue, no quota); "Search YouTube" calls `/api/search` without it.
+
+**Promotions.** `action: 'look'` on `/api/promotion/action` changes style/color of a running campaign.
+`genres` (up to 3, closed list, `cleanGenres` in `src/cardlook.js`) target the pop-up: `/api/promotions/next?genre=`
+(the deck's track genre, normalised) draws untargeted campaigns plus those naming that genre; no genre
+= untargeted only. DJ-brief-only campaigns ignore genres.
+
+**DJ AI.** Selected mode: fill, ring and ✓. Link Hunter rewritten (site `DJ_LINK_HUNTER_PROMPT` and admin
+`track_check_prompt.txt`, identical). Grok added to "open in" (long prompts go by clipboard).
+
+**Admin.** Genres waiting for a decision (Catalogue), mix covers, link-only mixes shown as "link only"
+and included in "Hide all by creator", genre targeting on free promotions.

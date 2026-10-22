@@ -89,6 +89,16 @@ export async function credit(env, wallet, kind, now) {
   if (!points) return 0;
 
   try {
+    /* The cooldown: one credited contribution of each kind per wallet per
+       CONTRIB_COOLDOWN_SEC. The one place it is enforced, here, so every
+       route that credits gets it. The claim is a single upsert that only
+       moves `at` forward when the previous one is old enough, so two
+       requests racing cannot both get through: the second changes nothing
+       and earns nothing. The contribution itself (the track, the link)
+       always goes in; only the reward waits. */
+    if (cfg.CONTRIB_COOLDOWN_SEC > 0 && !(await claimCooldown(env.DB, wallet, kind, now, cfg.CONTRIB_COOLDOWN_SEC))) {
+      return 0;
+    }
     return await addContribPoints(
       env.DB, wallet, epochOf(now, cfg.CONTRIB_EPOCH_HOURS),
       points, cfg.CONTRIB_MAX_POINTS_PER_EPOCH, now
@@ -100,6 +110,16 @@ export async function credit(env, wallet, kind, now) {
        a far better outcome than losing the track. */
     return 0;
   }
+}
+
+/** Take this wallet's cooldown slot for `kind` if it is free. True = may earn now. */
+export async function claimCooldown(db, wallet, kind, now, seconds) {
+  const cutoff = new Date(Date.parse(now) - seconds * 1000).toISOString();
+  const res = await db.prepare(
+    `INSERT INTO contrib_cooldown (wallet_id, kind, at) VALUES (?1, ?2, ?3)
+     ON CONFLICT(wallet_id, kind) DO UPDATE SET at = excluded.at WHERE contrib_cooldown.at <= ?4`
+  ).bind(wallet, kind, now, cutoff).run();
+  return !!(res && res.meta && res.meta.changes > 0);
 }
 
 /**

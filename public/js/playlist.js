@@ -16,7 +16,20 @@ var PLAYLIST_SVG =
 
 var plBoss = {
 
+  /* What plays and what is shown are two different things.
+       queue / playingId / currentIndex   the playlist that is PLAYING, and
+                                          where in it the deck is
+       view / activeId                    the playlist the main Playlist
+                                          window is SHOWING
+     With one window they are the same playlist, and the queue follows the
+     window as it always did. Once something is playing, opening another
+     playlist (in this window or in a window of its own, see
+     playlist-windows.js) only shows it: the music carries on with the
+     playlist it came from until you start a track in the other one. One
+     playlist plays at a time, and every window says which. */
   queue: [],
+  view: [],
+  playingId: null,
   currentIndex: -1,
 
   async setup(){
@@ -33,7 +46,8 @@ var plBoss = {
      synced ⏸/▶ glyph but no handler at all, so it looked live and did
      nothing; three copies of the same two lines is how that happens. */
   togglePlay(){
-    if (!player.currentYtId && this.queue.length) this.playIndex(0);
+    if (!player.currentYtId && this.view.length) this.playIndex(0);
+    else if (!player.currentYtId && this.queue.length) this.playQueue(0);
     else player.toggle();
   },
 
@@ -116,12 +130,29 @@ var plBoss = {
     });
   },
 
+  /** Play track i of the playlist the main window is showing. Starting a
+   *  track is what makes a playlist the playing one. */
   playIndex(i){
+    if (i < 0 || i >= this.view.length) return;
+    this.playFrom(this.activeId, this.view, i);
+  },
+
+  /** Make `tracks` (playlist `plId`) the queue and play track i of it. */
+  playFrom(plId, tracks, i){
+    if (!tracks || i < 0 || i >= tracks.length) return;
+    this.queue = tracks.slice();
+    this.playingId = plId;
+    this.playQueue(i);
+  },
+
+  /** Play track i of the queue. next, prev and the end of a track use this. */
+  playQueue(i){
     if (i < 0 || i >= this.queue.length) return;
     this.currentIndex = i;
     const t = this.queue[i];
     player.load(t.ytId, t.name);
     this.syncHighlight();
+    this.updateStatus();
   },
 
   /* ── what happens when a track ends ─────────────────────────────────
@@ -182,7 +213,7 @@ var plBoss = {
   /** Start the current track over from the beginning. */
   playAgain(){
     var t = this.queue[this.currentIndex];
-    if (!t){ if (this.queue.length) this.playIndex(0); return; }
+    if (!t){ if (this.queue.length) this.playQueue(0); return; }
     player.load(t.ytId, t.name);
   },
 
@@ -198,11 +229,11 @@ var plBoss = {
       if (window.appNotify) appNotify('End of the playlist — repeat is off', 'ok');
       return;
     }
-    this.playIndex((this.currentIndex + 1) % this.queue.length);
+    this.playQueue((this.currentIndex + 1) % this.queue.length);
   },
 
-  next(){ if (this.queue.length) this.playIndex((this.currentIndex + 1) % this.queue.length); },
-  prev(){ if (this.queue.length) this.playIndex((this.currentIndex - 1 + this.queue.length) % this.queue.length); },
+  next(){ if (this.queue.length) this.playQueue((this.currentIndex + 1) % this.queue.length); },
+  prev(){ if (this.queue.length) this.playQueue((this.currentIndex - 1 + this.queue.length) % this.queue.length); },
 
   /* ── a track YouTube has permanently refused ──────────────────────────
      Say what happened, take it out of this playlist, and offer it back.
@@ -216,10 +247,10 @@ var plBoss = {
     const row = this.queue.find(t => t.ytId === ytId);
     const joinId = row && row.joinId;
     const name = (row && row.name) || ytId;
-    const plId = this.activeId;
+    const plId = this.playingId || this.activeId;
 
     if (joinId != null) await db.playlistTracks.delete(joinId);
-    await this.renderTracks();
+    await this.refreshAll();
 
     const msg = (reason || 'That video can’t be played') + ' — removed “' + name + '” from this playlist.';
     if (window.appNotify){
@@ -231,7 +262,7 @@ var plBoss = {
           if (t && plId){
             await dbBoss.addToPlaylist(plId, t.id);
             await dbBoss.clearPlayable(ytId);
-            await this.renderTracks();
+            await this.refreshAll();
           }
         },
       });
@@ -240,10 +271,11 @@ var plBoss = {
 
   syncHighlight(){
     const c = this.currentEl.querySelector('.active-pl-tracks');
-    if (!c) return;
-    c.querySelectorAll('.track-item').forEach(el=>{
-      el.classList.toggle('active', Number(el.dataset.i) === this.currentIndex);
+    const here = this.playingId === this.activeId;
+    if (c) c.querySelectorAll('.track-item').forEach(el=>{
+      el.classList.toggle('active', here && el.dataset.yt === player.currentYtId);
     });
+    if (window.plWins) plWins.sync();
   },
 
   updateStatus(){
@@ -255,7 +287,9 @@ var plBoss = {
     if (!player.currentYtId){
       el.textContent = '■ Stopped'; el.style.color = 'rgba(255,255,255,0.4)'; return;
     }
-    const inThis = this.queue.some(t => t.ytId === player.currentYtId);
+    const inThis = this.playingId === this.activeId && this.queue.some(t => t.ytId === player.currentYtId);
+    this.currentEl.classList.toggle('pl-is-playing', inThis);
+    if (window.plWins) plWins.sync();
     if (player.isPlaying){
       el.textContent = inThis ? '▶ Playing' : '▶ Playing (another playlist)';
       el.style.color = '#5ab88a';
@@ -274,9 +308,43 @@ var plBoss = {
 
   // re-render everything that can change after a DB write
   afterDbChange(){
-    this.renderTracks();
+    this.refreshAll();
     this.renderPlaylists();
     if (window.searchBoss) searchBoss.render();
+  },
+
+  /** Redraw the main window, reload the playing queue if it is another
+   *  playlist, and redraw any playlist windows. */
+  async refreshAll(){
+    await this.renderTracks();
+    if (this.playingId && this.playingId !== this.activeId) await this.refreshQueue();
+    if (window.plWins) await plWins.refreshAll();
+  },
+
+  /** A playlist's playable tracks, in order, as queue rows. */
+  async loadTracks(plId){
+    if (!plId) return [];
+    const joins = await db.playlistTracks.where('playlistId').equals(plId).sortBy('order');
+    if (!joins.length) return [];
+    const tracks = await db.tracks.bulkGet(joins.map(j => j.trackId));
+    // `.filter(Boolean)` drops joins whose track row has gone; `playable !== 0`
+    // drops the ones YouTube has permanently refused. A dead track is removed
+    // from the playlist when it fails, so this is the belt to that braces —
+    // it also covers tracks marked dead on another device, or restored from
+    // a backup that already knew.
+    return tracks
+      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id, playable: t.playable } : null)
+      .filter(t => t && t.playable !== 0);
+  },
+
+  /** The playing playlist changed in the database: reload the queue and
+   *  find the playing track in it again. */
+  async refreshQueue(){
+    if (!this.playingId) return;
+    const pl = await db.playlists.get(this.playingId);
+    if (!pl){ this.playingId = null; return; }        // deleted: the queue plays on until something else starts
+    this.queue = await this.loadTracks(this.playingId);
+    this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
   },
 
   /* ── PLAYLIST PANEL (merged: pick/search/create + current playlist) ── */
@@ -287,7 +355,7 @@ var plBoss = {
 
         <div class="pl-toolbar">
           <div class="pl-srh-wrap">
-            <input type="text" class="pl-srh" placeholder="🔍 Your playlists…">
+            <input type="text" class="pl-srh" placeholder="🔍 Find or switch playlist…" aria-label="Find or switch playlist">
             <div class="pl-pop scrollable"></div>
           </div>
         </div>
@@ -298,8 +366,9 @@ var plBoss = {
 
         <div class="active-pl-name-row">
           <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
-          <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist">
-          <button class="icon-btn pl-share" title="Share this playlist as a mix, for everyone to play" aria-label="Share this playlist as a mix" data-testid="pl-share">↗</button>
+          <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist" aria-label="Playlist name">
+          <button class="icon-btn pl-switch" title="Switch playlist" aria-label="Switch playlist" aria-haspopup="listbox" data-testid="pl-switch">▾</button>
+          <button class="icon-btn pl-share" title="Share this playlist: with everyone, or by a link" aria-label="Share this playlist" data-testid="pl-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
           <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
         </div>
 
@@ -352,9 +421,9 @@ var plBoss = {
     // ── playlist search popup ──
     const srh = root.querySelector('.pl-srh');
     const pop = root.querySelector('.pl-pop');
-    const openPop = () => { pop.classList.add('open'); this.renderPlPopup(); };
+    const openPop = () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); };
     srh.addEventListener('focus', openPop);
-    srh.addEventListener('input', () => { pop.classList.add('open'); this.renderPlPopup(); });
+    srh.addEventListener('input', () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); });
     document.addEventListener('click', (e) => {
       if (!e.target.closest || !e.target.closest('.pl-srh-wrap')) pop.classList.remove('open');
     });
@@ -362,6 +431,13 @@ var plBoss = {
     pop.addEventListener('click', async (e) => {
       const del = e.target.closest('.del-btn');
       if (del){ e.stopPropagation(); await this.deletePlaylist(Number(del.dataset.id)); this.renderPlPopup(); return; }
+      const win = e.target.closest('.pl-open-win');
+      if (win){
+        e.stopPropagation();
+        pop.classList.remove('open'); srh.value = '';
+        if (window.plWins) await plWins.open(Number(win.dataset.id));
+        return;
+      }
       const item = e.target.closest('.pl-item');
       if (item){
         await this.setActivePlaylist(Number(item.dataset.id));
@@ -369,6 +445,18 @@ var plBoss = {
         srh.value = '';
       }
     });
+
+    // ── ▾ next to the name: the list of playlists, to switch ──
+    root.querySelector('.pl-switch').onclick = (e) => {
+      e.stopPropagation();
+      if (pop.classList.contains('open')){ pop.classList.remove('open'); return; }
+      srh.value = '';
+      // drop the list down from the name row rather than from the search box
+      const w = root.querySelector('.pl-srh-wrap').getBoundingClientRect();
+      const nr = root.querySelector('.active-pl-name-row').getBoundingClientRect();
+      pop.style.top = Math.round(nr.bottom - w.top + 4) + 'px';
+      pop.classList.add('open'); this.renderPlPopup();
+    };
 
     // ── ↗ share this playlist as a mix (opens the Mixes panel's share sheet) ──
     root.querySelector('.pl-share').onclick = () => {
@@ -413,6 +501,7 @@ var plBoss = {
       <div class="row-item pl-item ${pl.id === this.activeId ? 'active' : ''}" data-id="${pl.id}">
         <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
         <span class="pl-item-count">${counts[pl.id]}</span>
+        ${ pl.id !== this.activeId ? `<button class="pl-open-win" data-id="${pl.id}" title="Open in its own window" aria-label="Open in its own window">⧉</button>` : '' }
         <button class="del-btn" data-id="${pl.id}" title="Delete playlist">✕</button>
       </div>
     `).join('');
@@ -433,6 +522,8 @@ var plBoss = {
     const joins = await db.playlistTracks.where('playlistId').equals(id).toArray();
     await db.playlistTracks.bulkDelete(joins.map(j => j.id));
     if (this.activeId === id) this.activeId = null;
+    if (this.playingId === id) this.playingId = null;
+    if (window.plWins) plWins.closeFor(id);
 
     if (!this.activeId){
       const remaining = await dbBoss.getPlaylists();
@@ -443,7 +534,9 @@ var plBoss = {
         this.currentEl.querySelector('.active-pl-name').value = 'No playlist';
         this.currentEl.querySelector('.active-pl-tracks').innerHTML = `<div class="empty">No playlist selected</div>`;
         this.currentEl.querySelector('.active-pl-sub .count').textContent = '· 0';
-        this.queue = []; this.currentIndex = -1; this.updateStatus();
+        this.view = [];
+        if (!this.playingId){ this.queue = []; this.currentIndex = -1; }
+        this.updateStatus();
       }
     }
   },
@@ -475,33 +568,31 @@ var plBoss = {
     const container = this.currentEl.querySelector('.active-pl-tracks');
     const countEl = this.currentEl.querySelector('.active-pl-sub .count');
 
+    this.view = this.activeId ? await this.loadTracks(this.activeId) : [];
+    /* The queue follows this window unless a track from another playlist
+       is playing. (A track started from somewhere that is not a playlist —
+       a search result, a promoted card — belongs to no queue, so the
+       window takes over again.) */
+    const elsewhere = this.playingId && this.playingId !== this.activeId &&
+      player.currentYtId && this.queue.some(t => t.ytId === player.currentYtId);
+    if (!elsewhere){ this.queue = this.view; this.playingId = this.activeId; }
+    this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
+
     if(!this.activeId){
       container.innerHTML = `<div class="empty">No playlist selected</div>`;
       countEl.textContent = '· 0';
-      this.queue = []; this.currentIndex = -1; this.updateStatus();
+      this.updateStatus();
       return;
     }
 
-    const joins = await db.playlistTracks.where('playlistId').equals(this.activeId).sortBy('order');
-    countEl.textContent = '· ' + joins.length;
+    const njoins = await db.playlistTracks.where('playlistId').equals(this.activeId).count();
+    countEl.textContent = '· ' + njoins;
 
-    if(!joins.length){
+    if(!this.view.length){
       container.innerHTML = `<div class="empty">No tracks yet.<br>Hit ＋ above to add from your library.</div>`;
-      this.queue = []; this.currentIndex = -1; this.updateStatus();
+      this.updateStatus();
       return;
     }
-
-    const tracks = await db.tracks.bulkGet(joins.map(j => j.trackId));
-    // `.filter(Boolean)` drops joins whose track row has gone; `playable !== 0`
-    // drops the ones YouTube has permanently refused. A dead track is removed
-    // from the playlist when it fails, so this is the belt to that braces —
-    // it also covers tracks marked dead on another device, or restored from
-    // a backup that already knew.
-    this.queue = tracks
-      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id, playable: t.playable } : null)
-      .filter(t => t && t.playable !== 0);
-
-    this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
 
     /* Promoted tracks are marked wherever they appear, including here.
        This is not decoration. A track can reach a playlist as a paid
@@ -518,7 +609,7 @@ var plBoss = {
        brief says it in words too. */
     const promoted = (window.promoTrack && promoTrack.ids) || new Set();
 
-    container.innerHTML = this.queue.map((t, i)=>`
+    container.innerHTML = this.view.map((t, i)=>`
       <div class="row-item track-item${ promoted.has(t.ytId) ? ' is-promoted' : '' }" data-i="${i}" data-yt="${escapeHtml(t.ytId)}" draggable="true">
         <span class="track-handle" title="Drag to reorder">⠿</span>
         <span class="track-num">${i+1}</span>
@@ -552,7 +643,7 @@ var plBoss = {
       btn.onclick = async (e)=>{
         e.stopPropagation();
         await db.playlistTracks.delete(Number(btn.dataset.join));
-        await this.renderTracks();
+        await this.refreshAll();
         this.renderPlaylists();
         if (window.searchBoss) searchBoss.render();
       };
@@ -630,7 +721,8 @@ var plBoss = {
     const cur = await dbBoss.getTrack(afterYtId);
     if (!cur || !rows.length) return 0;
 
-    let plId = this.activeId;
+    // the playlist the playing track came from, else the one on screen
+    let plId = (this.playingId && this.queue.some(t => t.ytId === afterYtId)) ? this.playingId : this.activeId;
     let joins = plId ? await db.playlistTracks.where('playlistId').equals(plId).sortBy('order') : [];
     let at = joins.findIndex(j => j.trackId === cur.id);
 
@@ -660,17 +752,18 @@ var plBoss = {
     }
     order.push(...after);
     await Promise.all(order.map((j, i) => db.playlistTracks.update(j.id, { order: i })));
-    await this.renderTracks();
+    await this.refreshAll();
     this.renderPlaylists();
     return rows.length;
   },
 
   async reorder(from, to){
-    const moved = this.queue.splice(from, 1)[0];
-    this.queue.splice(to, 0, moved);
+    const list = this.view.slice();
+    const moved = list.splice(from, 1)[0];
+    list.splice(to, 0, moved);
     // persist the new order onto the join rows
-    await Promise.all(this.queue.map((t, i) => db.playlistTracks.update(t.joinId, { order: i })));
-    await this.renderTracks();
+    await Promise.all(list.map((t, i) => db.playlistTracks.update(t.joinId, { order: i })));
+    await this.refreshAll();
   }
 
 };

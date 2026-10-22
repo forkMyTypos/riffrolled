@@ -2,7 +2,7 @@
    Boot sequence, the dock rail (desktop) and tab bar (mobile),
    layout persistence. Must load last: it wires everything together. */
 
-plBoss.setup();
+var plReady = plBoss.setup();
 searchBoss.setup();
 importBoss.setup();
 dataBoss.setup();
@@ -41,6 +41,13 @@ var dock = {
     const bar = document.querySelector('.rightM');
     if (!bar) return;
     bar.innerHTML = '';
+    /* Every registered panel starts as it was registered (closed, as a
+       rule) — including ones with no dock button. This used to happen only
+       while building the buttons, so a panel that lost its button (Random
+       Mix, now a door in Mixes) would have been left open on first load. */
+    this.items.forEach(it => {
+      if (it.el && !it._init){ it._init = true; it.el.classList.toggle('is-hidden', !!it.startHidden); }
+    });
 
     if (this.mobile){
       // app-style bottom tabs: Player first, then one tab per panel
@@ -482,8 +489,9 @@ dock.build([
   { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
   { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:'#ff5d6c' },
   { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
-  { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, group:'music', accent:'#5ad1a0' },
-  { icon:'🕘', label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
+  // Random Mix lives under Mixes now (its fourth door), so it has no dock button of its own
+  { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, noButton:true, group:'music', accent:'#5ad1a0' },
+  { icon:'🕘', iconSvg: HISTORY_SVG, label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
   // Track info has no dock button: it is one tap from the ℹ on any
   // playlist row or the deck, and it pops up by itself when a track
   // changes. It is still a registered panel, so it keeps its place in the
@@ -551,3 +559,7 @@ setTimeout(function(){ if (dbBoss.backfillGenres) dbBoss.backfillGenres(); }, 15
 
 // load any saved layout (positions / sizes / which panels are open), then track changes
 dock.init();
+
+// extra playlist windows, the minimize buttons and the dock's open-playlists
+// list — once the main Playlist window knows which playlist it is showing
+if (window.plWins) plReady.then(function(){ plWins.init(); }, function(){ plWins.init(); });

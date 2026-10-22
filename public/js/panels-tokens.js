@@ -441,6 +441,10 @@ var mineBoss = {
    Separate from mining on purpose: earning and spending are different jobs.
    Engagement counters are anonymous aggregates on the promotion itself. ── */
 var promoBoss = {
+  style: 'record',     // how the pop-up card looks: 'record' or 'poster'
+  color: '',          // '#rrggbb', or '' for the original colors
+  genres: [],         // genre targeting for the pop-up: up to 3, empty = whatever is playing
+
   /* ── the mood picker ─────────────────────────────────────────────────
      The vocabulary comes from /api/config rather than a list in this
      file. It has to be exactly the words the server will accept and
@@ -526,9 +530,13 @@ var promoBoss = {
   setup(){
     var main =
       "<div class='sec promo-wiz'>" +
-        "<div class='promo-wallet'>" +
-          "<span><span class='promo-bal'>–</span> credits · 1 credit = one person's attention</span>" +
-          "<button type='button' class='promo-mine-open' title='See how your promotions are doing'>Your promotions<span class='promo-mine-n'></span></button>" +
+        "<div class='promo-hero'>" +
+          "<img class='promo-poster' src='img/promote-poster.webp' alt='' width='62' height='86' draggable='false'>" +
+          "<div class='promo-hero-txt'>" +
+            "<div class='promo-hero-t'>Get a track heard</div>" +
+            "<div class='promo-wallet'><span class='promo-bal'>–</span> credits · 1 credit = one person's attention</div>" +
+            "<button type='button' class='promo-mine-open' title='See how your promotions are doing'>Your promotions<span class='promo-mine-n'></span></button>" +
+          "</div>" +
         "</div>" +
 
         "<div class='promo-step'>" +
@@ -545,11 +553,9 @@ var promoBoss = {
           "<div class='promo-step-h'><span class='promo-n'>2</span>Where should it appear?</div>" +
           "<div class='promo-modes'>" +
             "<label class='promo-mode'><input type='checkbox' class='promo-mode-popup' checked>" +
-              "<span class='pm-t'>Pop-up card</span>" +
-              "<span class='pm-d'>A gig poster with your track's picture slides up in the corner while someone listens. Hover it for Play and Add. Always marked “Promoted”.</span>" +
-              "<span class='pv pv-popup' aria-hidden='true'>" +
-                "<span class='pp-sheet'><img class='pp-paper' src='img/promote-poster.webp' alt=''><img class='pp-art pv-art' alt=''></span>" +
-              "</span>" +
+              "<span class='pm-t'>Pop-up ad</span>" +
+              "<span class='pm-d'>A spinning record or a gig poster (you choose below) appears in the corner while someone listens, with your track's picture on it. Hover it for Play and Add. Always marked “Promoted”.</span>" +
+              "<span class='pv pv-pop' aria-hidden='true'></span>" +
             "</label>" +
             "<label class='promo-mode'><input type='checkbox' class='promo-mode-ai'>" +
               "<span class='pm-t'>AI playlists</span>" +
@@ -560,6 +566,28 @@ var promoBoss = {
                 "<span class='pv-ai-l dim'>tagged: <span class='pv-tags'>pick moods below</span></span>" +
               "</span>" +
             "</label>" +
+          "</div>" +
+          /* the real card, drawn by the same code that draws it for
+             listeners, so what is previewed is what is shown */
+          "<div class='promo-live' hidden>" +
+            "<div class='promo-live-h'>Choose a style</div>" +
+            "<div class='promo-looks'>" +
+              "<label class='promo-look on'><input type='radio' name='promo-style' value='record' checked>" +
+                "<span class='promo-look-stage' data-style='record'></span><b>Record</b></label>" +
+              "<label class='promo-look'><input type='radio' name='promo-style' value='poster'>" +
+                "<span class='promo-look-stage' data-style='poster'></span><b>Poster</b></label>" +
+            "</div>" +
+            "<div class='promo-live-h'>Choose a color</div>" +
+            "<div class='promo-swatches'></div>" +
+            "<div class='promo-color-name'>Classic</div>" +
+            "<div class='promo-live-h'>Who should see it? <small>(optional)</small></div>" +
+            "<div class='promo-genre-note'>Only while someone is playing one of these genres. Leave them all off to reach anyone. Narrower means it can take longer to spend.</div>" +
+            "<div class='promo-genres' data-testid='promo-genres'></div>" +
+            "<div class='promo-live-h'>What listeners will see</div>" +
+            /* the real card, drawn by the same code that draws it for
+               listeners, so what is previewed is what is shown */
+            "<div class='promo-pop pp-inline show promo-live-card' aria-label='Preview of your promoted ad'></div>" +
+            "<div class='promo-live-note'>Preview only. Hover it to see the buttons. Nobody is shown this and no credits are used. A real one stays up for a minute unless the listener closes it.</div>" +
           "</div>" +
         "</div>" +
 
@@ -629,7 +657,16 @@ var promoBoss = {
        when AI placement is ticked. Shown unconditionally it would be a
        required-looking field that does nothing for a pop-up-only campaign. */
     this.el.querySelector('.promo-mode-ai').addEventListener('change', function(){ self.syncTags(); self.summarise(); });
-    this.el.querySelector('.promo-mode-popup').addEventListener('change', function(){ self.summarise(); });
+    this.el.querySelector('.promo-mode-popup').addEventListener('change', function(){ self.drawLive(); self.summarise(); });
+    this.el.querySelector('.promo-label').addEventListener('input', function(){ self.drawLive(); });
+    this.el.querySelectorAll("input[name='promo-style']").forEach(function(r){
+      r.addEventListener('change', function(){ if (r.checked) self.setStyle(r.value); });
+    });
+    this.el.querySelector('.promo-live-card').addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      e.preventDefault();
+      self.status('That is only a preview. Listeners get these buttons: Play, Add to their playlist, Close.', 'ok');
+    });
     this.el.querySelectorAll('.promo-mode').forEach(function(l){
       var cb = l.querySelector('input');
       var tick = function(){ l.classList.toggle('on', cb.checked); };
@@ -649,10 +686,13 @@ var promoBoss = {
       if (e.target.closest('.promo-change')){ self.clearSel(); srh.focus(); }
     });
     this.mine.querySelector('.promo-list').addEventListener('click', function(e){
-      var btn = e.target.closest('.promo-act'); if (!btn) return;
+      var btn = e.target.closest('.promo-act'); if (!btn || !btn.dataset.a) return;
       var row = btn.closest('.promo-row');
       if (btn.dataset.a === 'topup'){ row.classList.add('topping'); row.querySelector('.promo-add').focus(); self.showAddDur(row); return; }
       if (btn.dataset.a === 'cancel'){ row.classList.remove('topping'); return; }
+      if (btn.dataset.a === 'lookopen'){ self.lookEditor(row); return; }
+      if (btn.dataset.a === 'lookcancel'){ row.classList.remove('looking'); return; }
+      if (btn.dataset.a === 'look'){ self.saveLook(Number(row.dataset.id), btn, row); return; }
       self.action(Number(row.dataset.id), btn.dataset.a, btn, row);
     });
     // live "+N people" preview beside the credits field
@@ -680,17 +720,134 @@ var promoBoss = {
   /* What each option will look like, with the chosen track in it. Cheap
      enough to redraw on every change, so nothing has to remember what it
      last drew. */
+  /* One small, inert card in a host element (the two style tiles and the
+     little picture in the option card). Redrawn only when something it
+     shows has changed, so the record keeps turning smoothly. */
+  mini(host, id, name, style, color){
+    if (!host || !window.promoPopup) return;
+    var key = [id || '', name, style, color].join('|');
+    if (host._key === key) return;
+    host._key = key;
+    var c = host.firstChild;
+    if (!c){ c = document.createElement('div'); host.appendChild(c); }
+    c.className = 'promo-pop pp-mini show';
+    c.innerHTML = promoPopup.markup(id || '', name, style);
+    promoPopup.dress(c, style, color);
+    var im = c.querySelector('.pp-art');
+    if (im && !id){ im.removeAttribute('src'); im.style.visibility = 'hidden'; }
+  },
+
+  /* The style and color choices, and the actual listener-facing card inside
+     this window. Shown only while the pop-up option is ticked, and inert:
+     its buttons say so instead of doing anything. */
+  drawLive(){
+    var el = this.el, box = el.querySelector('.promo-live');
+    if (!box) return;
+    var pop = el.querySelector('.promo-mode-popup');
+    var card = box.querySelector('.promo-live-card');
+    var id = this.sel && this.sel.ytId;
+    var lab = el.querySelector('.promo-label');
+    var name = ((lab && lab.value || '').trim()) || (this.sel ? this.sel.name : 'Your track name');
+    var self = this;
+    box.hidden = !(pop && pop.checked);
+    if (!window.promoPopup) return;
+
+    // the two style tiles, each wearing the chosen color and the picked track
+    box.querySelectorAll('.promo-look').forEach(function(l){
+      var st = l.querySelector('input').value;
+      l.classList.toggle('on', st === self.style);
+      l.querySelector('input').checked = (st === self.style);
+      self.mini(l.querySelector('.promo-look-stage'), id, name, st, self.color);
+    });
+    // and the same thing, small, in the option card
+    this.mini(el.querySelector('.pv-pop'), id, name, this.style, this.color);
+    this.drawGenres();
+
+    // swatches: built once, then only their selected state changes
+    var sw = box.querySelector('.promo-swatches');
+    if (!sw.firstChild) this.buildSwatches(sw);
+    var pal = null;
+    sw.querySelectorAll('.promo-sw').forEach(function(b){
+      var on = b.classList.contains('promo-sw-custom') ? (self.color && !self.isPalette(self.color)) : (b.dataset.color === self.color);
+      b.classList.toggle('on', !!on);
+      if (b.getAttribute('role') === 'radio') b.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (on && !b.classList.contains('promo-sw-custom')) pal = b.dataset.name;
+    });
+    box.querySelector('.promo-color-name').textContent = !this.color ? 'Classic (the original colors)' : (pal || ('Custom ' + this.color));
+
+    var key = [id || '', name, this.style, this.color].join('|');
+    if (card._key === key) return;                    // nothing changed: do not restart the spin
+    card._key = key;
+    card.innerHTML = promoPopup.markup(id || '', name, this.style);
+    promoPopup.dress(card, this.style, this.color);
+    if (!id){ var im = card.querySelector('.pp-art'); if (im){ im.removeAttribute('src'); im.style.visibility = 'hidden'; } }
+  },
+
+  isPalette(c){
+    return promoPopup.PALETTES.some(function(p){ return p.color === c; });
+  },
+
+  buildSwatches(sw){
+    var self = this;
+    promoPopup.PALETTES.forEach(function(p){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'promo-sw' + (p.color ? '' : ' promo-sw-classic');
+      b.dataset.color = p.color; b.dataset.name = p.name;
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-label', p.name); b.title = p.name;
+      if (p.color) b.style.background = p.color;
+      b.addEventListener('click', function(){ self.setColor(p.color); });
+      sw.appendChild(b);
+    });
+    // anything at all: the browser's own color picker
+    var c = document.createElement('label');
+    c.className = 'promo-sw promo-sw-custom'; c.title = 'Pick any color';
+    var inp = document.createElement('input');
+    inp.type = 'color'; inp.className = 'promo-color'; inp.value = '#ff8a3d';
+    inp.setAttribute('aria-label', 'Pick any color');
+    inp.addEventListener('input', function(){ self.setColor(inp.value.toLowerCase()); });
+    c.appendChild(inp);
+    sw.appendChild(c);
+  },
+
+  /* Genre targeting chips: the closed genre list, up to three. */
+  drawGenres(){
+    var box = this.el.querySelector('.promo-genres');
+    if (!box) return;
+    var self = this, list = (window.riffGenres && riffGenres.LIST) || [];
+    if (!box.firstChild){
+      box.innerHTML = list.map(function(g){
+        return "<button type='button' class='promo-genre-btn' data-g='" + escapeHtml(g) + "'>" + escapeHtml(g) + "</button>";
+      }).join('');
+      box.addEventListener('click', function(e){
+        var b = e.target.closest('.promo-genre-btn'); if (!b) return;
+        var g = b.dataset.g, i = self.genres.indexOf(g);
+        if (i >= 0) self.genres.splice(i, 1);
+        else if (self.genres.length < 3) self.genres.push(g);
+        else { self.status('Up to three genres', 'err'); return; }
+        self.drawGenres(); self.summarise();
+      });
+    }
+    box.querySelectorAll('.promo-genre-btn').forEach(function(b){
+      var on = self.genres.indexOf(b.dataset.g) >= 0;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  },
+
+  setStyle(st){
+    this.style = (st === 'poster') ? 'poster' : 'record';
+    this.drawLive();
+  },
+
+  setColor(c){
+    this.color = /^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : '';
+    this.drawLive();
+  },
+
   drawPreviews(){
     var el = this.el;
-    var art = el.querySelector('.pv-art');
-    var id = this.sel && this.sel.ytId;
-    if (art){
-      if (id) art.src = this.thumb(id);
-      else art.removeAttribute('src');
-      art.classList.toggle('empty', !id);
-    }
     var nm = el.querySelector('.pv-name');
     if (nm) nm.textContent = this.sel ? this.sel.name : 'Your track';
+    this.drawLive();
     var tg = el.querySelector('.pv-tags');
     if (tg) tg.textContent = this.tags.length ? this.tags.join(', ') : 'pick moods below';
   },
@@ -722,7 +879,8 @@ var promoBoss = {
     var ai = this.el.querySelector('.promo-mode-ai').checked;
     var pop = this.el.querySelector('.promo-mode-popup').checked;
     var num = this.el.querySelector('.promo-n-credits'); if (num) num.textContent = ai ? '4' : '3';
-    var where = pop && ai ? 'pop-up cards and DJ briefs' : ai ? 'DJ briefs' : pop ? 'pop-up cards' : 'nowhere yet';
+    var where = pop && ai ? 'pop-up ads and DJ briefs' : ai ? 'DJ briefs' : pop ? 'pop-up ads' : 'nowhere yet';
+    if (pop && this.genres.length) where += ' (pop-ups only while ' + this.genres.join(', ') + ' plays)';
     var left = typeof this._balance === 'number' ? this._balance - n : null;
     box.textContent = n > 0
       ? 'Costs ' + n + (n === 1 ? ' credit' : ' credits') + ' · shown to ' + n + (n === 1 ? ' person' : ' people') + ' in ' + where +
@@ -855,13 +1013,18 @@ var promoBoss = {
           wallet: w, url: url, credits: tokens,
           modes: modes.join(','),
           tags: this.tags,
+          style: this.style, color: this.color,
+          genres: this.el.querySelector('.promo-mode-popup').checked ? this.genres.slice() : [],
           label: (this.el.querySelector('.promo-label').value || '').trim() || this.sel.name,
         }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-      this.status(d.credits + ' credits ✓ — that many people will see it. ' + d.balance + ' left.', 'ok');
+      this.status(d.held
+        ? 'Reserved ' + d.credits + ' credits (' + d.balance + ' left). The first promotion from each key gets a quick check by a person before anyone sees it — after that, yours go straight up.'
+        : d.credits + ' credits ✓ — that many people will see it. ' + d.balance + ' left.', 'ok');
       this.el.querySelector('.promo-label').value = '';
       this.tags = [];              // the next campaign is a different track
+      this.genres = []; this.drawGenres();
       this.syncTags();
       this.sel = null;
       this.renderPick();
@@ -892,6 +1055,68 @@ var promoBoss = {
     var cost = this._cost || 5, hrs = this._hours || 24;
     var el = row.querySelector('.promo-add-dur');
     el.textContent = n > 0 ? ('+' + Math.round(hrs * (n / cost)) + 'h') : '';
+  },
+
+  /* Change a running campaign's look: Record or Poster, and a color. A
+     small live preview of the real card, the same swatches as the form. */
+  lookEditor(row){
+    var box = row.querySelector('.promo-look-row'), self = this;
+    if (row.classList.contains('looking')){ row.classList.remove('looking'); return; }
+    row.classList.add('looking');
+    // a fresh box each time, so listeners from an earlier opening don't pile up
+    var fresh = box.cloneNode(false); box.replaceWith(fresh); box = fresh;
+    var st = box.dataset.style || 'record', col = box.dataset.color || '';
+    box.innerHTML =
+      "<div class='pl-look-styles'>" +
+        "<button type='button' class='promo-act pl-st' data-st='record'>Record</button>" +
+        "<button type='button' class='promo-act pl-st' data-st='poster'>Poster</button>" +
+      "</div>" +
+      "<div class='promo-swatches pl-sw'></div>" +
+      "<div class='pl-look-prev'></div>" +
+      "<div class='pl-look-btns'><button class='promo-act' data-a='look' data-testid='promo-look-save'>Save look</button>" +
+      "<button class='promo-act' data-a='lookcancel'>Cancel</button></div>";
+    var sw = box.querySelector('.pl-sw');
+    promoPopup.PALETTES.forEach(function(p){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'promo-sw' + (p.color ? '' : ' promo-sw-classic');
+      b.dataset.color = p.color; b.title = p.name; b.setAttribute('aria-label', p.name);
+      if (p.color) b.style.background = p.color;
+      sw.appendChild(b);
+    });
+    var c = document.createElement('label'); c.className = 'promo-sw promo-sw-custom'; c.title = 'Pick any color';
+    var inp = document.createElement('input'); inp.type = 'color'; inp.value = col || '#ff8a3d'; inp.setAttribute('aria-label', 'Pick any color');
+    c.appendChild(inp); sw.appendChild(c);
+    var draw = function(){
+      box.dataset.style = st; box.dataset.color = col;
+      box.querySelectorAll('.pl-st').forEach(function(b){ b.classList.toggle('on', b.dataset.st === st); });
+      sw.querySelectorAll('.promo-sw').forEach(function(b){
+        b.classList.toggle('on', b.classList.contains('promo-sw-custom') ? (!!col && !self.isPalette(col)) : b.dataset.color === col);
+      });
+      var host = box.querySelector('.pl-look-prev');
+      host._key = '';
+      self.mini(host, row.dataset.yt, row.querySelector('.promo-name').textContent, st, col);
+    };
+    box.addEventListener('click', function(e){
+      var s1 = e.target.closest('.pl-st'); if (s1){ st = s1.dataset.st; draw(); return; }
+      var s2 = e.target.closest('.promo-sw:not(.promo-sw-custom)'); if (s2){ col = s2.dataset.color; draw(); }
+    });
+    inp.addEventListener('input', function(){ col = inp.value.toLowerCase(); draw(); });
+    draw();
+  },
+
+  async saveLook(id, btn, row){
+    var box = row.querySelector('.promo-look-row');
+    btn.disabled = true;
+    try {
+      var w = await riffWallet.get();
+      var r = await fetch('/api/promotion/action', { method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ wallet: w, id: id, action: 'look', style: box.dataset.style, color: box.dataset.color }) });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      this.status('New look saved — the next people to see it get it. No credits used.', 'ok');
+      await this.refresh();
+    } catch(e){ this.status(e.message, 'err'); }
+    finally { btn.disabled = false; }
   },
 
   /* pause / resume / top up an existing promotion */
@@ -976,10 +1201,19 @@ var promoBoss = {
         // credits, not the clock, end a campaign now
         var credits = Number(p.credits_remaining || 0);
         var ended = credits <= 0;
-        var state = p.paused ? 'paused' : (ended ? 'ended' : 'live');
+        var state = p.held ? 'paused' : p.paused ? 'paused' : (ended ? 'ended' : 'live');
         var left = ended ? 'spent' : (credits + (credits === 1 ? ' credit left' : ' credits left'));
+        var heldNote = !p.held ? '' : Number(p.reports || 0) > 0
+          ? 'On hold: listeners reported it, so riffrolled will look at it. Your credits are kept.'
+          : 'Waiting for a quick check by a person (the first promotion from each key). Your credits are kept.';
         return "<div class='promo-row " + state + "' data-yt='" + escapeHtml(pid) + "' data-id='" + Number(p.id || 0) + "'>"
           + "<div class='promo-name'>" + escapeHtml(p.label || p.name || p.url) + "</div>"
+          + (heldNote ? "<div class='promo-held' data-testid='promo-held'>" + escapeHtml(heldNote) + "</div>" : '')
+          + (/(^|,)popup(,|$)/.test(p.modes || '')
+              ? "<div class='promo-look-chip'>" + (p.style === 'poster' ? 'Poster' : 'Record')
+                + (/^#[0-9a-f]{6}$/i.test(p.color || '') ? " <i class='promo-dot' data-c='" + escapeHtml(p.color) + "'></i> " + escapeHtml(p.color) : ' · classic colors')
+                + (p.genres ? " · only during " + escapeHtml(String(p.genres).split(',').join(', ')) : '')
+                + "</div>" : "")
           + "<div class='promo-stats'>"
             + "<span title='Times shown to people'>👁 " + Number(p.views || 0) + "</span>"
             + "<span title='Plays while promoted'>▶ " + Number(p.plays || 0) + "</span>"
@@ -993,7 +1227,9 @@ var promoBoss = {
                 "<button class='promo-act' data-a='" + (p.paused ? 'resume' : 'pause') + "'>"
                 + (p.paused ? '▶ Resume' : '❚❚ Pause') + "</button>")
             + "<button class='promo-act promo-topup' data-a='topup'>＋ Add credits</button>"
+            + (!ended && /(^|,)popup(,|$)/.test(p.modes || '') ? "<button class='promo-act promo-lookbtn' data-a='lookopen' data-testid='promo-look-open'>🎨 Look</button>" : '')
           + "</div>"
+          + "<div class='promo-look-row' data-style='" + (p.style === 'poster' ? 'poster' : 'record') + "' data-color='" + escapeHtml(/^#[0-9a-f]{6}$/i.test(p.color || '') ? p.color.toLowerCase() : '') + "'></div>"
           + "<div class='promo-topup-row'>"
             + "<input type='number' class='promo-add' min='1' step='1' value='10'>"
             + "<span class='promo-add-dur'></span>"
@@ -1001,6 +1237,8 @@ var promoBoss = {
             + "<button class='promo-act promo-cancel' data-a='cancel'>✕</button>"
           + "</div></div>";
       }).join('');
+
+      list.querySelectorAll('.promo-dot').forEach(function(d){ d.style.background = d.dataset.c; });
 
       /* Keep a local copy of anything that has finished. The server
          deletes a spent campaign within a day; these numbers are the

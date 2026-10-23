@@ -1842,8 +1842,9 @@ var djAi = {
     };
   },
 
-  /** send the set to riffrolled's own database: tracks, then name + ids.
-      Anonymous — no wallet, no device id. Fire and forget: offline is fine. */
+  /** add the set's tracks to the shared catalogue. The set itself stays in
+      this browser (Dexie); the server keeps only the tracks. Anonymous — no
+      wallet, no device id. Fire and forget: offline is fine. */
   publish(name, items){
     try {
       fetch('/api/playlist/save', {

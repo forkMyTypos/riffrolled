@@ -91,6 +91,15 @@ var plWins = {
     this.wins.push(w);
 
     var self = this;
+    // picking several tracks → a new playlist, the same as in the main window
+    w.sel = new PlSelect({
+      root: el,
+      list: el.querySelector('.plw-tracks'),
+      view: function(){ return w.tracks; },
+      name: function(){ return el.querySelector('.plw-name').textContent; },
+      playlistId: function(){ return w.id; },
+      open: async function(nid){ await plBoss.setActivePlaylist(nid); self.showMain(); }
+    });
     this.addMinimize(el, function(){ self.minimize(w); });
     this.addBadge(el);
     // its ✕ closes it for good: the window goes, the music does not
@@ -119,7 +128,9 @@ var plWins = {
         return;
       }
       var row = e.target.closest('.track-item');
-      if (row) plBoss.playFrom(w.id, w.tracks, Number(row.dataset.i));
+      if (!row) return;
+      if (w.sel && w.sel.rowClick(e, Number(row.dataset.i))) return;     // picking, not playing
+      plBoss.playFrom(w.id, w.tracks, Number(row.dataset.i));
     });
 
     // beside the main window, cascading, kept on screen
@@ -156,6 +167,7 @@ var plWins = {
 
   close(w){
     w.el.remove();
+    if (w.sel) PlSelect.all = PlSelect.all.filter(function(s){ return s !== w.sel; });
     this.wins = this.wins.filter(function(x){ return x !== w; });
     this.renderPop(); this.saveSoon();
   },
@@ -194,6 +206,7 @@ var plWins = {
         '</div>';
       }).join('');
     }
+    if (w.sel) w.sel.paint();
     this.syncOne(w);
   },
 

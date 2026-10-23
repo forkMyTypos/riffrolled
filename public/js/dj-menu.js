@@ -1536,6 +1536,7 @@ var djHistoryBoss = {
         "<button class='hist-tab' role='tab' data-tab='played' data-testid='hist-tab-played'>▶ Most played</button>" +
         "<button class='hist-tab' role='tab' data-tab='recent' data-testid='hist-tab-recent'>Recent</button>" +
         "<button class='hist-tab' role='tab' data-tab='sets' data-testid='hist-tab-sets'>DJ sets</button>" +
+        "<button class='hist-tab' role='tab' data-tab='ads' data-testid='hist-tab-ads'>Ads</button>" +
       "</div>" +
       "<div class='sec hist-music' data-testid='hist-music'>" +
         "<div class='ym-list scrollable'></div>" +
@@ -1585,7 +1586,10 @@ var djHistoryBoss = {
     this.el.querySelector('.ym-make').addEventListener('click', function(){ self.makePlaylist(); });
     // a like or a play elsewhere refreshes the list, if it is on screen
     document.addEventListener('riffrolled:music', function(){
-      if (!self.el.classList.contains('is-hidden') && self.tab !== 'sets') self.renderMusic();
+      if (!self.el.classList.contains('is-hidden') && self.tab !== 'sets' && self.tab !== 'ads') self.renderMusic();
+    });
+    document.addEventListener('riffrolled:ads', function(){
+      if (!self.el.classList.contains('is-hidden') && self.tab === 'ads') self.renderMusic();
     });
     // fresh numbers every time the panel is opened
     var wasHidden = true;
@@ -1601,7 +1605,7 @@ var djHistoryBoss = {
   },
 
   show(tab, quiet){
-    if (['liked', 'played', 'recent', 'sets'].indexOf(tab) < 0) tab = 'liked';
+    if (['liked', 'played', 'recent', 'sets', 'ads'].indexOf(tab) < 0) tab = 'liked';
     this.tab = tab;
     var el = this.el;
     el.querySelectorAll('.hist-tab').forEach(function(b){
@@ -1645,6 +1649,7 @@ var djHistoryBoss = {
   async renderMusic(){
     var box = this.el.querySelector('.ym-list');
     var tab = this.tab;
+    if (tab === 'ads') return this.renderAds();
     var rows = await this.musicRows(tab);
     if (this.tab !== tab) return;
     this._rows = rows;
@@ -1673,6 +1678,54 @@ var djHistoryBoss = {
     }).join('');
   },
 
+  /* ── Ads: the last 20 promoted cards this browser was shown (Dexie only) ── */
+  async renderAds(){
+    var box = this.el.querySelector('.ym-list');
+    var rows = [];
+    try { rows = await dbBoss.getAdHistory(); } catch(e){}
+    if (this.tab !== 'ads') return;
+    this._ads = rows;
+    this.el.querySelector('.ym-foot').hidden = true;
+    if (!rows.length){
+      box.innerHTML = "<div class='empty' data-testid='ads-empty'>No promoted tracks yet.<br>The last 20 you were shown will be kept here.</div>";
+      return;
+    }
+    var self = this;
+    box.innerHTML = rows.map(function(r, i){
+      return "<div class='ym-row ad-row' data-ad='" + Number(r.id) + "' data-testid='ad-row'>" +
+        "<img class='ad-thumb' src='https://i.ytimg.com/vi/" + encodeURIComponent(r.ytId) + "/default.jpg' alt='' width='34' height='34' loading='lazy'>" +
+        "<div class='ym-txt'>" +
+          "<div class='ym-name'>" + escapeHtml(r.name || r.ytId) + "</div>" +
+          "<div class='ym-meta'><span class='ad-chip'>Promoted</span> <span class='mx-dot'>·</span> <span>" + escapeHtml(self.ago(r.ts)) + "</span></div>" +
+        "</div>" +
+        "<button class='ym-play' title='Play it now' aria-label='Play it now'>▶</button>" +
+        "<button class='ym-add' title='Add to the playlist in the Playlist window' aria-label='Add to the current playlist'>＋</button>" +
+        "<button class='ad-x' title='Remove from this list' aria-label='Remove from this list'>✕</button>" +
+      "</div>";
+    }).join('') + "<div class='ad-note'>Playing or adding one from here counts as a play for whoever promoted it. It never costs them a credit.</div>";
+  },
+
+  async onAd(e){
+    var row = e.target.closest('.ad-row'); if (!row) return;
+    var r = (this._ads || []).find(function(x){ return x.id === Number(row.dataset.ad); });
+    if (!r) return;
+    var cur = { id: r.promoId, url: r.url, ytId: r.ytId, name: r.name };
+    if (e.target.closest('.ad-x')){ await dbBoss.forgetAd(r.id); return; }
+    if (e.target.closest('.ym-add')){
+      if (!plBoss.activeId){ this.status('Open or make a playlist first', 'err'); return; }
+      var tid = await dbBoss.createTrack(r.ytId, r.name);
+      var res = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+      plBoss.afterDbChange();
+      if (window.promoPopup) promoPopup.count('play', cur);
+      this.status(res === 'added' ? 'Added to the playlist' : 'It’s already in that playlist', 'ok');
+      return;
+    }
+    if (e.target.closest('.ym-play') || e.target.closest('.ym-txt')){
+      player.load(r.ytId, r.name);
+      if (window.promoPopup) promoPopup.count('play', cur);
+    }
+  },
+
   ago(ts){
     var sec = Math.max(0, (Date.now() - ts) / 1000);
     if (sec < 90) return 'just now';
@@ -1682,6 +1735,7 @@ var djHistoryBoss = {
   },
 
   async onMusic(e){
+    if (this.tab === 'ads') return this.onAd(e);
     var row = e.target.closest('.ym-row'); if (!row) return;
     var r = (this._rows || []).find(function(x){ return x.ytId === row.dataset.yt; });
     if (!r) return;

@@ -17,7 +17,7 @@ async function runSelfTests(){
          a label somebody typed — reach an HTML sink without escapeHtml
          around it? A field merely being tested (`t.artist ? … : ''`) is
          not being rendered, so it doesn't count. */
-      const FILES = ['db','ui','player','playlist','playlist-windows','share','mixes','panels-music','panels-tokens',
+      const FILES = ['db','ui','player','playlist','playlist-select','playlist-windows','share','mixes','panels-music','panels-tokens',
                      'dj-data','aidj','dj-menu','info','promo-popup','dock','tutorial','selftest'];
       const RISKY = /\.(name|artist|genre|ytTitle|title|label|channel|playlistName|request|reason|msg)\b/g;
       const SINK  = /(innerHTML|outerHTML)\s*\+?=\s*([\s\S]*?);\n|insertAdjacentHTML\s*\(([\s\S]*?)\);/g;

@@ -16,13 +16,12 @@ import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMix
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
 import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, handleMyPromotions, handlePromotionAction, handleBriefOffers, handleBriefClaim, handlePromoReport } from './routes/promote.js';
 import { handlePublicConfig } from './routes/config.js';
-import { handleStats, handleLink } from './routes/stats.js';
+import { handleStats } from './routes/stats.js';
 import { sweep } from './sweep.js';
 
 const ROUTES = [
   ['GET',  /^\/api\/config$/,       (req, env) => handlePublicConfig(req, env)],
   ['POST', /^\/api\/stats$/,        (req, env) => handleStats(req, env)],
-  ['POST', /^\/api\/link$/,         (req, env) => handleLink(req, env)],
   ['GET',  /^\/api\/search$/, (req, env, url) => handleSearch(req, env, url)],
   ['GET',  /^\/api\/tracks$/, (req, env, url) => handleListTracks(req, env, url)],
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],

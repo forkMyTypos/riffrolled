@@ -75,7 +75,6 @@ export async function adoptLegacy(db, priv, pub) {
     db.prepare(`UPDATE mint_challenges SET wallet_id = ?2 WHERE wallet_id = ?1`).bind(priv, pub),
     db.prepare(`UPDATE promotions SET wallet_id = ?2 WHERE wallet_id = ?1`).bind(priv, pub),
     db.prepare(`UPDATE OR IGNORE contrib SET wallet_id = ?2 WHERE wallet_id = ?1`).bind(priv, pub),
-    db.prepare(`UPDATE links SET created_by = ?2 WHERE created_by = ?1`).bind(priv, pub),
   ]);
   return true;
 }

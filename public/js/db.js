@@ -225,6 +225,23 @@ db.version(12).stores({
   promoArchive: 'id, ytId, endedAt, archivedAt'
 });
 
+/* v13: adHistory — the promoted cards this browser was shown, newest
+   last, kept to the last 20 (History → Ads). Never sent anywhere. */
+db.version(13).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  aiSessions: '++id, ts, playlistId',
+  djCategories: '++id, &key, order',
+  djOptions: '++id, categoryId, favourite, useCount',
+  links: '++id, &key, type, [type+a], [type+b], origin, createdBy, lastTs',
+  promoArchive: 'id, ytId, endedAt, archivedAt',
+  adHistory: '++id, ts, promoId, ytId'
+});
+
 /* A storage upgrade cannot finish while another riffrolled tab still has
    the old database open. Dexie asks the other tab to step aside, which
    works for tabs running recent code but not for one that is frozen,
@@ -586,6 +603,23 @@ var dbBoss = {
     }
     return ids;
   },
+
+  /* History → Ads: remember a promoted card that was shown, keep the last
+     AD_HISTORY_MAX (the oldest goes), and tell any open History window. */
+  AD_HISTORY_MAX: 20,
+  addAdSeen: async function(a){
+    await db.adHistory.add({ ts: Date.now(), promoId: Number(a.promoId) || 0, ytId: String(a.ytId || ''),
+      name: String(a.name || '').slice(0, 200), url: String(a.url || ''), style: a.style === 'poster' ? 'poster' : 'record',
+      color: /^#[0-9a-f]{6}$/i.test(a.color || '') ? a.color : '', size: (a.size === 'sm' || a.size === 'lg') ? a.size : 'md' });
+    const n = await db.adHistory.count();
+    if (n > dbBoss.AD_HISTORY_MAX){
+      const old = await db.adHistory.orderBy('ts').limit(n - dbBoss.AD_HISTORY_MAX).primaryKeys();
+      await db.adHistory.bulkDelete(old);
+    }
+    document.dispatchEvent(new CustomEvent('riffrolled:ads'));
+  },
+  getAdHistory: async function(){ return (await db.adHistory.orderBy('ts').reverse().toArray()); },
+  forgetAd: async function(id){ await db.adHistory.delete(id); document.dispatchEvent(new CustomEvent('riffrolled:ads')); },
 
   getSetting: async function(k){ const r = await db.settings.get(k); return r ? r.v : null; },
   setSetting: async function(k, v){ await db.settings.put({ k:k, v:v }); },

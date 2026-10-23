@@ -28,8 +28,8 @@
 //   · It knows whether the track was already in the catalogue, because
 //     the insert is NOT EXISTS. Only the first person to add a video is
 //     adding anything.
-//   · It knows who first published a link, because links.created_by is
-//     written once and never reassigned.
+//   (Links between tracks used to earn too; since schema 29 they live only
+//    in the listener's browser, so only adding tracks can earn.)
 //
 // THE PART THAT STOPS IT BEING FARMED
 //

@@ -5,7 +5,7 @@
    what happened on this device into a few numbers, and sends them up every
    so often as one small summary:
 
-       { plays: { ytId: 3 }, likes: { ytId: 1 }, linkFollows: [ … ] }
+       { plays: { ytId: 3 }, likes: { ytId: 1 }, dislikes: { ytId: 1 } }
 
    No wallet, no device id, no session id, no per-event timestamps, no
    order. The server adds them to counters and cannot reconstruct who did
@@ -20,13 +20,15 @@
 
    Everything here is best-effort. A failed flush keeps its tally and tries
    again; a browser that closes mid-session loses at most a few minutes of
-   counts. Nothing in riffrolled waits on this or breaks without it. */
+   counts. Nothing in riffrolled waits on this or breaks without it.
+
+   Links between tracks are never sent: they stay in Dexie. */
 
 var statsBoss = {
   FLUSH_MS: 4 * 60 * 1000,      // a quiet background summary
   MAX_KEYS: 60,                 // the server caps at this too
 
-  pending: { plays: {}, likes: {}, dislikes: {}, linkFollows: [] },
+  pending: { plays: {}, likes: {}, dislikes: {} },
   _timer: null,
   _sending: false,
 
@@ -54,25 +56,17 @@ var statsBoss = {
   like(ytId)    { this._bump('likes', ytId); },
   dislike(ytId) { this._bump('dislikes', ytId); },
 
-  /** Somebody followed a link from a to b — evidence that the link is
-   *  useful, which is what its maker will eventually be credited for. */
-  linkFollowed(type, a, b){
-    if (!type || !a || !b || a === b) return;
-    if (this.pending.linkFollows.length >= 40) return;
-    this.pending.linkFollows.push({ type: type, a: a, b: b });
-  },
-
   _empty(){
     var p = this.pending;
     return !Object.keys(p.plays).length && !Object.keys(p.likes).length
-        && !Object.keys(p.dislikes).length && !p.linkFollows.length;
+        && !Object.keys(p.dislikes).length;
   },
 
   /** @param onExit use sendBeacon — the page may be going away mid-request */
   flush(onExit){
     if (this._sending || this._empty()) return;
     var body = JSON.stringify(this.pending);
-    var fresh = { plays: {}, likes: {}, dislikes: {}, linkFollows: [] };
+    var fresh = { plays: {}, likes: {}, dislikes: {} };
 
     if (onExit && navigator.sendBeacon){
       try {
@@ -105,7 +99,6 @@ var statsBoss = {
         p[k][id] = (p[k][id] || 0) + old[k][id];
       });
     });
-    p.linkFollows = old.linkFollows.concat(p.linkFollows).slice(0, 40);
   },
 };
 

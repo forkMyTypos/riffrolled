@@ -57,7 +57,7 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [ ] Look at the Promote panel on your own screen and say what still feels confusing.
 
 ## Before going public (Dan-side) — do these in order
-1. [ ] **Deploy the latest zip, then open `https://riffrolled.com/api/health`.** It must say `"schema":27`. If it says a lower number, the new version is not live yet.
+1. [ ] **Deploy the latest zip, then open `https://riffrolled.com/api/health`.** It must say `"schema":29`. If it says a lower number, the new version is not live yet.
 2. [ ] **Cloudflare rate limit on `/api/*` (the one real blocker).** Without it, one script could hammer every API route. The admin tool now does this for you:
    1. Close the admin tool if it is open, then start it again (double-click **start-admin.bat**). A dark-orange bar at the top of every page says "⚠ The Cloudflare rate limit on /api/ is not on yet".
    2. Press **Turn it on** in that bar (it opens the **Cloudflare** tab), then press **Turn it on** again in the "Rate limit on /api/" box.
@@ -73,6 +73,27 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
 9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
 
+## Playlist window: pick several tracks (22 Oct)
+- [x] **Shift + ↓ / ↑** selects a run of tracks (starting from the playing track if it is in the list, else the top); **Shift + click** stretches the run; **Ctrl + click** (⌘ on a Mac) adds or removes one. Nothing plays while selecting; a plain click still plays.
+- [x] A bar shows "N tracks · New playlist from these". **Enter** (or the button) asks for a name with a suggestion ("From Night Drive · 4 tracks"); Enter again makes it, in list order. You stay where you were, the music carries on, and a banner offers **Open it**. **Esc** clears.
+- [x] Works in every playlist window: the main one and each extra (⧉) window. The keys go to the window you last clicked in, while it is open and no text box has the keyboard. From an extra window, **Open it** shows the new playlist in the main window.
+- [x] **Phones**: hold a track to start picking (it gets a ● tick, the others ○); then taps add or remove tracks instead of playing them; the bar's buttons (big enough to tap) name and make it; ✕ stops picking.
+
+## What the server keeps (22 Oct)
+- [x] The server now keeps only: the shared track catalogue (with anonymous play/like counts), shared mixes, and the credit economy (wallets, mining, promotions). Your listeners' playlists, history, likes, links between tracks and ad history live in their browser (Dexie).
+- [x] Removed (schema 29): the server's anonymous copy of every DJ AI set (the tracks still join the catalogue) and the unused track-to-track links table. Recoverable for 7 days with D1 Time Travel if you change your mind.
+- [x] Privacy page corrected: it said only promoted plays were counted; it now says the page sends anonymous play/like tallies per track, and that a DJ set's tracks join the catalogue but the set itself stays in the browser.
+- [ ] Contribution rewards are still in the code, switched off (`CONTRIB_POOL_PER_EPOCH = 0`), and store nothing while off. Say if you want them removed completely.
+
+## Promoted cards, round 2 (22 Oct)
+- [x] **Picture size per campaign**: Promote window → "How much picture?" — More vinyl / Balanced / More picture, each a live little record. Record only (the poster has none). Changeable later with 🎨 Look. Needs schema 28.
+- [x] **Up to 5 cards on screen** (1 on a phone). A new one every 5 minutes; each stays until the listener closes it. With 5 up, the new one replaces the oldest, in its spot and at its size — but never the one under the pointer. Up to 12 new cards per visit (was 6), since they now stay.
+- [x] **Drag and resize** (computer): drag from anywhere on the card, resize from the corner grip (70%–160%). Dropped on the YouTube player or the record player, it slides to the nearest clear spot. New cards also try to keep off open windows. Spots and sizes are remembered between visits (Dexie, this browser only).
+- [x] **History → Ads**: the last 20 cards shown, newest first, in Dexie only. ▶ and ＋ count a play for the campaign (never a credit); ✕ removes one.
+- [x] **Admin preview**: "How should the pop-up look?" now shows the site's real card beside the choices (style, picture size, color), with the track's picture.
+- [x] Fixed: History's "Your DJ sets" header showed under the other tabs.
+- [ ] Try it: open `riffrolled.com/?promo=now` a few times with a couple of free campaigns running, drag one, resize one, reload.
+
 ## Safety and security (22 Oct pass)
 - [x] **Rate limit**: the admin tool checks for the rule and creates it with your own token (step 2 above). It never replaces a rule you already have; if a different rule is in the one free slot it tells you instead.
 - [x] **A looping pop-up can't drain a campaign any more**: each person (a hash of their address, never the address) is charged once per campaign per `PROMO_REPEAT_HOURS` (6). After that they are shown nothing. Kept 7 days, then swept.
@@ -84,7 +105,12 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [ ] **Your Cloudflare token**: keep it to what the admin tool needs: Account · D1 · Edit, Account · Workers Scripts · Edit, Zone · Zone · Read, Zone · Zone WAF · Edit (riffrolled.com only). If your laptop is ever lost or stolen, delete the token at dash.cloudflare.com → My Profile → API Tokens, and the GitHub one at github.com → Settings → Developer settings → Fine-grained tokens. Both live only in `C:\Users\Dan\.riffrolled-admin.json`.
 - [ ] **Private keys can't be recovered.** Nobody, you included, can get a listener's credits back if they lose their key. The 🔑 Your keys panel already tells them to save it; worth saying again in launch posts.
 - [ ] **If the database is ever damaged** (a bad delete, a bad migration): D1 keeps a 7-day history on the free plan (30 on paid). In a Command Prompt in the project folder: `npx wrangler d1 time-travel info riffrolled` shows where you are; `npx wrangler d1 time-travel restore riffrolled --timestamp=2026-10-22T09:00:00Z` (a time before the damage, in UTC) puts it back. The restore replaces everything after that time, so note down anything new first. Use the database name from `wrangler.toml`.
-- [ ] **Decide: YouTube's 30-day rule.** YouTube's developer policies let an app keep YouTube data (titles, channel names) for at most 30 days unless it refreshes them. The catalogue keeps titles indefinitely. Options: refresh titles older than 30 days from the batch link check (it already asks YouTube about each video), or keep only the video ID and the listener's own name for it. Not urgent for a quiet launch, but worth deciding before riffrolled grows.
+- [ ] **YouTube's 30-day rule: refresh the catalogue with oEmbed (decided 22 Oct, to build).** YouTube's developer policies say stored YouTube data (titles, channel names) must be deleted or refreshed within 30 days. Plan:
+   - Add a "last checked" date to each track (a new schema).
+   - The Worker's hourly cleanup job re-checks the ~40 tracks checked longest ago with oEmbed (free, no key, no quota; the free plan allows ~50 outside requests per run). That is ~1,000 a day, every track every 30 days up to ~30,000 tracks; run the job every 15 minutes if the catalogue grows past that.
+   - Video still there: refresh title and channel, but only for tracks whose names came from YouTube (search, channel and playlist imports). Names typed by you, a listener or the AI are left alone.
+   - Video gone or no longer embeddable: mark it unplayable, so the batch link check effectively runs by itself.
+   - About an hour's work with tests. Not urgent for a quiet launch.
 - [ ] **Fake wallets (Sybil)**: one person can make many keys. What limits it today: mining is slow and capped per day, contributions have a 5-minute cooldown and rewards are off (`CONTRIB_POOL_PER_EPOCH = 0`), sharing and promoting wait for your OK, and a promoter is never charged for their own pop-up. Keep rewards off until you see real use.
 
 ## Later / parked

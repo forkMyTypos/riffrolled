@@ -237,7 +237,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":26`).
+the tables are missing (`/api/health` should show `"schema":29`).
 
 ## Endpoints
 
@@ -251,7 +251,7 @@ the tables are missing (`/api/health` should show `"schema":26`).
 | GET    | /api/mixes/:id          | —                                 | the mix, its `items` (each with the DJ's one-line `note`) and `brief` (the DJ AI choices that made it, or null) |
 | POST   | /api/mixes/share        | `{name,blurb?,genre?,brief?,tracks:[{name,artist,genre,url}]}` | `201 {id}` or `{existing:true,id}`; 429 `daily_limit` |
 | POST   | /api/mixes/:id/play · /report | —                           | counters; a report is one per person |
-| POST   | /api/playlist/save      | `{name, tracks:[{name,artist,genre,url}]}` | `{id, name, tracks}` — riffrolled's own copy of a set |
+| POST   | /api/playlist/save      | `{name?, tracks:[{name,artist,genre,url}]}` | `{name, tracks}` — a DJ set's tracks join the catalogue; the set itself is not kept |
 | GET    | /api/config             | —                                 | the handful of settings the UI needs, plus the mood vocabulary |
 | POST   | /api/mine/challenge     | `{wallet}`                        | `{challenge, difficulty_bits, reward, tier, …}` |
 | POST   | /api/mine/submit        | `{wallet, challenge, nonce}`      | `{ok, reward, balance}` |
@@ -267,8 +267,7 @@ the tables are missing (`/api/health` should show `"schema":26`).
 | POST   | /api/promo/event        | `{id\|url, kind}`                 | engagement only — cannot move money |
 | POST   | /api/promotions/brief   | `{brief_id, tags:[]}`             | up to 3 matching placements, **free** |
 | POST   | /api/promotions/brief/claim | `{brief_id}`                  | charges one credit per placement, once |
-| POST   | /api/stats              | `{plays?, likes?, dislikes?, linkFollows?}` | anonymous counters |
-| POST   | /api/link               | `{wallet, a, b}`                  | publish a link between two tracks |
+| POST   | /api/stats              | `{plays?, likes?, dislikes?}`     | anonymous counters (an old client's `linkFollows` is ignored) |
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
 
@@ -464,7 +463,7 @@ device id. That is riffrolled's own record of which tracks belonged together.
 | `public/js/dj-data.js` | the vocabulary: categories, options, tags, personality voices |
 | `public/js/aidj.js` | `djAi` — state, roll, prompt, parser, import, history |
 | `public/js/dj-menu.js` | `djMenuBoss` (the menu) and `djHistoryBoss` (past sets) |
-| `src/routes/playlists.js` | `POST /api/playlist/save` — name + track ids |
+| `src/routes/playlists.js` | `POST /api/playlist/save` — adds a set's tracks to the catalogue |
 | `public/ai-dj-lab.html` | unlinked bench: paste a reply, see what the parser makes of it |
 
 Playlists and tracks deliberately never appear in the DJ AI menu: an imported set goes straight
@@ -549,6 +548,48 @@ Edit `public/index.html` (or any Worker file) on GitHub → commit → Cloudflar
 - **Auth**: add a bearer-token check in `index.js`'s route loop.
 - **More tables** (playlists, reactions): add them to `schema.sql` and a route file each when you actually need them server-side — the earlier full-spec version of this backend is the blueprint.
 - **New endpoints**: one file in `src/routes/`, one line in the `ROUTES` table.
+
+## Picking tracks → a new playlist (`js/playlist-select.js`)
+
+`new PlSelect({ root, list, view, name, playlistId, open })` attaches a picker to a playlist window: the
+main one (`plBoss.selr`, also `plBoss.sel`) and each extra window (`w.sel` in playlist-windows.js). It
+adds its own bar after the list, holds the selection by `joinId` (so re-renders keep it), and exposes
+`rowClick(e, i)` — true when a click was picking (Shift / Ctrl / ⌘ + click, or a tap while picking on
+touch), so the caller doesn't play. One capture-phase keydown handler sends Shift + ↓/↑, Enter and Esc to
+`PlSelect.current()`: the window last clicked in, if open. Long-press (480 ms, touch/pen) starts picking.
+`create()` makes the playlist in list order (`dbBoss.createPl`, `addToPlaylist`) and leaves you where
+you were, with an "Open it" banner. All local (Dexie).
+
+## Schema 29: what the server keeps
+
+The server keeps the shared catalogue (tracks and their anonymous counters), shared mixes (premade,
+community, link-only) and the credit economy (wallets, ledger, mining, promotions and their safety
+records). Everything personal — playlists, history, likes, links between tracks, ad history, layout —
+lives in the listener's browser (Dexie).
+
+**Schema 29** (`drop-unused-server-copies`) drops three tables that broke that rule and were never read:
+`playlists` and `playlist_tracks` (an anonymous copy of every DJ AI set — `POST /api/playlist/save` now
+only adds the tracks) and `links` (nothing ever called `POST /api/link`, which is gone; `/api/stats`
+ignores `linkFollows`). D1 Time Travel can restore them for 7 days. Contribution rewards stay as a
+switch: with `CONTRIB_POOL_PER_EPOCH = 0` they write nothing.
+
+## Schema 28: picture size, and up to five promoted cards
+
+**Schema 28** (`promo-label-size`): `promotions.size` — `'sm' | 'md' | 'lg'` (how much of the record is
+picture; `cleanSize` in `src/cardlook.js`, default `md`). Accepted by `POST /api/promote` and the `look`
+action, returned by `/api/promotions/next`, `/api/promotions` and `/mine`. `/api/health` should say `"schema":28`.
+
+**`js/promo-popup.js`** now manages a stack: `cards` (on screen) and `slots` (up to 5 remembered spots,
+`{cx, cy, s}` = centre as a fraction of the window and a scale, in the Dexie setting `promoSlots`).
+`showOne()` decides where a card will go *before* asking `/next` (asking spends a credit): a free slot,
+or the oldest card the listener isn't hovering, focusing or dragging. `settle()` sizes and places a card;
+`clearSpot()` searches outwards for the nearest spot clear of the player (`ytGuard.rect()`), the plinth,
+the dock rail and, for a new card in a default spot, open windows and other cards. ytGuard's audit now
+asks `promoPopup.avoidPlayer(el)` to move a card rather than hiding it. `dress(el, style, color, size)`
+adds `pp-label-sm|md|lg`. Phones: one card, CSS-placed, no drag.
+
+**Dexie v13**: `adHistory` (`++id, ts, promoId, ytId`), kept to 20 by `dbBoss.addAdSeen()`;
+`getAdHistory()`, `forgetAd(id)`, event `riffrolled:ads`. History → Ads reads it.
 
 ## Schema 27: the security pass
 

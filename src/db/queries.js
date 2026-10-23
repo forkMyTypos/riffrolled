@@ -1,7 +1,7 @@
 // ── D1 query layer ────────────────────────────────────────────────────
 // All SQL lives here as prepared statements with bound parameters.
 // Table: tracks { id (auto), name, artist, genre, genre_raw, url }
-import { cleanStyle, cleanColor, cleanGenres } from '../cardlook.js';
+import { cleanStyle, cleanColor, cleanSize, cleanGenres } from '../cardlook.js';
 import { normalizeGenre } from '../genres.js';
 
 /** Canonicalise any YouTube link/id form to https://www.youtube.com/watch?v=ID,
@@ -131,36 +131,6 @@ export async function getTrackByUrl(db, url) {
     .prepare(`SELECT id, name, artist, genre, url FROM tracks WHERE url = ?1`)
     .bind(url)
     .first();
-}
-
-/* ── playlists: riffrolled's own copy of a DJ AI set ──────────────────
-   Name plus track ids in order, and nothing about who made it. Kept
-   because a set is evidence of which tracks belong together — the raw
-   material for the link layer later. */
-
-export async function createPlaylist(db, name, source, now) {
-  const res = await db.prepare(
-    `INSERT INTO playlists (name, source, created_at) VALUES (?1, ?2, ?3)`
-  ).bind(name, source || '', now).run();
-  return res.meta.last_row_id;
-}
-
-export async function addPlaylistTracks(db, playlistId, trackIds) {
-  if (!trackIds.length) return 0;
-  const stmt = db.prepare(
-    `INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, ?3)`
-  );
-  await db.batch(trackIds.map((id, i) => stmt.bind(playlistId, id, i)));
-  return trackIds.length;
-}
-
-export async function listPlaylists(db, limit = 30) {
-  const { results } = await db.prepare(
-    `SELECT p.id, p.name, p.source, p.created_at, COUNT(pt.track_id) AS tracks
-       FROM playlists p LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
-      GROUP BY p.id ORDER BY p.id DESC LIMIT ?1`
-  ).bind(limit).all();
-  return results || [];
 }
 
 /* ── AI DJ lookup budget ──────────────────────────────────────────────
@@ -411,7 +381,7 @@ export async function extendPromotion(db, id, addTokens, expiresAt) {
  */
 export async function walletPromotions(db, walletId, now, limit = 25) {
   const { results } = await db.prepare(
-    `SELECT id, url, name, label, modes, tags, style, color, genres, held, reports,
+    `SELECT id, url, name, label, modes, tags, style, color, size, genres, held, reports,
             created_at, ended_at,
             views, plays, likes, dislikes, replays,
             tokens, credits_remaining, paused,
@@ -496,7 +466,7 @@ export async function livePromotions(db, now, limit = 20, mode = 'popup', except
      untargeted campaigns plus those that asked for that genre. */
   const gLike = genre === null ? '' : '%,' + (String(genre).replace(/[%_,]/g, '') || '\u0001none') + ',%';
   const { results } = await db.prepare(
-    `SELECT id, url, name, label, modes, style, color, genres, expires_at, views, plays, likes, dislikes,
+    `SELECT id, url, name, label, modes, style, color, size, genres, expires_at, views, plays, likes, dislikes,
             replays, tokens, credits_remaining
        FROM promotions
       WHERE credits_remaining > 0 AND paused = 0 AND held = 0
@@ -731,9 +701,9 @@ export async function addCampaign(db, c) {
     `INSERT INTO promotions
        (wallet_id, url, name, label, modes, created_at, expires_at, tokens,
         credits_remaining, plays, likes, dislikes, replays, views, paused, remaining_ms, ended_at,
-        style, color, genres, held)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?7, 0, 0, 0, 0, 0, 0, 0, '', ?8, ?9, ?10, ?11)`
+        style, color, genres, held, size)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?7, 0, 0, 0, 0, 0, 0, 0, '', ?8, ?9, ?10, ?11, ?12)`
   ).bind(c.wallet, c.url, String(c.name || '').slice(0, 300), c.label, c.modes, c.now, c.credits,
-         cleanStyle(c.style), cleanColor(c.color), cleanGenres(c.genres).join(','), c.held ? 1 : 0).run();
+         cleanStyle(c.style), cleanColor(c.color), cleanGenres(c.genres).join(','), c.held ? 1 : 0, cleanSize(c.size)).run();
   return Number(res.meta && res.meta.last_row_id) || 0;
 }

@@ -906,3 +906,67 @@ body.mobile .pl-win, body.mobile .pl-open-win, body.mobile .panel-min, body.mobi
 .pp-report { margin-top:3px; background:transparent; border:0; padding:0; font-size:9px; color:rgba(255,255,255,0.45); cursor:pointer; }
 .pp-report:hover, .pp-report.sure { color:#ffb38a; text-decoration:underline; }
 .promo-held { font-size:10.5px; color:#ffd9a0; background:rgba(255,184,107,0.1); border:1px solid rgba(255,184,107,0.35); border-radius:6px; padding:4px 7px; margin:4px 0 2px; line-height:1.4; }
+
+/* ── promoted cards: up to five, each draggable and resizable (computer) ──
+   promo-popup.js sets left/top and width/height inline, and --pp-b (the
+   button size) so the buttons shrink and grow with the card. */
+body:not(.mobile) .promo-pop.pp-float { touch-action:none; cursor:grab; }
+body:not(.mobile) .promo-pop.pp-float.pp-moving { cursor:grabbing; transition:none; }
+.promo-pop.pp-float.pp-moving.show, .promo-pop.pp-float.pp-moving.show:hover { transform:none; }
+.promo-pop.pp-float.pp-sliding { transition:left .24s ease, top .24s ease, opacity .22s ease, transform .22s ease; }
+body:not(.mobile) .promo-pop.pp-float .pp-acts { cursor:grab; }
+body:not(.mobile) .promo-pop.pp-float .pp-acts button {
+  width:var(--pp-b, 42px); height:var(--pp-b, 42px); font-size:calc(var(--pp-b, 42px) * .36);
+}
+body:not(.mobile) .promo-pop.pp-float .pp-acts { gap:calc(var(--pp-b, 42px) * .14); }
+/* the resize grip: bottom-right, shown on hover */
+.pp-grip {
+  position:absolute; right:-4px; bottom:-4px; z-index:6; width:18px; height:18px; border-radius:5px;
+  background:rgba(10,10,18,0.92) linear-gradient(135deg, transparent 0 45%, rgba(255,255,255,0.6) 45% 52%, transparent 52% 64%, rgba(255,255,255,0.6) 64% 71%, transparent 71%);
+  border:1px solid rgba(255,255,255,0.35); cursor:nwse-resize; opacity:0; transition:opacity .16s ease; touch-action:none;
+}
+.promo-pop.pp-float:hover .pp-grip, .promo-pop.pp-float.pp-moving .pp-grip { opacity:1; }
+@media (hover: none) { .pp-grip { opacity:.8; } }
+body.mobile .pp-grip { display:none; }
+
+/* how much of the record is picture (the advertiser's choice; the poster ignores it) */
+.pp-style-record.pp-label-sm .pp-art { width:44%; height:44%; }
+.pp-style-record.pp-label-lg .pp-art { width:84%; height:84%; border-width:2px; }
+.pp-style-record.pp-label-sm .pp-hole { width:8%; height:8%; }
+
+/* label size: three small live records (Promote form and the look editor) */
+.promo-sizes { display:flex; gap:6px; margin-top:6px; }
+.promo-sizes[hidden], .promo-size-wrap[hidden] { display:none; }
+.promo-size { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 4px 6px; border-radius:10px;
+  border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.8); font-size:11px; cursor:pointer; }
+.promo-size.on { border-color:rgba(255,204,77,0.65); background:rgba(255,204,77,0.08); color:#fff; }
+.promo-size:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.promo-size b { font-weight:600; }
+.promo-size-stage { display:flex; align-items:center; justify-content:center; height:70px; width:100%; }
+body .promo-size-stage .promo-pop.pp-mini { width:64px; height:64px; }
+.pl-sizes .promo-size-stage { height:56px; }
+body .pl-sizes .promo-size-stage .promo-pop.pp-mini { width:50px; height:50px; }
+
+/* picking several tracks in the Playlist window → a new playlist */
+.track-item.sel { background:rgba(70,224,255,0.12); border-color:rgba(70,224,255,0.45); }
+.track-item.sel.active { background:linear-gradient(90deg, rgba(140,123,255,0.22), rgba(70,224,255,0.14)); }
+.track-item.sel .track-num { color:#46e0ff; }
+.pl-selbar { flex-shrink:0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:4px 6px 6px; padding:7px 8px;
+  border-radius:8px; border:1px solid rgba(70,224,255,0.4); background:rgba(14,22,32,0.96); font-size:12px; }
+.pl-selbar[hidden], .pl-sel-namewrap[hidden], .pl-sel-make[hidden] { display:none; }
+.pl-sel-n { color:#46e0ff; font-weight:700; white-space:nowrap; }
+.pl-sel-make, .pl-sel-ok { padding:4px 9px; border-radius:6px; font-size:12px; cursor:pointer; background:rgba(70,224,255,0.16);
+  border:1px solid rgba(70,224,255,0.5); color:#fff; }
+.pl-sel-make:hover, .pl-sel-ok:hover { background:rgba(70,224,255,0.3); }
+.pl-sel-namewrap { display:flex; gap:5px; flex:1; min-width:0; }
+.pl-sel-name { flex:1; min-width:0; padding:4px 7px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.35); color:#fff; font-size:12px; }
+.pl-sel-x { margin-left:auto; }
+/* phones: hold a track to start picking; then taps add or remove */
+.active-pl-tracks .track-item { -webkit-touch-callout:none; }
+.active-pl-tracks.picking .track-item { user-select:none; -webkit-user-select:none; }
+.active-pl-tracks.picking .track-item .track-num::before { content:'○ '; color:rgba(255,255,255,0.35); }
+.active-pl-tracks.picking .track-item.sel .track-num::before { content:'● '; color:#46e0ff; }
+body.mobile .pl-selbar { padding:9px 10px; gap:8px; }
+body.mobile .pl-sel-make, body.mobile .pl-sel-ok { min-height:40px; padding:6px 12px; font-size:13px; }
+body.mobile .pl-sel-x { min-width:40px; min-height:40px; }
+body.mobile .pl-sel-name { min-height:40px; font-size:16px; }   /* 16px keeps iOS from zooming in */

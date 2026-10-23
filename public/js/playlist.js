@@ -31,6 +31,10 @@ var plBoss = {
   view: [],
   playingId: null,
   currentIndex: -1,
+  /* Picking several tracks to make a new playlist (playlist-select.js);
+     `sel` is the main window's picker. */
+  selr: null,
+  get sel(){ return this.selr; },
 
   async setup(){
     this.currentM();        // the one merged Playlist panel
@@ -333,7 +337,7 @@ var plBoss = {
     // it also covers tracks marked dead on another device, or restored from
     // a backup that already knew.
     return tracks
-      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id, playable: t.playable } : null)
+      .map((t, i) => t ? { ytId: t.ytId, name: t.name, artist: t.artist || '', joinId: joins[i].id, trackId: joins[i].trackId, playable: t.playable } : null)
       .filter(t => t && t.playable !== 0);
   },
 
@@ -373,7 +377,7 @@ var plBoss = {
         </div>
 
         <div class="active-pl-sub">
-          <span>Tracks</span><span class="count">· 0</span>
+          <span title="Pick several: Shift + ↓ / ↑, or Shift + click (Ctrl + click adds one). Then make a new playlist from them.">Tracks</span><span class="count">· 0</span>
           <button class="icon-btn add-track-btn" title="Add tracks (opens the Tracks panel)">＋</button>
           <div class="mini-transport">
             <button class="icon-btn mini-prev" title="Previous">⏮</button>
@@ -385,6 +389,7 @@ var plBoss = {
         <div class="active-pl-msg"></div>
 
         <div class="active-pl-tracks"></div>
+
 
 
       </div>
@@ -399,6 +404,14 @@ var plBoss = {
     hdr.insertBefore(nameSpan, hdr.querySelector('.panel-close'));
 
     this.bindCurrentEvents();
+    this.selr = new PlSelect({
+      root: this.currentEl,
+      list: this.currentEl.querySelector('.active-pl-tracks'),
+      view: () => this.view,
+      name: () => this.currentEl.querySelector('.active-pl-name').value,
+      playlistId: () => this.activeId,
+      open: (id) => this.setActivePlaylist(id),
+    });
   },
 
   setTitleName(name){
@@ -544,6 +557,7 @@ var plBoss = {
 
   /* ── STATE ── */
   async setActivePlaylist(id){
+    if (id !== this.activeId && this.selr) this.selr.clear();
     this.activeId = id;
     const pl = await db.playlists.get(id);
     if (!pl) return;
@@ -581,6 +595,7 @@ var plBoss = {
     if(!this.activeId){
       container.innerHTML = `<div class="empty">No playlist selected</div>`;
       countEl.textContent = '· 0';
+      if (this.selr) this.selr.paint();
       this.updateStatus();
       return;
     }
@@ -590,6 +605,7 @@ var plBoss = {
 
     if(!this.view.length){
       container.innerHTML = `<div class="empty">No tracks yet.<br>Hit ＋ above to add from your library.</div>`;
+      if (this.selr) this.selr.paint();
       this.updateStatus();
       return;
     }
@@ -634,7 +650,10 @@ var plBoss = {
           return;
         }
         if (e.target.classList.contains('del-btn') || e.target.classList.contains('track-handle')) return;
-        this.playIndex(Number(el.dataset.i));
+        const i = Number(el.dataset.i);
+        // picking several tracks (Shift / Ctrl + click, or taps after a long-press) doesn't play
+        if (this.selr && this.selr.rowClick(e, i)) return;
+        this.playIndex(i);
       };
     });
 
@@ -704,6 +723,7 @@ var plBoss = {
     });
 
     this.syncHighlight();
+    if (this.selr) this.selr.paint();
     this.updateStatus();
   },
 

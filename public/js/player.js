@@ -441,12 +441,18 @@ var ytGuard = {
       var e = document.elementFromPoint(v.left + v.width * (i + 0.5) / 5, v.top + v.height * (j + 0.5) / 5);
       if (e && !e.closest('#deck .screen') && bad.indexOf(e) === -1) bad.push(e);
     }
-    ['promoPop', 'thumbPop', 'appBanner'].forEach(function(id){
+    ['thumbPop', 'appBanner'].forEach(function(id){
       var el = document.getElementById(id);
       if (el && !el.hidden && ytGuard.overlaps(el) && bad.indexOf(el) === -1) bad.push(el);
     });
+    document.querySelectorAll('.promo-pop.pp-float').forEach(function(el){
+      if (ytGuard.overlaps(el) && bad.indexOf(el) === -1) bad.push(el);
+    });
     bad.forEach(function(e){
-      var fl = e.closest ? e.closest('#promoPop, #thumbPop, #appBanner') : null;
+      // a promoted card slides off the player (or is taken down if there is no room)
+      var card = e.closest ? e.closest('.promo-pop.pp-float') : null;
+      if (card && window.promoPopup){ promoPopup.avoidPlayer(card); return; }
+      var fl = e.closest ? e.closest('#thumbPop, #appBanner') : null;
       // the remote is allowed to be wherever it was put, but not on the player:
       // it steps aside rather than being hidden
       if (e.closest && e.closest('#remote') && window.remote){ remote.avoidPlayer(); return; }

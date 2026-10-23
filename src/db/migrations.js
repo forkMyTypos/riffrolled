@@ -445,6 +445,25 @@ const MIGRATIONS = [
        at       TEXT NOT NULL,
        PRIMARY KEY (who, promo_id))`,
   ] },
+  { id: 28, name: 'promo-label-size', sql: [
+    /* How much of the record is picture: 'sm' (a small label, more vinyl),
+       'md' (the original) or 'lg' (mostly picture, a thin rim of vinyl).
+       Decoration only, like style and color; the poster ignores it. */
+    `ALTER TABLE promotions ADD COLUMN size TEXT NOT NULL DEFAULT 'md'`,
+  ] },
+  { id: 29, name: 'drop-unused-server-copies', sql: [
+    /* The server keeps the shared catalogue, shared mixes and the credit
+       economy; a listener's own data lives in their browser (Dexie).
+       Two tables broke that and were never read:
+         · playlists / playlist_tracks — an anonymous copy of every DJ AI
+           set (POST /api/playlist/save now only adds the tracks)
+         · links — track-to-track links; nothing ever published one
+           (POST /api/link is gone), and links already live in Dexie.
+       D1 Time Travel can bring them back for 7 days if ever needed. */
+    `DROP TABLE IF EXISTS playlist_tracks`,
+    `DROP TABLE IF EXISTS playlists`,
+    `DROP TABLE IF EXISTS links`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

@@ -10,6 +10,7 @@
 // end up in other people's pages:
 //   style  'record' | 'poster'   (anything else is 'record')
 //   color  '#rrggbb' | ''        ('' = the original look, no tint)
+//   size   'sm' | 'md' | 'lg'    (how much of the record is picture; 'md' default)
 // A color is only ever kept if it is exactly seven characters of that
 // shape. The browser does the rest of the work (see promoPopup.paint).
 
@@ -38,6 +39,14 @@ export function cleanGenres(raw) {
     if (out.length >= MAX_GENRES) break;
   }
   return out;
+}
+
+/* How big the picture (the record's centre label) is. Closed list. */
+export const SIZES = ['sm', 'md', 'lg'];
+export const DEFAULT_SIZE = 'md';
+export function cleanSize(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return SIZES.includes(s) ? s : DEFAULT_SIZE;
 }
 
 export function cleanColor(v) {

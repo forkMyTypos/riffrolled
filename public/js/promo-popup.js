@@ -88,6 +88,7 @@ var promoPopup = {
     if (Date.now() < this._next) return;
     if (document.hidden) return;                          // not while tabbed away
     if (window.newHere && newHere.on) return;             // nothing has been played yet: no adverts
+    if (document.querySelector('.pl-selbar:not([hidden])')) return;   // someone is picking tracks: not now
     await this.showOne();
   },
 
@@ -145,7 +146,7 @@ var promoPopup = {
       if (old){ slot = old.slot; this.remove(old, true); }
 
       var cur = { id: p.id, ytId: m[1], name: p.label || p.name || m[1], url: p.url,
-                  style: p.style === 'poster' ? 'poster' : 'record', color: p.color || '', size: p.size || 'md' };
+                  style: p.style === 'poster' ? 'poster' : 'record', color: p.color || '', size: p.size || 'md', hole: p.hole === 0 ? 0 : 1 };
       this.seen[p.id] = 1;
       this.shown++;
 
@@ -163,9 +164,10 @@ var promoPopup = {
         return;
       }
       requestAnimationFrame(function(){ c.el.classList.add('show'); });
+      if (window.riffUsage) riffUsage.count('promo_shown');
       this._next = Date.now() + this.GAP;
       // History → Ads: the last 20, in this browser only
-      try { if (window.dbBoss && dbBoss.addAdSeen) dbBoss.addAdSeen({ promoId: cur.id, ytId: cur.ytId, name: cur.name, url: cur.url, style: cur.style, color: cur.color, size: cur.size }); } catch(e){}
+      try { if (window.dbBoss && dbBoss.addAdSeen) dbBoss.addAdSeen({ promoId: cur.id, ytId: cur.ytId, name: cur.name, url: cur.url, style: cur.style, color: cur.color, size: cur.size, hole: cur.hole }); } catch(e){}
     } catch(e){ /* a card is never worth an error */ }
   },
 
@@ -178,16 +180,16 @@ var promoPopup = {
     el.setAttribute('aria-label', 'Promoted track');
     el.innerHTML = this.markup(cur.ytId, cur.name, cur.style)
       + (this.phone() ? '' : "<span class='pp-grip' title='Drag to resize' data-testid='pp-grip'></span>");
-    this.dress(el, cur.style, cur.color, cur.size);
+    this.dress(el, cur.style, cur.color, cur.size, cur.hole);
     document.body.appendChild(el);
     var c = { el: el, cur: cur, slot: slot, at: Date.now() };
     this.cards.push(c);
     var self = this;
     el.addEventListener('click', function(e){
       if (el._dragged){ el._dragged = false; return; }       // the end of a drag is not a click
-      if (e.target.closest('.pp-close')){ self.close(c, true); return; }
-      if (e.target.closest('.pp-play')){ ytPlay(cur.ytId, cur.name); self.count('play', cur); self.close(c, false); return; }
-      if (e.target.closest('.pp-add')){ self.add(c); return; }
+      if (e.target.closest('.pp-close')){ if (window.riffUsage) riffUsage.count('promo_close'); self.close(c, true); return; }
+      if (e.target.closest('.pp-play')){ if (window.riffUsage) riffUsage.count('promo_play'); ytPlay(cur.ytId, cur.name); self.count('play', cur); self.close(c, false); return; }
+      if (e.target.closest('.pp-add')){ if (window.riffUsage) riffUsage.count('promo_add'); self.add(c); return; }
       if (e.target.closest('.pp-report')){ self.report(e.target.closest('.pp-report'), c); return; }
       if (e.target.closest('.pp-why')){
         appNotify('Someone spent riff tokens they mined to show you this track. Mine your own in the ⛏ Mine panel.', 'ok');
@@ -476,13 +478,15 @@ var promoPopup = {
     { id:'lg', name:'More picture' }
   ],
 
-  /* Put a style, a color and a label size on a card element (the real one
-     or a preview). */
-  dress(el, style, color, size){
+  /* Put a style, a color, a label size and the hole (or not) on a card
+     element (the real one or a preview). hole: anything but 0 / false is
+     the original record, with its spindle hole. */
+  dress(el, style, color, size, hole){
     var st = style === 'poster' ? 'poster' : 'record';
     var sz = (size === 'sm' || size === 'lg') ? size : 'md';
-    el.classList.remove('pp-style-record', 'pp-style-poster', 'pp-label-sm', 'pp-label-md', 'pp-label-lg');
+    el.classList.remove('pp-style-record', 'pp-style-poster', 'pp-label-sm', 'pp-label-md', 'pp-label-lg', 'pp-nohole');
     el.classList.add('pp-style-' + st, 'pp-label-' + sz);
+    if (hole === 0 || hole === false || hole === '0') el.classList.add('pp-nohole');
     ['--pp-c','--pp-g1','--pp-g2','--pp-rim','--pp-glow','--pp-sh1','--pp-sh2','--pp-hue','--pp-sat']
       .forEach(function(k){ el.style.removeProperty(k); });
     var lk = this.look(color);
@@ -533,6 +537,7 @@ var promoPopup = {
     }
     var id = c.cur.id;
     this.seen[id] = 1;
+    if (window.riffUsage) riffUsage.count('promo_report');
     this.close(c, true);
     try {
       await fetch('/api/promo/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) });

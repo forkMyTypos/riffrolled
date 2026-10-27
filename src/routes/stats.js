@@ -1,6 +1,8 @@
 // ── POST /api/stats ───────────────────────────────────────────────────
 // One batched, anonymous summary of what happened on a device: which
-// tracks were played, liked or disliked.
+// tracks were played, liked or disliked, and (unless the listener switched
+// it off) how many times each of a closed list of features was used —
+// added to that day's totals, see src/usage.js.
 //
 // WHAT THIS DELIBERATELY DOES NOT CARRY: no wallet, no device id, no
 // session id, no timestamps per event, no order. The body is a tally, not
@@ -38,6 +40,7 @@
 
 import { json, errorJson, readJson } from '../utils/response.js';
 import { canonicalYouTubeUrl } from '../db/queries.js';
+import { cleanEvents, usageStatements } from '../usage.js';
 
 /* Caps. Not security — an attacker just sends more requests — but they keep
    one accidental loop from doing real damage, bound the D1 write cost of a
@@ -69,8 +72,10 @@ export async function handleStats(request, env) {
   const plays = tally(body.plays);
   const likes = tally(body.likes);
   const dislikes = tally(body.dislikes);
+  // how the site is used: daily totals of a closed list of events (src/usage.js)
+  const events = cleanEvents(body.events);
 
-  if (!plays.size && !likes.size && !dislikes.size) {
+  if (!plays.size && !likes.size && !dislikes.size && !events.size) {
     return json(env, { ok: true, counted: 0 });
   }
 
@@ -85,11 +90,12 @@ export async function handleStats(request, env) {
   bump('plays', plays);
   bump('likes', likes);
   bump('dislikes', dislikes);
+  if (events.size) stmts.push(...usageStatements(env.DB, events));
 
   await env.DB.batch(stmts);
   return json(env, {
     ok: true,
-    counted: plays.size + likes.size + dislikes.size,
+    counted: plays.size + likes.size + dislikes.size + events.size,
   });
 }
 

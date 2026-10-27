@@ -293,3 +293,14 @@ body.mobile #deck .remote .transport { gap:9px; }
 .share-menu .t-mi:disabled:hover { background:none; color:rgba(255,255,255,0.72); }
 #shareMenu.pos-sheet { position:fixed; left:12px; right:12px; top:auto; bottom:calc(84px + env(safe-area-inset-bottom)); min-width:0; }
 #shareMenu.pos-sheet .t-mi { font-size:13px; padding:10px; }
+
+/* the share menu lives in <body> and is placed by measuring (share.js) */
+#shareMenu.share-float { position:fixed; bottom:auto; right:auto; transform:none; z-index:2650; min-width:280px; max-width:calc(100vw - 16px); }
+#shareMenu.squeezed { overflow-y:auto; }
+#shareMenu.pos-sheet { z-index:2650; transform:none; }
+#shareMenu .sm-pl { padding:7px 9px 6px; margin-bottom:3px; font-size:11.5px; font-weight:700; color:#fff; border-bottom:1px solid rgba(255,255,255,0.08);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px; }
+#shareMenu .sm-pl.none { color:rgba(255,255,255,0.5); font-weight:400; }
+#shareMenu .t-mi.sm-main { color:#fff; background:rgba(70,224,255,0.08); border:1px solid rgba(70,224,255,0.3); }
+#shareMenu .t-mi.sm-main:hover { background:rgba(70,224,255,0.16); }
+#shareMenu .t-mi.sm-main .t-mi-ico { color:#46e0ff; }

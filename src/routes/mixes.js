@@ -27,10 +27,12 @@
 //     counter is not a record of anyone, and it is pruned after two days
 //   · the same set of tracks can only be listed once
 //   · a share needs a wallet key, and every wallet starts at sharing:false —
-//     its mixes are kept as pending (in the database, listed nowhere) until
+//     its Community mixes are kept as pending (in the database, listed nowhere) until
 //     the owner looks at them in the admin tool and approves the key once;
 //     after that its shares are listed straight away (MIX_SHARE_REVIEW;
-//     off = no review). A key can have MAX_WAITING mixes waiting at a time
+//     off = no review). A key can have MAX_WAITING mixes waiting at a time.
+//     Link-only mixes (sent to people, in no list) never wait, and can be
+//     as short as one track
 //   · enough different people reporting a mix hides it (MIX_REPORTS_TO_HIDE);
 //     the owner can hide or restore any mix in the admin tool
 // Play counts are anonymous and cheap to inflate; they order the Popular
@@ -260,9 +262,15 @@ export async function handleShareMix(request, env) {
   const name = cleanName(body && body.name);
   if (!name) return errorJson(env, 'Give the mix a plain name, 3–80 characters, without links', 400, 'bad_name');
   const rows = Array.isArray(body && body.tracks) ? body.tracks : null;
+  /* listed (Community) or link-only (sent to people). A link-only mix is in
+     no list, so it needs no approval and no minimum length: sending a friend
+     a two-track playlist should just work. Community still waits for the
+     owner's OK the first time, and needs MIX_MIN_TRACKS. */
+  const listed = !(body && body.listed === false);
+  const minTracks = listed ? cfg.MIX_MIN_TRACKS : 1;
   if (!rows || !rows.length) return errorJson(env, 'Missing tracks', 400);
   if (rows.length > MAX_TRACKS) return errorJson(env, `Too many tracks (max ${MAX_TRACKS})`, 400);
-  if (rows.length < cfg.MIX_MIN_TRACKS) return errorJson(env, `A mix needs at least ${cfg.MIX_MIN_TRACKS} tracks`, 422, 'too_short');
+  if (rows.length < minTracks) return errorJson(env, `A mix needs at least ${minTracks} tracks`, 422, 'too_short');
 
   // the sharer's PUBLIC key, from the private key the page sends; logged for
   // the owner, never shown to listeners. No key, no share: approval is per key
@@ -273,7 +281,7 @@ export async function handleShareMix(request, env) {
   const sharer = await env.DB.prepare(`SELECT sharing FROM sharers WHERE pub = ?1`).bind(creator).first();
   const sharing = sharer ? Number(sharer.sharing) : 0;
   if (sharing < 0) return errorJson(env, 'This key can’t share mixes', 403, 'sharing_blocked');
-  const review = cfg.MIX_SHARE_REVIEW && sharing !== 1;
+  const review = listed && cfg.MIX_SHARE_REVIEW && sharing !== 1;
   if (review) {
     const waiting = await env.DB.prepare(
       `SELECT COUNT(*) AS n FROM mixes WHERE creator = ?1 AND pending = 1`
@@ -306,25 +314,27 @@ export async function handleShareMix(request, env) {
   const got = await ingestTracks(env, rows);
   if (got.fail) return errorJson(env, got.fail[0], got.fail[1], got.fail[2]);
   const { ids, dropped } = got;
-  if (ids.length < cfg.MIX_MIN_TRACKS) {
-    return errorJson(env, `Only ${ids.length} of those tracks are real YouTube videos — a mix needs ${cfg.MIX_MIN_TRACKS}`, 422, 'too_short');
+  if (ids.length < minTracks) {
+    return errorJson(env, `Only ${ids.length} of those tracks are real YouTube videos — a mix needs ${minTracks}`, 422, 'too_short');
   }
 
   // the same tracks in the same order are the same mix, whatever it is called
   const fingerprint = (await sha256hex(ids.join(','))).slice(0, 32);
-  const listed = !(body && body.listed === false);
   const showBy = !!(body && body.showBy === true);
   const existing = await env.DB.prepare(`SELECT id, name, pending, slug, kind, creator FROM mixes WHERE fingerprint = ?1`).bind(fingerprint).first();
   if (existing) {
     /* The same tracks were shared before. If it was link-only and is now
        being shared with everyone, by the same key, it moves into the
        Community list; nothing else about it changes. */
+    let pending = Number(existing.pending) === 1;
     if (listed && existing.kind === 'link' && existing.creator === creator) {
-      await env.DB.prepare(`UPDATE mixes SET kind = 'community' WHERE id = ?1`).bind(existing.id).run();
+      // going public: a key that hasn't been OK'd yet waits, like any Community share
+      if (review) pending = true;
+      await env.DB.prepare(`UPDATE mixes SET kind = 'community', pending = ?2 WHERE id = ?1`).bind(existing.id, pending ? 1 : 0).run();
     }
     await fillSlugs(env, [existing]);
     return json(env, { id: existing.id, name: existing.name, slug: existing.slug, tracks: ids.length, existing: true,
-                       ...(existing.pending ? { pending: true } : {}) });
+                       listed: listed || existing.kind !== 'link', ...(pending ? { pending: true } : {}) });
   }
 
   const genre = normalizeGenre(body.genre || '').genre;

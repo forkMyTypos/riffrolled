@@ -25,7 +25,7 @@
 // which fails if the two differ — so there is one list, in one place.
 
 export const GENRES = [
-  'Ambient', 'Electronic', 'House', 'Techno', 'Drum & Bass', 'Synthwave',
+  'Ambient', 'Electronic', 'House', 'Techno', 'Trance', 'Drum & Bass', 'Synthwave',
   'Downtempo', 'Lo-fi', 'Trip-hop', 'Hip-hop', 'R&B / Soul', 'Funk / Disco',
   'Jazz', 'Classical', 'Soundtrack', 'Folk', 'Country', 'Blues', 'Rock',
   'Indie', 'Alternative', 'Post-punk', 'Punk', 'Metal',
@@ -51,6 +51,8 @@ const RULES = [
   ['Trip-hop',      ['trip hop', 'triphop']],
   ['Lo-fi',         ['lo fi', 'lofi', 'chillhop', 'chill hop']],
   ['Drum & Bass',   ['drum and bass', 'drum n bass', 'drumandbass', 'dnb', 'jungle']],
+  // before House and Techno: "progressive trance" and "tech trance" are Trance
+  ['Trance',        ['trance', 'psytrance', 'psy trance', 'goa', 'hard trance']],
   ['House',         ['house']],
   ['Techno',        ['techno', 'minimal', 'industrial']],
   ['Downtempo',     ['downtempo', 'chillout', 'chill out', 'lounge', 'chill']],
@@ -74,7 +76,7 @@ const RULES = [
   ['Soundtrack',    ['soundtrack', 'score', 'ost', 'film', 'video game', 'cinematic']],
   ['Classical',     ['classical', 'neoclassical', 'orchestral', 'baroque', 'opera', 'symphony', 'piano']],
   ['Experimental',  ['experimental', 'idm', 'glitch', 'noise', 'avant garde', 'musique concrete']],
-  ['Electronic',    ['electronic', 'electronica', 'edm', 'electro', 'trance', 'dubstep', 'dance']],
+  ['Electronic',    ['electronic', 'electronica', 'edm', 'electro', 'dubstep', 'dance']],
   ['Pop',           ['pop']],
 ];
 

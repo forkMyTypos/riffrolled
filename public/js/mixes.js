@@ -419,6 +419,7 @@ var mixesBoss = {
       var r = await fetch('/api/mixes/' + code);
       if (r.status === 404){ this.status('That mix isn’t available. It may have been removed, or it’s still waiting to be approved.', 'warn'); return; }
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (window.riffUsage) riffUsage.count('mix_open');
       this.showLinked(await r.json());
     } catch(e){ this.status('Couldn’t open that link just now. Check your connection and try again.', 'err'); }
   },
@@ -568,6 +569,7 @@ var mixesBoss = {
       var j = null; try { j = await r.json(); } catch(e){}
       if (!r.ok) throw new Error((j && j.error) || 'That didn’t work (HTTP ' + r.status + ')');
       try { await db.playlists.update(s.id, { sharedMixId: j.id, sharedSlug: j.slug || '' }); } catch(e){}
+      if (window.riffUsage) riffUsage.count(j.listed === false ? 'share_link' : 'share_community');
       this._shareFor = null;
       if (j.listed === false || (j.existing && !j.pending && (el.querySelector("input[name='mx-who']:checked") || {}).value === 'link')){
         // link-only: straight to the link, and to Yours where its plays will show

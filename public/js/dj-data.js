@@ -156,7 +156,7 @@ var DJ_CATEGORIES = [
     enabled: true,
     placeholder: 'Pick a starting coordinate…',
     // a direction is a starting point, not a filter — the prompt says so
-    note: 'A starting coordinate, not a genre filter. The DJ is allowed to wander.',
+    note: 'Tick “Stay in this genre” to keep the set in it; untick it and the DJ treats it as a starting point and wanders.',
     options: [
       { label: 'Something completely different', tags: ['weird','modern','raw'], vibe: ['weird','modern','raw'] },
       { label: 'Ambient', tags: ['calm','still','hypnotic'], vibe: ['calm','still','hypnotic'] },
@@ -179,6 +179,7 @@ var DJ_CATEGORIES = [
       { label: 'Soul', tags: ['warm','organic','melancholy'], vibe: ['warm','organic','emotional'] },
       { label: 'Soundtrack', tags: ['cinematic'], vibe: ['cinematic','dramatic','expansive'] },
       { label: 'Synthwave', tags: ['electronic','retro','night'], vibe: ['electronic','retro','night'] },
+      { label: 'Trance', tags: ['electronic','hypnotic','motion'], vibe: ['euphoric','hypnotic','driving'] },
       { label: 'World', tags: ['organic','motion','weird'], vibe: ['global','rhythmic','exploratory'] },
       { label: 'Afrobeats', tags: ['motion','bright','modern'], vibe: ['rhythmic','bright','modern'] },
       { label: 'Afrobeat', tags: ['organic','motion'], vibe: ['organic','polyrhythmic','groove'] },
@@ -1213,15 +1214,15 @@ THE PLAYLIST TO CHECK
 {{playlist}}
 `;
 
-/* The listening block, only when track data is shared. Speed mode shares
-   the top ten and nothing else — enough to show taste, small enough to
-   read in a second. */
+/* The listening block, only when track data is shared: the listener's
+   10 / 15 / 20 most-liked tracks (their choice) and nothing else, in every
+   mode. Enough to show taste, small enough to read in a second. */
 var DJ_SPEED_LISTENING = `
 WHAT I ALREADY LISTEN TO
 
-Here are my 10 most-played tracks:
+Here are my {{n}} most-liked tracks:
 
-{{top_10_tracks}}
+{{liked_tracks}}
 
 Use these as a quick indication of my taste.
 

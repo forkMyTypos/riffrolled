@@ -97,17 +97,16 @@
                             <button class="t-btn deck-key key-share" id="btnShare" title="Share a track or a playlist" aria-label="Share"
                                     aria-haspopup="true" aria-expanded="false" data-label="SHARE" data-testid="btn-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
                             <div class="t-menu share-menu" id="shareMenu" hidden role="menu" data-testid="share-menu">
-                                <div class="t-mi-lbl">Send to a person</div>
-                                <button class="t-mi" data-s="track" role="menuitem" data-testid="share-track">
-                                    <span class="t-mi-ico">♪</span><span class="t-mi-txt">Copy a link to this track</span>
+                                <div class="sm-pl" data-testid="share-pl-name"></div>
+                                <button class="t-mi sm-main" data-s="link" role="menuitem" data-testid="share-pl-link">
+                                    <span class="t-mi-ico">🔗</span><span class="t-mi-txt">Send this playlist <small>copies a link — anyone you send it to can play it</small></span>
                                 </button>
-                                <button class="t-mi" data-s="link" role="menuitem" data-testid="share-pl-link">
-                                    <span class="t-mi-ico">🔗</span><span class="t-mi-txt">Link to this playlist <small>only people you send it to</small></span>
+                                <button class="t-mi" data-s="track" role="menuitem" data-testid="share-track">
+                                    <span class="t-mi-ico">♪</span><span class="t-mi-txt">Send the track that's playing <small>copies a link to just this track</small></span>
                                 </button>
                                 <div class="t-mi-sep"></div>
-                                <div class="t-mi-lbl">Share with everyone</div>
                                 <button class="t-mi" data-s="everyone" role="menuitem" data-testid="share-pl-everyone">
-                                    <span class="t-mi-ico">🌍</span><span class="t-mi-txt">Share this playlist in Community</span>
+                                    <span class="t-mi-ico">🌍</span><span class="t-mi-txt">Share to Community… <small>everyone can find it in Mixes</small></span>
                                 </button>
                                 <button class="t-mi" data-s="mine" role="menuitem" data-testid="share-mine">
                                     <span class="t-mi-ico">📈</span><span class="t-mi-txt">Your shared mixes and their plays</span>

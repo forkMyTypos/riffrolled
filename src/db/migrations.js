@@ -464,6 +464,24 @@ const MIGRATIONS = [
     `DROP TABLE IF EXISTS playlists`,
     `DROP TABLE IF EXISTS links`,
   ] },
+  { id: 30, name: 'hole-trance-usage', sql: [
+    /* The promoted record with or without its spindle hole (1 = with, the
+       original look). Decoration only; the poster ignores it. */
+    `ALTER TABLE promotions ADD COLUMN hole INTEGER NOT NULL DEFAULT 1`,
+    /* Trance joins the closed genre list (src/genres.js). Tracks that came
+       in as trance were filed under Electronic; genre_raw still says what
+       they were called, so they move back. */
+    `UPDATE tracks SET genre = 'Trance'
+      WHERE genre = 'Electronic' AND (lower(genre_raw) LIKE '%trance%' OR lower(genre_raw) LIKE '%goa%')`,
+    /* How the site is used, as daily totals per event and nothing else: no
+       id, no device, no address, no order. The closed list of events is in
+       src/usage.js; anything else is dropped. Pruned after 400 days. */
+    `CREATE TABLE IF NOT EXISTS usage (
+       day   TEXT NOT NULL,
+       event TEXT NOT NULL,
+       n     INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY (day, event))`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

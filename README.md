@@ -237,7 +237,7 @@ hash, never by address. Config keys: `MIX_SHARE_PER_DAY` (default 5; **0 turns s
 In the admin tool the **Mixes** tab pastes a list (any AI can produce it — the tab has a "copy instructions"
 button), checks every link with YouTube from your computer, and publishes; ▲▼ sets the order, and
 Hide / Show / Delete / Feature moderate community mixes. Deploy the project first: the tab says so if
-the tables are missing (`/api/health` should show `"schema":29`).
+the tables are missing (`/api/health` should show `"schema":30`).
 
 ## Endpoints
 
@@ -267,7 +267,7 @@ the tables are missing (`/api/health` should show `"schema":29`).
 | POST   | /api/promo/event        | `{id\|url, kind}`                 | engagement only — cannot move money |
 | POST   | /api/promotions/brief   | `{brief_id, tags:[]}`             | up to 3 matching placements, **free** |
 | POST   | /api/promotions/brief/claim | `{brief_id}`                  | charges one credit per placement, once |
-| POST   | /api/stats              | `{plays?, likes?, dislikes?}`     | anonymous counters (an old client's `linkFollows` is ignored) |
+| POST   | /api/stats              | `{plays?, likes?, dislikes?, events?}` | anonymous counters; `events` = usage totals (src/usage.js) |
 
 Search behaviour: D1 first; ≥8 cached matches returns at **zero** YouTube quota cost (`X-Riff-Source: db`). Otherwise one `search.list` call to YouTube, new rows inserted (deduped by `url`), then re-query and return. Quota/rate-limit problems degrade to the cache (`X-Riff-Source: db-stale`) instead of erroring. YouTube results map to your columns as: `name` = video title, `artist` = channel name (best available), `genre` = empty (yours to fill), `url` = full watch URL.
 
@@ -559,6 +559,34 @@ touch), so the caller doesn't play. One capture-phase keydown handler sends Shif
 `PlSelect.current()`: the window last clicked in, if open. Long-press (480 ms, touch/pen) starts picking.
 `create()` makes the playlist in list order (`dbBoss.createPl`, `addToPlaylist`) and leaves you where
 you were, with an "Open it" banner. All local (Dexie).
+
+## Schema 30: hole, Trance, usage totals, instant links
+
+**Schema 30** (`hole-trance-usage`): `promotions.hole` (1 = with the spindle hole; `cleanHole` in
+`src/cardlook.js`; carried by `/promote`, `/next`, the lists and the `look` action; the card gets
+`pp-nohole`), Trance re-mapped from `genre_raw`, and `usage (day, event, n)`. `/api/health` → `"schema":30`.
+
+**Usage** (`src/usage.js`, `riffUsage` in `js/stats.js`): `riffUsage.count(name)` adds to
+`statsBoss.pending.events`, sent with the regular `/api/stats` summary; the server keeps only names on
+`EVENTS` (max 500 per event per summary) as `INSERT … ON CONFLICT DO UPDATE SET n = n + excluded.n` for
+the UTC day. Off via the Privacy switch (`usageOff` setting) or Global Privacy Control; a one-time note
+(`usageNoticeSeen`). Swept after 400 days. Admin: `GET /api/usage?days=30`, Usage tab.
+
+**Mixes**: `listed:false` shares skip `MIX_SHARE_REVIEW` and need only 1 track; a link-only mix later
+shared to Community by an unapproved key becomes pending. `shareBoss.sendPlaylist(id)` makes the
+link-only mix in one press and caches `sharedSlug`/`sharedSig` on the Dexie playlist, so the same tracks
+reuse the link. The share menu is in `<body>`, placed by measuring (`shareBoss.place`), and opens from
+the deck or `.pl-share` (`shareBoss.open(anchor, plId)`).
+
+**DJ AI**: `djAi.likedTracks(n)` / `listeningBlock()` — the 10/15/20 most-liked (`state.likedN`) in
+every mode, nothing else; `state.stick` adds "stay in it" to the direction. Seeding adopts a listener's
+own option whose label matches a new built-in (case-insensitive).
+
+**Genres**: Trance added to `src/genres.js` (and the generated browser copy and admin `GENRES`), rule
+before House/Techno; `dbBoss.backfillGenres` moves local trance tracks once (`genreTrance`).
+
+**Playlist windows**: `PlSelect.setMode()` behind ☑ Select (`.pl-select`, `.plw-select`); ⧉
+(`.pl-beside`) opens the playlist list in `win-mode`, where a pick opens `plWins.open(id)`.
 
 ## Schema 29: what the server keeps
 

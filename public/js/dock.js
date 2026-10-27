@@ -123,8 +123,10 @@ var dock = {
   // unless the user has dragged it themselves (then we honour their position)
   openPanel(el){
     if (!el) return;
+    const wasHidden = el.classList.contains('is-hidden');
     el.classList.remove('is-hidden');
     const it = this.items.find(i => i.el === el);
+    if (wasHidden && it && it.slug && window.riffUsage) riffUsage.count('panel:' + it.slug);
     this.touch(it);
     if (it && it.btn){ it.btn.classList.add('active'); it.btn.setAttribute('aria-pressed','true'); }
     if (!this.mobile){

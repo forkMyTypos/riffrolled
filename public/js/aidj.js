@@ -52,6 +52,8 @@ var djAi = {
     minutes: 60,
     maxTrackMin: 8,
     shareContext: true,
+    likedN: 15,           // how many most-liked tracks go with "Share your track data": 10 | 15 | 20
+    stick: true,          // Where should we go: stay in that genre (true) or wander from it
     allowPromoted: false, // opt-in: paid placements offered alongside the brief
     shareCommunity: false,// opt-in: post imported sets to Mixes → Community
     seeds: [],            // Track Rolled Journey: [{ ytId, artist, title }], up to SEED_MAX
@@ -141,6 +143,16 @@ var djAi = {
           var o = c.options[j];
           inList[o.label] = true;
           var row = have[o.label];
+          if (!row){
+            // the listener typed this one before it was built in ("trance"): adopt theirs, keep their stars
+            var low = o.label.toLowerCase();
+            row = had.find(function(x){ return !x.builtin && String(x.label).toLowerCase() === low; });
+            if (row){
+              await db.djOptions.update(row.id, { builtin: true, label: o.label, tags: o.tags || [], line: o.line || '',
+                vibe: o.vibe || [], blurb: o.blurb || '' });
+              continue;
+            }
+          }
           if (row){
             /* A built-in the listener already has: keep their favourite,
                use count and hidden choice, but take the current wording —
@@ -457,56 +469,13 @@ var djAi = {
   },
 
   /* ── what the DJ is allowed to know about the listener ──
-     Local data, shown in full in the menu before it goes anywhere, and
-     switched off with one toggle. Nothing is sent by riffrolled: the
-     listener pastes it themselves. ── */
+     Only their 10 / 15 / 20 most-liked tracks (they choose), listed in
+     full in the menu before it goes anywhere, and switched off with one
+     toggle. Nothing is sent by riffrolled: the listener pastes it. ── */
   async context(){
-    var out = { top: [], liked: [], recent: [], tags: [], have: [], size: 0 };
-    try {
-      var tracks = await db.tracks.toArray();
-      out.size = tracks.length;
-      if (!tracks.length) return out;
-
-      var counts = await dbBoss.getPlayCounts();
-      var byYt = {};
-      tracks.forEach(function(t){ byYt[t.ytId] = t; });
-      var label = function(t){ return (t.artist ? t.artist + ' — ' : '') + (t.name || t.ytId); };
-
-      out.top = tracks.slice()
-        .sort(function(a, b){ return (counts[b.ytId] || 0) - (counts[a.ytId] || 0); })
-        .filter(function(t){ return (counts[t.ytId] || 0) > 0; })
-        .slice(0, 12).map(function(t){ return label(t) + ' (' + counts[t.ytId] + ')'; });
-
-      var likes = {};
-      (await db.reactions.where('kind').equals('like').toArray())
-        .forEach(function(r){ likes[r.ytId] = (likes[r.ytId] || 0) + 1; });
-      out.liked = Object.keys(likes)
-        .sort(function(a, b){ return likes[b] - likes[a]; }).slice(0, 10)
-        .map(function(y){ return byYt[y] ? label(byYt[y]) : null; }).filter(Boolean);
-
-      var hist = await db.playHistory.orderBy('ts').reverse().limit(40).toArray();
-      var seen = {};
-      hist.forEach(function(h){
-        if (seen[h.ytId] || !byYt[h.ytId] || out.recent.length >= 10) return;
-        seen[h.ytId] = 1;
-        out.recent.push(label(byYt[h.ytId]));
-      });
-
-      var tagCount = {};
-      tracks.forEach(function(t){
-        (t.tags || '').split(',').forEach(function(raw){
-          var tag = raw.trim().toLowerCase();
-          if (tag) tagCount[tag] = (tagCount[tag] || 0) + 1;
-        });
-      });
-      out.tags = Object.keys(tagCount)
-        .sort(function(a, b){ return tagCount[b] - tagCount[a]; }).slice(0, 14);
-
-      var artists = {};
-      tracks.forEach(function(t){ if (t.artist) artists[t.artist.trim()] = 1; });
-      out.have = Object.keys(artists).slice(0, 60);
-    } catch(e){ /* context is a bonus */ }
-    return out;
+    // what "Share your track data" hands the DJ: the most-liked tracks only
+    var liked = await this.likedTracks(this.likedN());
+    return { liked: liked, size: liked.length };
   },
 
   /* ── the prompt ──────────────────────────────────────────────────────
@@ -644,6 +613,13 @@ var djAi = {
              vibe: (o.vibe && o.vibe.length) ? o.vibe.join(' · ') : '' };
   },
 
+  /** What the brief says about "Where should we go?": stay in it, or wander. */
+  _dirNote(v){
+    if (v && !v.any && this.state.stick !== false)
+      return 'Stay in it: most tracks should clearly be ' + v.label + '. A few close neighbours are fine, but this is the listener\'s chosen genre, not a loose suggestion.';
+    return 'A starting coordinate, not a genre filter. You are allowed to wander.';
+  },
+
   _chaosLine(){
     return DJ_CHAOS_LINES[Math.floor(Math.random() * DJ_CHAOS_LINES.length)];
   },
@@ -666,7 +642,10 @@ var djAi = {
     };
     line('What are you doing', 'activity');
     line('How it should feel', 'feel');
-    line('Where to go', 'direction', ' (a starting coordinate, not a genre fence)');
+    var dv = this._say('direction');
+    line('Where to go', 'direction', dv && !dv.any && s.stick !== false
+      ? ' (stay in it: most tracks should clearly be ' + dv.label + '; a few close neighbours are fine)'
+      : ' (a starting coordinate, not a genre fence)');
     var d = this._say('discovery');
     if (d) L.push('Discovery: ' + (d.label || "Don't care") + (d.line && !d.any ? ' — ' + d.line : ''));
     var p = this._say('personality');
@@ -685,14 +664,9 @@ var djAi = {
     var g = this._genreList();
     if (g) L.push('Allowed genres for the GENRE line: ' + g);
 
-    // one-shot shares the top ten and nothing else — enough to show taste
-    if (s.shareContext){
-      var top = await this.topTracks(10);
-      if (top.length){
-        L.push('');
-        L.push(DJ_SPEED_LISTENING.replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n')).trim());
-      }
-    }
+    // the listener's most-liked tracks, and nothing else about them
+    var lb = await this.listeningBlock();
+    if (lb){ L.push(''); L.push(lb); }
     var promoted = await this.promotedBlock();
     if (promoted){ L.push(''); L.push(promoted.trim()); }
 
@@ -702,20 +676,37 @@ var djAi = {
   },
 
   /** most-played, as "Artist — Title (23 plays)" */
-  async topTracks(n){
+  /** The listener's most-liked tracks, "Artist - Title", most likes first
+      (a tie goes to the one liked most recently). This is all the DJ is
+      told about the listener's taste: no plays, history, tags or library. */
+  async likedTracks(n){
     try {
-      var counts = await dbBoss.getPlayCounts();
-      var tracks = await db.tracks.toArray();
-      return tracks
-        .filter(function(t){ return (counts[t.ytId] || 0) > 0; })
-        .sort(function(a, b){ return (counts[b.ytId] || 0) - (counts[a.ytId] || 0); })
-        .slice(0, n || 10)
-        // "Artist - Title", the way a tracklist reads. No play counts: the
-        // order already says which ones get played most.
-        .map(function(t){
-          return (t.artist ? t.artist + ' - ' : '') + (t.name || t.ytId);
-        });
+      var likes = {}, last = {};
+      (await db.reactions.where('kind').equals('like').toArray()).forEach(function(r){
+        likes[r.ytId] = (likes[r.ytId] || 0) + 1;
+        last[r.ytId] = Math.max(last[r.ytId] || 0, r.ts || 0);
+      });
+      var ids = Object.keys(likes).sort(function(a, b){ return (likes[b] - likes[a]) || (last[b] - last[a]); });
+      var out = [];
+      for (var i = 0; i < ids.length && out.length < (n || 15); i++){
+        var t = await db.tracks.where('ytId').equals(ids[i]).first();
+        if (t && t.playable !== 0) out.push((t.artist ? t.artist + ' - ' : '') + (t.name || t.ytId));
+      }
+      return out;
     } catch(e){ return []; }
+  },
+
+  /** how many liked tracks go with "Share your track data" */
+  likedN(){ var n = Number(this.state.likedN); return [10, 15, 20].indexOf(n) >= 0 ? n : 15; },
+
+  /** the listening block: the N most-liked, or '' with none */
+  async listeningBlock(){
+    if (!this.state.shareContext) return '';
+    var liked = await this.likedTracks(this.likedN());
+    if (!liked.length) return '';
+    return DJ_SPEED_LISTENING
+      .replace('{{n}}', String(liked.length))
+      .replace('{{liked_tracks}}', liked.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n')).trim();
   },
 
   /* MULTI-SHOT, prompt 1: the DJ brief (DJ_MULTI_PROMPT). The AI only
@@ -746,7 +737,7 @@ var djAi = {
     };
     sec('WHAT ARE YOU DOING?', [withVibe('activity')]);
     sec('HOW DO YOU WANT IT TO FEEL?', [withVibe('feel')]);
-    sec('WHERE SHOULD WE GO?', [dir ? withVibe('direction') : '', 'A starting coordinate, not a genre filter. You are allowed to wander.']);
+    sec('WHERE SHOULD WE GO?', [dir ? withVibe('direction') : '', this._dirNote(dir)]);
     var d = this._say('discovery');
     sec('DISCOVERY', [d && !d.any ? (d.line || d.label) : 'No particular discovery brief — just make it good.',
       'Do not turn this into an obscure-music exercise. A great song from a known artist is welcome when it improves the journey.']);
@@ -761,15 +752,8 @@ var djAi = {
     });
     if (s.chaos) sec('CHAOS', [this._chaosLine()]);
 
-    if (s.shareContext){
-      var ctx = await this.context();
-      if (ctx.size) sec('WHAT I ALREADY LISTEN TO', [
-        ctx.top.length ? 'Played most: ' + ctx.top.join('; ') : '',
-        ctx.liked.length ? 'Liked: ' + ctx.liked.join('; ') : '',
-        ctx.recent.length ? 'Recent: ' + ctx.recent.join('; ') : '',
-        ctx.tags.length ? 'My tags: ' + ctx.tags.join(', ') : '',
-        ctx.have.length ? 'Already in my library, so nothing here counts as a discovery: ' + ctx.have.join(', ') : '']);
-    }
+    var lb = await this.listeningBlock();
+    if (lb) B.push(lb + '\n');
     var promoted = await this.promotedBlock();
     if (promoted) B.push(promoted.trim() + '\n');
 
@@ -881,13 +865,8 @@ var djAi = {
     L.push('Longest single track: ' + s.maxTrackMin + ' minutes');
     var g = this._genreList();
     if (g) L.push('Allowed genres for the GENRE line: ' + g);
-    if (s.shareContext){
-      var top = await this.topTracks(10);
-      if (top.length){
-        L.push('');
-        L.push(DJ_SPEED_LISTENING.replace('{{top_10_tracks}}', top.map(function(t, i){ return (i + 1) + '. ' + t; }).join('\n')).trim());
-      }
-    }
+    var lb = await this.listeningBlock();
+    if (lb){ L.push(''); L.push(lb); }
     var promoted = await this.promotedBlock();
     if (promoted){ L.push(''); L.push(promoted.trim()); }
     return DJ_SEEDED_PROMPT.replace('{{brief}}', L.join('\n')).replace(/\{\{count\}\}/g, String(s.count));

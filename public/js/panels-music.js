@@ -171,6 +171,7 @@ var searchBoss = {
     box.innerHTML = "<div class='srh-sec-head'>" + (youtube ? 'Searching YouTube…' : 'In riffrolled’s catalogue') + "</div><div class='st-wait'>Looking…</div>";
     var rows = [];
     try {
+      if (window.riffUsage) riffUsage.count(youtube ? 'search_youtube' : 'search_catalogue');
       var r = await fetch('/api/search?limit=12&q=' + encodeURIComponent(q) + (youtube ? '' : '&source=db'));
       if (seq !== this._rseq) return;                    // a newer search overtook this one
       if (!r.ok) throw new Error('HTTP ' + r.status);

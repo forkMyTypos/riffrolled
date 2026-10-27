@@ -111,8 +111,12 @@ var djMenuBoss = {
         "<div class='dj-knows-body'>" +
           "<label class='dj-share'>" +
             "<input type='checkbox' class='dj-share-cb'><span class='spin-track'><span class='spin-thumb'></span></span>" +
-            "<span class='spin-label'>Share my listening with the DJ</span>" +
+            "<span class='spin-label'>Share my most-liked tracks</span>" +
           "</label>" +
+          "<div class='dj-liked-n' role='radiogroup' aria-label='How many liked tracks' data-testid='dj-liked-n'>" +
+            "<span>How many:</span>" +
+            "<button type='button' data-n='10'>10</button><button type='button' data-n='15'>15</button><button type='button' data-n='20'>20</button>" +
+          "</div>" +
           /* Opt-in, and worded so the trade is plain before it is taken:
              what goes in the brief, who paid for it, and that the DJ is
              under no obligation to use it. Off by default — a brief is
@@ -269,6 +273,8 @@ var djMenuBoss = {
       "</div>" +
       "<div class='dj-sec-body'>" +
         (c.note ? "<div class='dj-note'>" + escapeHtml(c.note) + "</div>" : '') +
+        (c.key === 'direction' ? "<label class='dj-stick' data-testid='dj-stick'><input type='checkbox' class='dj-stick-cb'" +
+          (djAi.state.stick !== false ? ' checked' : '') + "> Stay in this genre</label>" : '') +
         "<input type='text' class='dj-search' placeholder='Search…'>" +
         "<div class='dj-opts'></div>" +
         "<div class='row dj-addrow'>" +
@@ -593,6 +599,13 @@ var djMenuBoss = {
       self.renderKnows();
     };
 
+    root.querySelector('.dj-liked-n').onclick = async function(e){
+      var b = e.target.closest('button[data-n]'); if (!b) return;
+      djAi.state.likedN = Number(b.dataset.n);
+      await djAi.save();
+      self.renderKnows(); self.sync();
+    };
+
     root.querySelector('.dj-share-cb').onchange = async function(){
       djAi.state.shareContext = this.checked;
       await djAi.save();
@@ -762,6 +775,9 @@ var djMenuBoss = {
     var sec = e.target.closest('.dj-section');
     if (!sec) return;
     var key = sec.dataset.k;
+    var stick = e.target.closest('.dj-stick-cb');
+    if (stick){ djAi.state.stick = stick.checked; await djAi.save(); this.sync(); return; }
+    if (e.target.closest('.dj-stick')) return;     // the label passes its click to the box
 
     if (e.target.closest('.dj-fam-dice')){
       var steps = [0, 10, 20, 30, 50, 70, 90, 100];
@@ -895,12 +911,14 @@ var djMenuBoss = {
     root.querySelector('.dj-promo-cb').checked = !!s.allowPromoted;
     root.querySelector('.dj-knows-state').textContent = s.shareContext ? 'sharing' : 'private';
     root.querySelector('.dj-knows-state').className = 'dj-knows-state' + (s.shareContext ? ' on' : '');
-    // speed mode shares the top ten and says so; details shares the lot
-    root.querySelector('.dj-share .spin-label').textContent = this.speed()
-      ? 'Share my top 10 most-played tracks'
-      : 'Share my listening with the DJ';
-    root.querySelector('.dj-knows .dj-sec-label').textContent = this.speed()
-      ? 'Share your track data' : 'DJ knows';
+    // every mode shares the same thing: the N most-liked tracks
+    root.querySelector('.dj-share .spin-label').textContent = 'Share my ' + djAi.likedN() + ' most-liked tracks';
+    root.querySelector('.dj-knows .dj-sec-label').textContent = 'Share your track data';
+    root.querySelectorAll('.dj-liked-n button').forEach(function(b){
+      var on = Number(b.dataset.n) === djAi.likedN();
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    root.querySelector('.dj-liked-n').hidden = !s.shareContext;
 
     root.querySelector('.dj-brief').textContent = djAi.briefLine();
     var seeded = this.seeded();
@@ -931,22 +949,13 @@ var djMenuBoss = {
       box.innerHTML = "<div class='dj-note'>Nothing about your listening goes into the brief. The DJ chooses blind.</div>";
       return;
     }
-    var ctx = await djAi.context();
-    if (!ctx.size){
-      box.innerHTML = "<div class='dj-note'>Your library is empty, so there's nothing to share yet.</div>";
+    var liked = await djAi.likedTracks(djAi.likedN());
+    if (!liked.length){
+      box.innerHTML = "<div class='dj-note'>You haven't liked any tracks yet (👍 on the deck), so there's nothing to share.</div>";
       return;
     }
-    var rows = [
-      ['Played most', ctx.top.length],
-      ['Liked', ctx.liked.length],
-      ['Recent', ctx.recent.length],
-      ['Your tags', ctx.tags.length],
-      ['Artists you already have', ctx.have.length]
-    ].filter(function(r){ return r[1]; });
-    box.innerHTML = "<div class='dj-note'>This goes into the brief you copy — riffrolled sends nothing itself:</div>" +
-      rows.map(function(r){
-        return "<div class='dj-know-row'><span>" + r[0] + "</span><span class='dj-know-n'>" + r[1] + "</span></div>";
-      }).join('');
+    box.innerHTML = "<div class='dj-note'>Exactly this goes into the brief you copy (riffrolled sends nothing itself), and nothing else about your listening:</div>" +
+      "<ol class='dj-liked-list' data-testid='dj-liked-list'>" + liked.map(function(t){ return "<li>" + escapeHtml(t) + "</li>"; }).join('') + "</ol>";
   },
 
   status(msg, kind){
@@ -1110,6 +1119,7 @@ var djMenuBoss = {
          copied, and the server charges once per brief whenever it
          arrives. */
       djAi.claimPromoted();
+      if (window.riffUsage) riffUsage.count('dj_copy');
       try {
         await navigator.clipboard.writeText(text);
         if (window.appToast) appToast('Prompt copied — paste it into your AI', 'ok');
@@ -1461,6 +1471,7 @@ var djMenuBoss = {
       /* Say what happened to the ones that did not make it. "Imported 4
          tracks · 11 skipped" was true and useless: eleven went for three
          different reasons and the listener could act on each. */
+      if (window.riffUsage) riffUsage.count('dj_import');
       var R = saved.report || { noLink:[], repeated:[], dead:[], total: saved.count };
       var bits = ['Imported ' + saved.count + ' of ' + R.total];
       if (saved.totalSecs) bits.push(djAi.fmtSecs(saved.totalSecs));

@@ -11,6 +11,7 @@
 //   style  'record' | 'poster'   (anything else is 'record')
 //   color  '#rrggbb' | ''        ('' = the original look, no tint)
 //   size   'sm' | 'md' | 'lg'    (how much of the record is picture; 'md' default)
+//   hole   1 | 0                 (the spindle hole in the middle; 1 default)
 // A color is only ever kept if it is exactly seven characters of that
 // shape. The browser does the rest of the work (see promoPopup.paint).
 
@@ -47,6 +48,14 @@ export const DEFAULT_SIZE = 'md';
 export function cleanSize(v) {
   const s = String(v == null ? '' : v).trim().toLowerCase();
   return SIZES.includes(s) ? s : DEFAULT_SIZE;
+}
+
+/* Whether the record has its spindle hole in the middle: 1 (yes, the
+   default) or 0. The poster ignores it. */
+export function cleanHole(v) {
+  if (v === 0 || v === false) return 0;
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return (s === '0' || s === 'false' || s === 'no' || s === 'off') ? 0 : 1;
 }
 
 export function cleanColor(v) {

@@ -12,6 +12,8 @@
      phone      long-press        start picking (that track); then a tap adds
                                   or removes tracks instead of playing them;
                                   the bar's buttons do the rest
+     anywhere   ☑ Select button   picking mode: clicks / taps add or remove
+                                  tracks until ✕ or the playlist is made
 
    The keys go to the playlist window you last clicked in, while it is open
    and no text box has the keyboard. Nothing plays while picking. The new
@@ -29,6 +31,7 @@ function PlSelect(o){
   this.anchor = null;
   this.cursor = null;
   this.touch = false;          // picking was started by a long-press: taps add/remove
+  this.mode = false;           // the Select button is on: clicks add/remove
   this._suppress = false;      // the click that ends a long-press is not a tap
   this.buildBar();
   this.bindList();
@@ -126,7 +129,7 @@ PlSelect.prototype = {
       return true;
     }
     if (desk && (e.ctrlKey || e.metaKey)){ this.toggle(i); return true; }
-    if (this.touch && this.ids.size){ this.toggle(i); return true; }
+    if (this.mode || (this.touch && this.ids.size)){ this.toggle(i); return true; }
     if (this.ids.size) this.clear();
     return false;
   },
@@ -176,7 +179,15 @@ PlSelect.prototype = {
   },
 
   clear: function(){
-    this.ids = new Set(); this.anchor = null; this.cursor = null; this.touch = false;
+    this.ids = new Set(); this.anchor = null; this.cursor = null; this.touch = false; this.mode = false;
+    this.paint();
+  },
+
+  /** The Select button: picking mode on (clicks add / remove tracks) or off. */
+  setMode: function(on){
+    if (!on){ this.clear(); return; }
+    this.mode = true;
+    PlSelect.last = this;
     this.paint();
   },
 
@@ -188,13 +199,16 @@ PlSelect.prototype = {
       el.classList.toggle('sel', on);
       el.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    this.o.list.classList.toggle('picking', this.touch && this.ids.size > 0);
+    this.o.list.classList.toggle('picking', this.mode || (this.touch && this.ids.size > 0));
+    if (this.o.onMode) this.o.onMode(this.mode);
     var bar = this.bar;
-    bar.hidden = !this.ids.size;
+    bar.hidden = !this.ids.size && !this.mode;
+    bar.querySelector('.pl-sel-make').disabled = !this.ids.size;
     if (!this.ids.size){
       this.touch = false;
       bar.querySelector('.pl-sel-namewrap').hidden = true;
       bar.querySelector('.pl-sel-make').hidden = false;
+      bar.querySelector('.pl-sel-n').textContent = PlSelect.isMobile() ? 'Tap tracks to pick them' : 'Click tracks to pick them (Shift + click for a run)';
       return;
     }
     bar.querySelector('.pl-sel-n').textContent = this.ids.size + (this.ids.size === 1 ? ' track' : ' tracks');
@@ -219,6 +233,7 @@ PlSelect.prototype = {
     name = String(name || '').trim().slice(0, 80) || ('New playlist · ' + picked.length + ' tracks');
     try {
       var id = await dbBoss.createPl(name);
+      if (window.riffUsage) riffUsage.count('playlist_from_selection');
       for (var i = 0; i < picked.length; i++) await dbBoss.addToPlaylist(id, picked[i].trackId);
       this.clear();
       if (window.plBoss) await plBoss.renderPlaylists();

@@ -372,13 +372,15 @@ var plBoss = {
           <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist" aria-label="Playlist name">
           <button class="icon-btn pl-switch" title="Switch playlist" aria-label="Switch playlist" aria-haspopup="listbox" data-testid="pl-switch">▾</button>
-          <button class="icon-btn pl-share" title="Share this playlist: with everyone, or by a link" aria-label="Share this playlist" data-testid="pl-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
+          <button class="icon-btn pl-beside" title="Open another playlist in its own window, beside this one" aria-label="Open another playlist beside this one" data-testid="pl-beside">⧉</button>
+          <button class="icon-btn pl-share" title="Send this playlist to someone, or share it to Community" aria-label="Share this playlist" data-testid="pl-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
           <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
         </div>
 
         <div class="active-pl-sub">
           <span title="Pick several: Shift + ↓ / ↑, or Shift + click (Ctrl + click adds one). Then make a new playlist from them.">Tracks</span><span class="count">· 0</span>
           <button class="icon-btn add-track-btn" title="Add tracks (opens the Tracks panel)">＋</button>
+          <button class="pl-select" data-testid="pl-select" aria-pressed="false" title="Pick several tracks to make a new playlist from them (or Shift + click, Shift + ↓)">☑ Select</button>
           <div class="mini-transport">
             <button class="icon-btn mini-prev" title="Previous">⏮</button>
             <button class="icon-btn mini-play" title="Play / pause">▶</button>
@@ -411,7 +413,12 @@ var plBoss = {
       name: () => this.currentEl.querySelector('.active-pl-name').value,
       playlistId: () => this.activeId,
       open: (id) => this.setActivePlaylist(id),
+      onMode: (on) => {
+        const b = this.currentEl.querySelector('.pl-select');
+        if (b){ b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      },
     });
+    this.currentEl.querySelector('.pl-select').onclick = () => this.selr.setMode(!this.selr.mode);
   },
 
   setTitleName(name){
@@ -435,7 +442,7 @@ var plBoss = {
     const srh = root.querySelector('.pl-srh');
     const pop = root.querySelector('.pl-pop');
     const openPop = () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); };
-    srh.addEventListener('focus', openPop);
+    srh.addEventListener('focus', () => { pop.classList.remove('win-mode'); openPop(); });
     srh.addEventListener('input', () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); });
     document.addEventListener('click', (e) => {
       if (!e.target.closest || !e.target.closest('.pl-srh-wrap')) pop.classList.remove('open');
@@ -453,15 +460,32 @@ var plBoss = {
       }
       const item = e.target.closest('.pl-item');
       if (item){
-        await this.setActivePlaylist(Number(item.dataset.id));
-        pop.classList.remove('open');
+        const winMode = pop.classList.contains('win-mode');
+        pop.classList.remove('open', 'win-mode');
         srh.value = '';
+        if (winMode && window.plWins && Number(item.dataset.id) !== this.activeId) await plWins.open(Number(item.dataset.id));
+        else await this.setActivePlaylist(Number(item.dataset.id));
       }
     });
+
+    // ── ⧉ next to the name: the same list, but a pick opens in its own window ──
+    root.querySelector('.pl-beside').onclick = (e) => {
+      e.stopPropagation();
+      const was = pop.classList.contains('open') && pop.classList.contains('win-mode');
+      pop.classList.remove('open', 'win-mode');
+      if (was) return;
+      srh.value = '';
+      const w = root.querySelector('.pl-srh-wrap').getBoundingClientRect();
+      const nr = root.querySelector('.active-pl-name-row').getBoundingClientRect();
+      pop.style.top = Math.round(nr.bottom - w.top + 4) + 'px';
+      pop.classList.add('open', 'win-mode');
+      this.renderPlPopup();
+    };
 
     // ── ▾ next to the name: the list of playlists, to switch ──
     root.querySelector('.pl-switch').onclick = (e) => {
       e.stopPropagation();
+      pop.classList.remove('win-mode');
       if (pop.classList.contains('open')){ pop.classList.remove('open'); return; }
       srh.value = '';
       // drop the list down from the name row rather than from the search box
@@ -472,9 +496,11 @@ var plBoss = {
     };
 
     // ── ↗ share this playlist as a mix (opens the Mixes panel's share sheet) ──
-    root.querySelector('.pl-share').onclick = () => {
+    root.querySelector('.pl-share').onclick = (e) => {
+      e.stopPropagation();
       if (!this.activeId){ appNotify('Pick a playlist to share first', 'warn'); return; }
-      if (window.mixesBoss) mixesBoss.openShare(this.activeId);
+      if (window.shareBoss && shareBoss.menu) shareBoss.open(e.currentTarget, this.activeId);
+      else if (window.mixesBoss) mixesBoss.openShare(this.activeId);
     };
 
     // ── ＋ new playlist (uses the search text as the name if present) ──
@@ -510,7 +536,8 @@ var plBoss = {
     }
     const counts = {};
     await Promise.all(shown.map(async pl=>{ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
-    pop.innerHTML = shown.map(pl => `
+    const winMode = pop.classList.contains('win-mode');
+    pop.innerHTML = (winMode ? `<div class="pl-pop-h" data-testid="pl-beside-h">Open beside: pick a playlist for its own window</div>` : '') + shown.filter(pl => !winMode || pl.id !== this.activeId).map(pl => `
       <div class="row-item pl-item ${pl.id === this.activeId ? 'active' : ''}" data-id="${pl.id}">
         <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
         <span class="pl-item-count">${counts[pl.id]}</span>

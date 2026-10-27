@@ -78,6 +78,7 @@ var plWins = {
         '<div class="plw-top">' +
           '<span class="pl-status plw-status">■ Not playing</span>' +
           '<span class="plw-count"></span>' +
+          '<button class="pl-select plw-select" data-testid="plw-select" aria-pressed="false" title="Pick several tracks to make a new playlist from them">☑ Select</button>' +
           '<button class="icon-btn plw-play" title="Play this playlist from the top" data-testid="plw-play">▶</button>' +
           '<button class="icon-btn plw-main" title="Show it in the main Playlist window instead">⤢</button>' +
         '</div>' +
@@ -88,6 +89,7 @@ var plWins = {
     el.dataset.pl = String(id);
     el.setAttribute('data-testid', 'pl-win');
     w = { id: id, el: el, tracks: [], minimized: false };
+    if (opts.left == null && window.riffUsage) riffUsage.count('playlist_window');      // opened now, not restored
     this.wins.push(w);
 
     var self = this;
@@ -98,8 +100,13 @@ var plWins = {
       view: function(){ return w.tracks; },
       name: function(){ return el.querySelector('.plw-name').textContent; },
       playlistId: function(){ return w.id; },
-      open: async function(nid){ await plBoss.setActivePlaylist(nid); self.showMain(); }
+      open: async function(nid){ await plBoss.setActivePlaylist(nid); self.showMain(); },
+      onMode: function(on){
+        var b = el.querySelector('.plw-select');
+        if (b){ b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      }
     });
+    el.querySelector('.plw-select').onclick = function(){ w.sel.setMode(!w.sel.mode); };
     this.addMinimize(el, function(){ self.minimize(w); });
     this.addBadge(el);
     // its ✕ closes it for good: the window goes, the music does not

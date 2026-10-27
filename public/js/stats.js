@@ -28,7 +28,7 @@ var statsBoss = {
   FLUSH_MS: 4 * 60 * 1000,      // a quiet background summary
   MAX_KEYS: 60,                 // the server caps at this too
 
-  pending: { plays: {}, likes: {}, dislikes: {} },
+  pending: { plays: {}, likes: {}, dislikes: {}, events: {} },
   _timer: null,
   _sending: false,
 
@@ -59,14 +59,17 @@ var statsBoss = {
   _empty(){
     var p = this.pending;
     return !Object.keys(p.plays).length && !Object.keys(p.likes).length
-        && !Object.keys(p.dislikes).length;
+        && !Object.keys(p.dislikes).length && !Object.keys(p.events || {}).length;
   },
 
   /** @param onExit use sendBeacon — the page may be going away mid-request */
   flush(onExit){
     if (this._sending || this._empty()) return;
+    // counting switched off since these were noted: they never leave
+    if (window.riffUsage && riffUsage.off) this.pending.events = {};
+    if (this._empty()) return;
     var body = JSON.stringify(this.pending);
-    var fresh = { plays: {}, likes: {}, dislikes: {} };
+    var fresh = { plays: {}, likes: {}, dislikes: {}, events: {} };
 
     if (onExit && navigator.sendBeacon){
       try {
@@ -94,7 +97,8 @@ var statsBoss = {
 
   _merge(old){
     var p = this.pending;
-    ['plays', 'likes', 'dislikes'].forEach(function(k){
+    ['plays', 'likes', 'dislikes', 'events'].forEach(function(k){
+      p[k] = p[k] || {};
       Object.keys(old[k] || {}).forEach(function(id){
         p[k][id] = (p[k][id] || 0) + old[k][id];
       });
@@ -103,3 +107,70 @@ var statsBoss = {
 };
 
 statsBoss.init();
+
+/* ── how riffrolled is used ──────────────────────────────────────────
+   riffUsage.count('panel:mixes') adds one to a tally that goes up with the
+   summary above, where the server adds it to that day's total for that
+   event (src/usage.js has the closed list; anything else is dropped).
+   Nothing identifies the browser: no id, no order, no time of day.
+
+   Off when the listener says so (Privacy → "Count how I use riffrolled"),
+   and off from the start in a browser that sends Global Privacy Control. */
+var riffUsage = {
+  KEY: 'usageOff',
+  off: false,
+
+  async init(){
+    try {
+      var v = await dbBoss.getSetting(this.KEY);
+      this.off = v === '1' || (v == null && navigator.globalPrivacyControl === true);
+    } catch(e){}
+    if (this.off) statsBoss.pending.events = {};
+    var self = this;
+    // say so on the page, once per browser
+    try { if (!this.off && await dbBoss.getSetting('usageNoticeSeen') !== '1') setTimeout(function(){ self.notice(); }, 4000); } catch(e){}
+    // a visit: once per tab, after the page has settled (phone or computer, first time or not)
+    setTimeout(function(){
+      var seen = false;
+      try { seen = sessionStorage.getItem('rrVisit') === '1'; sessionStorage.setItem('rrVisit', '1'); } catch(e){}
+      if (seen) return;
+      self.count('visit');
+      self.count(document.body.classList.contains('mobile') ? 'visit_phone' : 'visit_computer');
+      if (window.newHere && newHere.on) self.count('visit_new');
+    }, 2500);
+  },
+
+  /* A small note, once: what is counted, a link to Privacy, and OK. Never
+     over the YouTube player (it moves to the top if it would be). */
+  notice(){
+    if (document.getElementById('usageNote')) return;
+    var n = document.createElement('div');
+    n.id = 'usageNote'; n.className = 'usage-note'; n.setAttribute('role', 'status');
+    n.setAttribute('data-testid', 'usage-note');
+    n.innerHTML = "<span>riffrolled counts how its features are used — anonymous daily totals, nothing about you.</span>" +
+      "<button class='un-priv' data-testid='usage-note-privacy'>Privacy &amp; switch off</button>" +
+      "<button class='un-ok' data-testid='usage-note-ok'>OK</button>";
+    document.body.appendChild(n);
+    // off the YouTube player and the record player's controls
+    var pl = document.querySelector('#deck .plinth');
+    var over = function(el){ if (!el || !el.offsetParent) return false; var a = n.getBoundingClientRect(), b = el.getBoundingClientRect();
+      return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; };
+    if ((window.ytGuard && ytGuard.overlaps(n)) || over(pl)) n.classList.add('top');
+    var done = function(){ n.remove(); try { dbBoss.setSetting('usageNoticeSeen', '1'); } catch(e){} };
+    n.querySelector('.un-ok').onclick = done;
+    n.querySelector('.un-priv').onclick = function(){ done(); if (window.infoBoss) infoBoss.openTab('privacy'); };
+  },
+
+  count(name){
+    if (this.off || !name) return;
+    var e = statsBoss.pending.events = statsBoss.pending.events || {};
+    e[name] = (e[name] || 0) + 1;
+  },
+
+  async setOff(off){
+    this.off = !!off;
+    if (this.off) statsBoss.pending.events = {};
+    try { await dbBoss.setSetting(this.KEY, this.off ? '1' : '0'); } catch(e){}
+  }
+};
+window.addEventListener('load', function(){ riffUsage.init(); });

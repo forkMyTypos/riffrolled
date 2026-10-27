@@ -260,6 +260,19 @@ var dbBoss = {
      is lost, and the setting makes it run exactly once. */
   backfillGenres: async function(){
     if (!window.riffGenres) return 0;
+    /* Trance joined the closed list after the first tidy, which had filed
+       trance tracks under Electronic. Once: move them back, going by what
+       they were originally called (genreRaw, or a "trance" tag). */
+    try {
+      if (await dbBoss.getSetting('genreTrance') !== '1'){
+        await db.tracks.toCollection().modify(function(t){
+          if (t.genre !== 'Electronic') return;
+          var was = (String(t.genreRaw || '') + ' ' + String(t.tags || '')).toLowerCase();
+          if (/trance|goa\b/.test(was)) t.genre = 'Trance';
+        });
+        await dbBoss.setSetting('genreTrance', '1');
+      }
+    } catch(e){}
     try {
       if (await dbBoss.getSetting('genreBackfill') === '1') return 0;
       var n = 0;
@@ -323,6 +336,7 @@ var dbBoss = {
 
   createPl: async function(n){
     if(!n) n = 'Playlist';
+    if (window.riffUsage) riffUsage.count('playlist_new');
     return await db.playlists.add({ name: n, createdAt: Date.now() });
   },
 
@@ -357,6 +371,7 @@ var dbBoss = {
   // record a play (powers the Links panel)
   logPlay: async function(ytId){
     if(!ytId) return;
+    if (window.riffUsage) riffUsage.count('play');
     try {
       const t = await db.tracks.where('ytId').equals(ytId).first();
       await db.playHistory.add({ trackId: t ? t.id : null, ytId: ytId, ts: Date.now() });
@@ -610,7 +625,7 @@ var dbBoss = {
   addAdSeen: async function(a){
     await db.adHistory.add({ ts: Date.now(), promoId: Number(a.promoId) || 0, ytId: String(a.ytId || ''),
       name: String(a.name || '').slice(0, 200), url: String(a.url || ''), style: a.style === 'poster' ? 'poster' : 'record',
-      color: /^#[0-9a-f]{6}$/i.test(a.color || '') ? a.color : '', size: (a.size === 'sm' || a.size === 'lg') ? a.size : 'md' });
+      color: /^#[0-9a-f]{6}$/i.test(a.color || '') ? a.color : '', size: (a.size === 'sm' || a.size === 'lg') ? a.size : 'md', hole: a.hole === 0 ? 0 : 1 });
     const n = await db.adHistory.count();
     if (n > dbBoss.AD_HISTORY_MAX){
       const old = await db.adHistory.orderBy('ts').limit(n - dbBoss.AD_HISTORY_MAX).primaryKeys();
@@ -678,6 +693,7 @@ var dbBoss = {
     if(!ytId) return;
     const t = await db.tracks.where('ytId').equals(ytId).first();
     await db.reactions.add({ ytId:ytId, trackId: t ? t.id : null, kind:kind, ts: Date.now() });
+    if (kind === 'like' || kind === 'dislike') if (window.riffUsage) riffUsage.count(kind);
     // the catalogue's aggregate count, with nothing attached to say who
     if (window.statsBoss){
       if (kind === 'like') statsBoss.like(ytId);

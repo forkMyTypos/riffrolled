@@ -1,7 +1,7 @@
 // ── campaigns: spend riff tokens to put a catalogue track in front of
 //    people, billed by attention rather than by the clock ──────────────
 //
-//   POST /api/promote          { wallet, url, credits, modes, label, style, color, size }
+//   POST /api/promote          { wallet, url, credits, modes, label, style, color, size, hole }
 //   GET  /api/promotions       → the live campaigns, for display only
 //   GET  /api/promotions/next  → one campaign to show, one credit spent
 //   POST /api/promo/event      → engagement, never money
@@ -22,7 +22,7 @@ import { walletFrom } from '../wallet.js';
 import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { parseTags, tagScore } from '../tags.js';
-import { cleanStyle, cleanColor, cleanSize, cleanGenres } from '../cardlook.js';
+import { cleanStyle, cleanColor, cleanSize, cleanHole, cleanGenres } from '../cardlook.js';
 import { normalizeGenre } from '../genres.js';
 import {
   WALLET_RE, canonicalYouTubeUrl, getTrackByUrl,
@@ -141,6 +141,7 @@ export async function handlePromote(request, env) {
   const style = cleanStyle(body?.style);
   const color = cleanColor(body?.color);
   const size = cleanSize(body?.size);
+  const hole = cleanHole(body?.hole);
   // genre targeting for the pop-up: only while someone plays one of these (empty = anyone)
   const genres = modes.includes('popup') ? cleanGenres(body?.genres) : [];
 
@@ -153,7 +154,7 @@ export async function handlePromote(request, env) {
   await addLedger(env.DB, wallet, -spend, 'promote', canonical, now);
   const id = await addCampaign(env.DB, {
     wallet, url: canonical, name: track.name, label,
-    modes: modes.join(','), credits: spend, now, style, color, size, genres, held,
+    modes: modes.join(','), credits: spend, now, style, color, size, hole, genres, held,
   });
   if (held) {
     // the key gets its row, which is what puts it in front of the owner
@@ -162,7 +163,7 @@ export async function handlePromote(request, env) {
   if (tags.length) await setCampaignTags(env.DB, id, tags.join(','));
 
   return json(env, {
-    ok: true, id, label, modes, tags, style, color, size, genres, credits: spend, held,
+    ok: true, id, label, modes, tags, style, color, size, hole, genres, credits: spend, held,
     balance: balance - spend,
   }, 201);
 }
@@ -191,7 +192,7 @@ export async function handlePromotions(request, env) {
      /api/promotions/mine instead. */
   return json(env, list.map((p) => ({
     id: p.id, url: p.url, name: p.name, label: p.label, modes: p.modes,
-    style: p.style, color: p.color, size: p.size || 'md',
+    style: p.style, color: p.color, size: p.size || 'md', hole: p.hole === 0 ? 0 : 1,
     views: p.views, plays: p.plays, likes: p.likes,
     dislikes: p.dislikes, replays: p.replays,
   })));
@@ -276,7 +277,7 @@ export async function handlePromoNext(request, env, url) {
     ok: true,
     promotion: {
       id: pick.id, url: pick.url, name: pick.name, label: pick.label, modes: pick.modes,
-      style: pick.style, color: pick.color, size: pick.size || 'md',
+      style: pick.style, color: pick.color, size: pick.size || 'md', hole: pick.hole === 0 ? 0 : 1,
     },
   }, 200, { 'Cache-Control': 'no-store' });
 }
@@ -505,8 +506,9 @@ export async function handlePromotionAction(request, env) {
     const style = cleanStyle(body?.style);
     const color = cleanColor(body?.color);
     const size = cleanSize(body?.size);
-    await env.DB.prepare(`UPDATE promotions SET style = ?2, color = ?3, size = ?4 WHERE id = ?1`).bind(id, style, color, size).run();
-    return json(env, { ok: true, style, color, size });
+    const hole = cleanHole(body?.hole);
+    await env.DB.prepare(`UPDATE promotions SET style = ?2, color = ?3, size = ?4, hole = ?5 WHERE id = ?1`).bind(id, style, color, size, hole).run();
+    return json(env, { ok: true, style, color, size, hole });
   }
 
   return errorJson(env, "action must be 'pause', 'resume', 'extend' or 'look'", 400);

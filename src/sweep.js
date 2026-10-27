@@ -102,6 +102,14 @@ export async function sweep(env, now = new Date().toISOString()) {
     out.errors.push('promo_seen: ' + (err && err.message));
   }
 
+  // usage totals older than 400 days (a year and a bit, for comparing like with like)
+  try {
+    const cut = new Date(Date.parse(now) - 400 * 86400000).toISOString().slice(0, 10);
+    await env.DB.prepare(`DELETE FROM usage WHERE day < ?1`).bind(cut).run();
+  } catch (err) {
+    out.errors.push('usage: ' + (err && err.message));
+  }
+
   /* Contribution rewards for any epoch that has closed. This is the one
      step here that creates credits rather than deleting rows, so it is
      also the one where a retry must not repeat itself — contrib.js

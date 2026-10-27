@@ -367,23 +367,33 @@ async function runSelfTests(){
       assert(both.indexOf('Under-discovered artists: artists with worthwhile music') > 0, 'and the template explains it');
       djAi.state.familiarity = 30;
     }],
-    ['DJ AI speed mode shares the top ten, and only when asked', async () => {
+    ['DJ AI shares only the most-liked tracks (10 / 15 / 20), and only when asked', async () => {
       await djAi.seed(); await djAi.ensureAnyOptions(); await djAi.refresh();
-      for (let i = 0; i < 12; i++){
-        const yt = 'top' + String(i).padStart(8, 'x');
+      for (let i = 0; i < 24; i++){
+        const yt = 'liked' + String(i).padStart(6, 'x');
         await dbBoss.createTrack(yt, 'Song ' + i);
         await dbBoss.updateTrackMeta(yt, { artist: 'Artist ' + i });
-        for (let n = 0; n <= i; n++) await dbBoss.logPlay(yt);   // i+1 plays
+        for (let n = 0; n <= i; n++) await dbBoss.addReaction(yt, 'like');   // i+1 likes
+        for (let n = 0; n < 30 - i; n++) await dbBoss.logPlay(yt);           // plays the other way round
       }
-      const top = await djAi.topTracks(10);
-      assert(top.length === 10, 'ten of them');
-      assert(top[0].indexOf('Song 11') > 0, 'most played first');
+      djAi.state.likedN = 10;
+      const ten = await djAi.likedTracks(djAi.likedN());
+      assert(ten.length === 10, 'ten of them');
+      assert(ten[0].indexOf('Song 23') > 0, 'most liked first, not most played');
       djAi.state.textMode = 'speed'; djAi.state.shareContext = true;
-      const shared = await djAi.buildSpeedPrompt();
-      assert(shared.indexOf('10 most-played tracks') > 0, 'listening block present');
-      assert(shared.indexOf('Song 11') > 0 && shared.indexOf('Song 0') < 0, 'top ten only');
+      let shared = await djAi.buildSpeedPrompt();
+      assert(shared.indexOf('10 most-liked tracks') > 0, 'listening block present');
+      assert(shared.indexOf('Song 23') > 0 && shared.indexOf('Song 13') < 0, 'top ten liked only');
+      assert(shared.indexOf('most-played') < 0, 'no play counts');
+      djAi.state.likedN = 20;
+      shared = await djAi.buildSpeedPrompt();
+      assert(shared.indexOf('20 most-liked tracks') > 0 && shared.indexOf('Song 4 ') < 0 && shared.indexOf('Song 4\n') >= 0, 'twenty when asked');
+      djAi.state.textMode = 'details';
+      const det = await djAi.buildDetailsPrompt();
+      assert(det.indexOf('20 most-liked tracks') > 0 && det.indexOf('Played most') < 0 && det.indexOf('Recent:') < 0 && det.indexOf('Already in my library') < 0, 'details: the same block, nothing else');
       djAi.state.shareContext = false;
-      assert((await djAi.buildSpeedPrompt()).indexOf('Song 11') < 0, 'and gone when switched off');
+      assert((await djAi.buildSpeedPrompt()).indexOf('Song 23') < 0, 'and gone when switched off');
+      djAi.state.likedN = 15; djAi.state.textMode = 'speed'; djAi.state.shareContext = true;
     }],
     ['DJ AI never mistakes an 11-character title for a video id', async () => {
       // Parcels' "Gamesofluck" is exactly eleven word characters. Before

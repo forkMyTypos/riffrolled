@@ -423,6 +423,7 @@ var mineBoss = {
           if (!sr.ok) throw new Error(sd.error || ('HTTP ' + sr.status));
           self.el.querySelector('.mine-bal').textContent = sd.balance;
           self.status('+' + sd.reward + ' riff token ✓', 'ok');
+          if (window.riffUsage) riffUsage.count('mine_block');
           self.nudgeBackup();
           await self.refresh();
           if (window.promoBoss) promoBoss.refresh();
@@ -444,6 +445,7 @@ var promoBoss = {
   style: 'record',     // how the pop-up card looks: 'record' or 'poster'
   color: '',          // '#rrggbb', or '' for the original colors
   size: 'md',         // how much of the record is picture: 'sm' | 'md' | 'lg'
+  hole: 1,            // the spindle hole in the middle: 1 | 0
   genres: [],         // genre targeting for the pop-up: up to 3, empty = whatever is playing
 
   /* ── the mood picker ─────────────────────────────────────────────────
@@ -581,6 +583,8 @@ var promoBoss = {
             "<div class='promo-size-wrap'>" +
               "<div class='promo-live-h'>How much picture?</div>" +
               "<div class='promo-sizes' role='radiogroup' aria-label='How much of the record is picture' data-testid='promo-sizes'></div>" +
+              "<div class='promo-live-h'>Hole in the middle?</div>" +
+              "<div class='promo-sizes promo-holes' role='radiogroup' aria-label='Hole in the middle' data-testid='promo-holes'></div>" +
             "</div>" +
             "<div class='promo-live-h'>Choose a color</div>" +
             "<div class='promo-swatches'></div>" +
@@ -728,16 +732,17 @@ var promoBoss = {
   /* One small, inert card in a host element (the two style tiles and the
      little picture in the option card). Redrawn only when something it
      shows has changed, so the record keeps turning smoothly. */
-  mini(host, id, name, style, color, size){
+  mini(host, id, name, style, color, size, hole){
     if (!host || !window.promoPopup) return;
-    var key = [id || '', name, style, color, size || 'md'].join('|');
+    hole = hole === 0 ? 0 : 1;
+    var key = [id || '', name, style, color, size || 'md', hole].join('|');
     if (host._key === key) return;
     host._key = key;
     var c = host.firstChild;
     if (!c){ c = document.createElement('div'); host.appendChild(c); }
     c.className = 'promo-pop pp-mini show';
     c.innerHTML = promoPopup.markup(id || '', name, style);
-    promoPopup.dress(c, style, color, size);
+    promoPopup.dress(c, style, color, size, hole);
     var im = c.querySelector('.pp-art');
     if (im && !id){ im.removeAttribute('src'); im.style.visibility = 'hidden'; }
   },
@@ -762,12 +767,13 @@ var promoBoss = {
       var st = l.querySelector('input').value;
       l.classList.toggle('on', st === self.style);
       l.querySelector('input').checked = (st === self.style);
-      self.mini(l.querySelector('.promo-look-stage'), id, name, st, self.color, self.size);
+      self.mini(l.querySelector('.promo-look-stage'), id, name, st, self.color, self.size, self.hole);
     });
     // and the same thing, small, in the option card
-    this.mini(el.querySelector('.pv-pop'), id, name, this.style, this.color, this.size);
+    this.mini(el.querySelector('.pv-pop'), id, name, this.style, this.color, this.size, this.hole);
     this.drawGenres();
-    this.drawSizes(box.querySelector('.promo-sizes'), this.style, this.size, id, name, this.color, function(v){ self.setSize(v); });
+    this.drawSizes(box.querySelector('.promo-sizes:not(.promo-holes)'), this.style, this.size, id, name, this.color, function(v){ self.setSize(v); }, this.hole);
+    this.drawHoles(box.querySelector('.promo-holes'), this.hole, id, name, this.color, this.size, function(v){ self.hole = v; self.drawLive(); });
     box.querySelector('.promo-size-wrap').hidden = this.style === 'poster';
 
     // swatches: built once, then only their selected state changes
@@ -782,11 +788,11 @@ var promoBoss = {
     });
     box.querySelector('.promo-color-name').textContent = !this.color ? 'Classic (the original colors)' : (pal || ('Custom ' + this.color));
 
-    var key = [id || '', name, this.style, this.color, this.size].join('|');
+    var key = [id || '', name, this.style, this.color, this.size, this.hole].join('|');
     if (card._key === key) return;                    // nothing changed: do not restart the spin
     card._key = key;
     card.innerHTML = promoPopup.markup(id || '', name, this.style);
-    promoPopup.dress(card, this.style, this.color, this.size);
+    promoPopup.dress(card, this.style, this.color, this.size, this.hole);
     if (!id){ var im = card.querySelector('.pp-art'); if (im){ im.removeAttribute('src'); im.style.visibility = 'hidden'; } }
   },
 
@@ -852,7 +858,7 @@ var promoBoss = {
 
   /* The three label sizes as small live records, each with the picked
      track and color. Used by the form and by the look editor. */
-  drawSizes(box, style, size, id, name, color, pick){
+  drawSizes(box, style, size, id, name, color, pick, hole){
     if (!box || !window.promoPopup) return;
     var self = this;
     if (!box.firstChild){
@@ -868,7 +874,28 @@ var promoBoss = {
     box.querySelectorAll('.promo-size').forEach(function(b){
       var on = b.dataset.size === size;
       b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
-      self.mini(b.querySelector('.promo-size-stage'), id, name, 'record', color, b.dataset.size);
+      self.mini(b.querySelector('.promo-size-stage'), id, name, 'record', color, b.dataset.size, hole);
+    });
+  },
+
+  /* With or without the hole in the middle: two small live records. */
+  drawHoles(box, hole, id, name, color, size, pick){
+    if (!box || !window.promoPopup) return;
+    var self = this;
+    if (!box.firstChild){
+      box.innerHTML = [['1', 'Hole'], ['0', 'No hole']].map(function(z){
+        return "<button type='button' class='promo-size promo-hole' role='radio' data-hole='" + z[0] + "' data-testid='promo-hole-" + z[0] + "'>"
+          + "<span class='promo-size-stage'></span><b>" + z[1] + "</b></button>";
+      }).join('');
+      box.addEventListener('click', function(e){
+        var b = e.target.closest('.promo-hole'); if (b && box._pick) box._pick(Number(b.dataset.hole));
+      });
+    }
+    box._pick = pick;
+    box.querySelectorAll('.promo-hole').forEach(function(b){
+      var on = Number(b.dataset.hole) === (hole === 0 ? 0 : 1);
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+      self.mini(b.querySelector('.promo-size-stage'), id, name, 'record', color, size, Number(b.dataset.hole));
     });
   },
 
@@ -1047,12 +1074,13 @@ var promoBoss = {
           wallet: w, url: url, credits: tokens,
           modes: modes.join(','),
           tags: this.tags,
-          style: this.style, color: this.color, size: this.style === 'poster' ? 'md' : this.size,
+          style: this.style, color: this.color, size: this.style === 'poster' ? 'md' : this.size, hole: this.style === 'poster' ? 1 : this.hole,
           genres: this.el.querySelector('.promo-mode-popup').checked ? this.genres.slice() : [],
           label: (this.el.querySelector('.promo-label').value || '').trim() || this.sel.name,
         }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      if (window.riffUsage) riffUsage.count('promote_start');
       this.status(d.held
         ? 'Reserved ' + d.credits + ' credits (' + d.balance + ' left). The first promotion from each key gets a quick check by a person before anyone sees it — after that, yours go straight up.'
         : d.credits + ' credits ✓ — that many people will see it. ' + d.balance + ' left.', 'ok');
@@ -1099,13 +1127,14 @@ var promoBoss = {
     row.classList.add('looking');
     // a fresh box each time, so listeners from an earlier opening don't pile up
     var fresh = box.cloneNode(false); box.replaceWith(fresh); box = fresh;
-    var st = box.dataset.style || 'record', col = box.dataset.color || '', sz = box.dataset.size || 'md';
+    var st = box.dataset.style || 'record', col = box.dataset.color || '', sz = box.dataset.size || 'md', ho = box.dataset.hole === '0' ? 0 : 1;
     box.innerHTML =
       "<div class='pl-look-styles'>" +
         "<button type='button' class='promo-act pl-st' data-st='record'>Record</button>" +
         "<button type='button' class='promo-act pl-st' data-st='poster'>Poster</button>" +
       "</div>" +
       "<div class='promo-sizes pl-sizes' role='radiogroup' aria-label='How much of the record is picture'></div>" +
+      "<div class='promo-sizes pl-sizes pl-holes' role='radiogroup' aria-label='Hole in the middle'></div>" +
       "<div class='promo-swatches pl-sw'></div>" +
       "<div class='pl-look-prev'></div>" +
       "<div class='pl-look-btns'><button class='promo-act' data-a='look' data-testid='promo-look-save'>Save look</button>" +
@@ -1122,17 +1151,18 @@ var promoBoss = {
     var inp = document.createElement('input'); inp.type = 'color'; inp.value = col || '#ff8a3d'; inp.setAttribute('aria-label', 'Pick any color');
     c.appendChild(inp); sw.appendChild(c);
     var draw = function(){
-      box.dataset.style = st; box.dataset.color = col; box.dataset.size = sz;
-      var szBox = box.querySelector('.pl-sizes');
-      szBox.hidden = st === 'poster';
-      self.drawSizes(szBox, st, sz, row.dataset.yt, row.querySelector('.promo-name').textContent, col, function(v){ sz = v; draw(); });
+      box.dataset.style = st; box.dataset.color = col; box.dataset.size = sz; box.dataset.hole = String(ho);
+      var szBox = box.querySelector('.pl-sizes:not(.pl-holes)'), hoBox = box.querySelector('.pl-holes');
+      szBox.hidden = hoBox.hidden = st === 'poster';
+      self.drawSizes(szBox, st, sz, row.dataset.yt, row.querySelector('.promo-name').textContent, col, function(v){ sz = v; draw(); }, ho);
+      self.drawHoles(hoBox, ho, row.dataset.yt, row.querySelector('.promo-name').textContent, col, sz, function(v){ ho = v; draw(); });
       box.querySelectorAll('.pl-st').forEach(function(b){ b.classList.toggle('on', b.dataset.st === st); });
       sw.querySelectorAll('.promo-sw').forEach(function(b){
         b.classList.toggle('on', b.classList.contains('promo-sw-custom') ? (!!col && !self.isPalette(col)) : b.dataset.color === col);
       });
       var host = box.querySelector('.pl-look-prev');
       host._key = '';
-      self.mini(host, row.dataset.yt, row.querySelector('.promo-name').textContent, st, col, sz);
+      self.mini(host, row.dataset.yt, row.querySelector('.promo-name').textContent, st, col, sz, ho);
     };
     box.addEventListener('click', function(e){
       var s1 = e.target.closest('.pl-st'); if (s1){ st = s1.dataset.st; draw(); return; }
@@ -1148,7 +1178,7 @@ var promoBoss = {
     try {
       var w = await riffWallet.get();
       var r = await fetch('/api/promotion/action', { method:'POST', headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ wallet: w, id: id, action: 'look', style: box.dataset.style, color: box.dataset.color, size: box.dataset.style === 'poster' ? 'md' : (box.dataset.size || 'md') }) });
+        body: JSON.stringify({ wallet: w, id: id, action: 'look', style: box.dataset.style, color: box.dataset.color, size: box.dataset.style === 'poster' ? 'md' : (box.dataset.size || 'md'), hole: box.dataset.style === 'poster' ? 1 : (box.dataset.hole === '0' ? 0 : 1) }) });
       var d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
       this.status('New look saved — the next people to see it get it. No credits used.', 'ok');
@@ -1248,7 +1278,7 @@ var promoBoss = {
           + "<div class='promo-name'>" + escapeHtml(p.label || p.name || p.url) + "</div>"
           + (heldNote ? "<div class='promo-held' data-testid='promo-held'>" + escapeHtml(heldNote) + "</div>" : '')
           + (/(^|,)popup(,|$)/.test(p.modes || '')
-              ? "<div class='promo-look-chip'>" + (p.style === 'poster' ? 'Poster' : 'Record · ' + ({ sm:'more vinyl', lg:'more picture' }[p.size] || 'balanced'))
+              ? "<div class='promo-look-chip'>" + (p.style === 'poster' ? 'Poster' : 'Record · ' + ({ sm:'more vinyl', lg:'more picture' }[p.size] || 'balanced') + (p.hole === 0 ? ' · no hole' : ''))
                 + (/^#[0-9a-f]{6}$/i.test(p.color || '') ? " <i class='promo-dot' data-c='" + escapeHtml(p.color) + "'></i> " + escapeHtml(p.color) : ' · classic colors')
                 + (p.genres ? " · only during " + escapeHtml(String(p.genres).split(',').join(', ')) : '')
                 + "</div>" : "")
@@ -1267,7 +1297,7 @@ var promoBoss = {
             + "<button class='promo-act promo-topup' data-a='topup'>＋ Add credits</button>"
             + (!ended && /(^|,)popup(,|$)/.test(p.modes || '') ? "<button class='promo-act promo-lookbtn' data-a='lookopen' data-testid='promo-look-open'>🎨 Look</button>" : '')
           + "</div>"
-          + "<div class='promo-look-row' data-style='" + (p.style === 'poster' ? 'poster' : 'record') + "' data-size='" + ({ sm:'sm', lg:'lg' }[p.size] || 'md') + "' data-color='" + escapeHtml(/^#[0-9a-f]{6}$/i.test(p.color || '') ? p.color.toLowerCase() : '') + "'></div>"
+          + "<div class='promo-look-row' data-style='" + (p.style === 'poster' ? 'poster' : 'record') + "' data-size='" + ({ sm:'sm', lg:'lg' }[p.size] || 'md') + "' data-hole='" + (p.hole === 0 ? '0' : '1') + "' data-color='" + escapeHtml(/^#[0-9a-f]{6}$/i.test(p.color || '') ? p.color.toLowerCase() : '') + "'></div>"
           + "<div class='promo-topup-row'>"
             + "<input type='number' class='promo-add' min='1' step='1' value='10'>"
             + "<span class='promo-add-dur'></span>"

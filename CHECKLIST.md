@@ -57,7 +57,7 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [ ] Look at the Promote panel on your own screen and say what still feels confusing.
 
 ## Before going public (Dan-side) — do these in order
-1. [ ] **Deploy the latest zip, then open `https://riffrolled.com/api/health`.** It must say `"schema":29`. If it says a lower number, the new version is not live yet.
+1. [ ] **Deploy the latest zip, then open `https://riffrolled.com/api/health`.** It must say `"schema":30`. If it says a lower number, the new version is not live yet.
 2. [ ] **Cloudflare rate limit on `/api/*` (the one real blocker).** Without it, one script could hammer every API route. The admin tool now does this for you:
    1. Close the admin tool if it is open, then start it again (double-click **start-admin.bat**). A dark-orange bar at the top of every page says "⚠ The Cloudflare rate limit on /api/ is not on yet".
    2. Press **Turn it on** in that bar (it opens the **Cloudflare** tab), then press **Turn it on** again in the "Rate limit on /api/" box.
@@ -72,6 +72,16 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 7. [ ] **Put a free campaign on a couple of good tracks** (admin → Promotions → "Promote a track for free", pop-up + DJ brief), then open `riffrolled.com/?promo=now` in a private window and see the record appear. (Admin campaigns never wait for review.)
 8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
 9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
+
+## 26 Oct round
+- [x] **Promote: hole or no hole.** "Hole in the middle?" under the picture size: Hole / No hole, both live records. Also in 🎨 Look and in the admin form (with its preview). Record only. Schema 30.
+- [x] **Trance is a genre** on the closed list (it used to be filed under Electronic, which is why "trance" came out wrong). Tracks that came in as trance move back automatically, on the server (schema 30) and in each browser. Campaigns targeting Electronic no longer show while Trance plays: target Trance too if you want both.
+- [x] **DJ AI "Where should we go?"**: Trance is now a choice, and a new **Stay in this genre** tick (on by default) tells the DJ most tracks must clearly be that genre. Untick it for the old "starting point, then wander". A "trance" you typed yourself earlier becomes the built-in one.
+- [x] **What the AI is told about your taste**: only your 10 / 15 / 20 most-liked tracks (you pick, 15 by default), listed in full under "Share your track data". No plays, history, tags or library list any more.
+- [x] **Usage counting** (your own, anonymous): daily totals of a fixed list of things (visits, phone vs computer, first visits, panels opened, plays, likes, DJ briefs copied/imported, playlists made, links/mixes shared, searches, tokens mined, promoted cards shown/played/added/closed/reported). No ids, cookies, devices or times. A one-time note on the page says so; Privacy has a switch to turn it off; browsers sending Global Privacy Control start with it off. **Admin → Usage** shows today / 7 days / 30 days and a per-day chart. Terms and Privacy updated (26 Oct).
+- [x] **Sharing a playlist is one press**: SHARE (on the deck or the Playlist window's share button) → **Send this playlist** → the link is copied (phone: the share sheet) and shown with Copy again. Links work straight away, no approval wait, any length. The same playlist with the same tracks reuses its link. **Share to Community…** still uses the form and a key's first one still waits for your OK. The menu now shows which playlist it is about, always fits on screen and never covers the player (the cut-off menu in your screenshot), and Esc closes only the menu.
+- [x] **Playlist windows, easier to find**: **☑ Select** in every playlist window (click tracks to pick, then make a playlist; Shift + click / Shift + ↓ still work) and **⧉** next to the playlist name opens another playlist in its own window beside it (computer only). New ad cards wait while you're picking tracks.
+- [ ] After deploying, open the site on your phone once: the usage note should appear at the top, and picking tracks should work with ☑ Select or by holding a track.
 
 ## Playlist window: pick several tracks (22 Oct)
 - [x] **Shift + ↓ / ↑** selects a run of tracks (starting from the playing track if it is in the list, else the top); **Shift + click** stretches the run; **Ctrl + click** (⌘ on a Mac) adds or removes one. Nothing plays while selecting; a plain click still plays.

@@ -73,6 +73,18 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
 9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
 
+## 28 Oct round
+- [ ] **First: get Cloudflare building again.** The live site is still the 23 Oct build (`/api/health` says schema 29) even though GitHub has the 26 Oct code: Cloudflare didn't build it. Open the build log (dash.cloudflare.com → Compute (Workers) → riffrolled → Deployments) and send me the error, or sign in in my browser pane and I'll read it. Nothing below goes live until that's fixed.
+- [x] **DJ AI**: Your AI and Riffroll It are hidden. Text has a new **🌱 Simple** mode (the default for new visitors): "What kind of music?" — type and pick from 556 styles (each tied to one of the broad genres), or use your own words, up to three — then COPY DJ BRIEF and paste the answer back. One-shot and the Riffenator are unchanged.
+- [x] **Genres**: the 32 broad genres stay (they sort the catalogue, target promotions and fill the GENRE line); Simple's search covers far more styles, each mapped to a broad genre.
+- [x] **Playlist window**: a menu bar above the search with **＋ New playlist** (an empty one, named "New playlist", "New playlist 2"…, ready to rename), **⧉ New window** (another playlist, or a new empty one, in its own window — computer only) and **Share**. The name row is just the name and ▾.
+- [x] **Right-click a track** (computer): Play, Track info, New mix from this track (DJ AI → Track Rolled with it as the seed), Copy link, Remove from this playlist — and "New playlist from the N selected" when it's part of a selection.
+- [x] **Shift + drag** sweeps a run of tracks; with ☑ Select on, any drag adds a run.
+- [x] **Scrollbars** in the playlist lists.
+- [x] **History → Links**: the links you sent (with plays for playlists sent as a link) and the ones you opened from others; copy, open, remove. In this browser only.
+- [x] **Keeping your data**: the site asks the browser to keep its storage (persistent storage) once there's something worth keeping; after 14 days without a backup a note offers **Export a backup** (or **Later**, a week); About → Your data shows the last backup and whether the browser keeps it.
+- [x] **Backups now include everything**: likes, plays, artists/genres/tags, the links log and ad history (they used to hold only names and playlists). Restoring merges and never doubles.
+
 ## 26 Oct round
 - [x] **Promote: hole or no hole.** "Hole in the middle?" under the picture size: Hole / No hole, both live records. Also in 🎨 Look and in the admin form (with its preview). Record only. Schema 30.
 - [x] **Trance is a genre** on the closed list (it used to be filed under Electronic, which is why "trance" came out wrong). Tracks that came in as trance move back automatically, on the server (schema 30) and in each browser. Campaigns targeting Electronic no longer show while Trance plays: target Trance too if you want both.

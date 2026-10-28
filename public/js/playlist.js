@@ -357,6 +357,13 @@ var plBoss = {
     var main = `
       <div class="active-pl">
 
+        <!-- the menu bar: make, open beside, share -->
+        <div class="pl-menubar" role="toolbar" aria-label="Playlist actions">
+          <button class="pl-mb pl-add" data-testid="pl-new" title="Start a new, empty playlist">＋ New playlist</button>
+          <button class="pl-mb pl-beside" data-testid="pl-beside" title="Open a playlist in its own window, beside this one">⧉ New window</button>
+          <button class="pl-mb pl-share" data-testid="pl-share" title="Send this playlist to someone, or share it to Community"><img class="share-ico" src="img/share-icon.webp" alt="" width="14" height="14" draggable="false"> Share</button>
+        </div>
+
         <div class="pl-toolbar">
           <div class="pl-srh-wrap">
             <input type="text" class="pl-srh" placeholder="🔍 Find or switch playlist…" aria-label="Find or switch playlist">
@@ -372,9 +379,6 @@ var plBoss = {
           <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist" aria-label="Playlist name">
           <button class="icon-btn pl-switch" title="Switch playlist" aria-label="Switch playlist" aria-haspopup="listbox" data-testid="pl-switch">▾</button>
-          <button class="icon-btn pl-beside" title="Open another playlist in its own window, beside this one" aria-label="Open another playlist beside this one" data-testid="pl-beside">⧉</button>
-          <button class="icon-btn pl-share" title="Send this playlist to someone, or share it to Community" aria-label="Share this playlist" data-testid="pl-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
-          <button class="icon-btn pl-add" title="New playlist (uses the search text as its name)">＋</button>
         </div>
 
         <div class="active-pl-sub">
@@ -451,6 +455,17 @@ var plBoss = {
     pop.addEventListener('click', async (e) => {
       const del = e.target.closest('.del-btn');
       if (del){ e.stopPropagation(); await this.deletePlaylist(Number(del.dataset.id)); this.renderPlPopup(); return; }
+      if (e.target.closest('.pl-new-win')){
+        e.stopPropagation();
+        pop.classList.remove('open', 'win-mode'); srh.value = '';
+        const names = new Set((await dbBoss.getPlaylists()).map(p => p.name));
+        let name = 'New playlist';
+        for (let n = 2; names.has(name); n++) name = 'New playlist ' + n;
+        const nid = await dbBoss.createPl(name);
+        await this.renderPlaylists();
+        if (window.plWins) await plWins.open(nid);
+        return;
+      }
       const win = e.target.closest('.pl-open-win');
       if (win){
         e.stopPropagation();
@@ -505,7 +520,13 @@ var plBoss = {
 
     // ── ＋ new playlist (uses the search text as the name if present) ──
     root.querySelector('.pl-add').onclick = async () => {
-      const name = srh.value.trim() || 'New Playlist';
+      // a blank one, numbered so a second "New playlist" can be told apart
+      let name = srh.value.trim();
+      if (!name){
+        const names = new Set((await dbBoss.getPlaylists()).map(p => p.name));
+        name = 'New playlist';
+        for (let n = 2; names.has(name); n++) name = 'New playlist ' + n;
+      }
       const id = await dbBoss.createPl(name);
       srh.value = '';
       pop.classList.remove('open');
@@ -530,14 +551,18 @@ var plBoss = {
     const q = (root.querySelector('.pl-srh').value || '').trim().toLowerCase();
     const pls = await dbBoss.getPlaylists();
     const shown = q ? pls.filter(p => p.name.toLowerCase().includes(q)) : pls;
+    const winMode = pop.classList.contains('win-mode');
+    const head = winMode
+      ? `<div class="pl-pop-h" data-testid="pl-beside-h">Open in a new window, beside this one</div>` +
+        `<button class="row-item pl-new-win" data-testid="pl-new-win">＋ A new, empty playlist</button>`
+      : '';
     if (!shown.length){
-      pop.innerHTML = `<div class="empty">${pls.length ? 'No matches' : 'No playlists yet — hit ＋'}</div>`;
+      pop.innerHTML = head + `<div class="empty">${pls.length ? 'No matches' : 'No playlists yet — hit ＋ New playlist'}</div>`;
       return;
     }
     const counts = {};
     await Promise.all(shown.map(async pl=>{ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
-    const winMode = pop.classList.contains('win-mode');
-    pop.innerHTML = (winMode ? `<div class="pl-pop-h" data-testid="pl-beside-h">Open beside: pick a playlist for its own window</div>` : '') + shown.filter(pl => !winMode || pl.id !== this.activeId).map(pl => `
+    pop.innerHTML = head + shown.filter(pl => !winMode || pl.id !== this.activeId).map(pl => `
       <div class="row-item pl-item ${pl.id === this.activeId ? 'active' : ''}" data-id="${pl.id}">
         <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
         <span class="pl-item-count">${counts[pl.id]}</span>

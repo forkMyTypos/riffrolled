@@ -134,6 +134,7 @@ var plWins = {
         plBoss.renderPlaylists();
         return;
       }
+      if (e.target.closest('.plw-addhere')){ el.querySelector('.plw-main').click(); return; }
       var row = e.target.closest('.track-item');
       if (!row) return;
       if (w.sel && w.sel.rowClick(e, Number(row.dataset.i))) return;     // picking, not playing
@@ -200,7 +201,7 @@ var plWins = {
     var box = w.el.querySelector('.plw-tracks');
     w.el.querySelector('.plw-count').textContent = '· ' + w.tracks.length + (w.tracks.length === 1 ? ' track' : ' tracks');
     if (!w.tracks.length){
-      box.innerHTML = '<div class="empty">No tracks in this playlist yet.</div>';
+      box.innerHTML = '<div class="empty">No tracks in this playlist yet.<br><button class="plw-addhere" data-testid="plw-addhere">⤢ Add tracks to it (opens it in the main window)</button></div>';
     } else {
       var promoted = (window.promoTrack && promoTrack.ids) || new Set();
       box.innerHTML = w.tracks.map(function(t, i){

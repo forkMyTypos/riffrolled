@@ -47,8 +47,13 @@ var PRIVACY_HTML =
 
 var DATA_HTML =
   "<h4>Your data</h4>" +
-  "<p>Everything personal — playlists, track names and tags, play history, reactions, panel layout, and your riff-token private key — is stored in <strong>this browser only</strong>. It is never uploaded, which also means nothing can restore it for you.</p>" +
-  "<p><strong>Clearing this site's browser data deletes all of it permanently.</strong> Export a backup now and again, especially before clearing anything or switching device.</p>" +
+  "<p>Everything personal — playlists, track names, artists and tags, likes, play history, the links you've sent and opened, the ads you were shown, and your riff-token private key — is stored in <strong>this browser only</strong>. It is never uploaded, which also means nothing can restore it for you.</p>" +
+  "<p><strong>Clearing this site's browser data deletes all of it permanently.</strong> Export a backup now and again, especially before clearing anything or switching device. riffrolled reminds you if it's been two weeks.</p>" +
+  "<div class='data-guard' data-testid='data-guard'>" +
+    "<div class='dg-row'><span>Last backup</span><b class='dg-last'>…</b></div>" +
+    "<div class='dg-row'><span>Browser keeps it</span><b class='dg-keep'>…</b></div>" +
+    "<button class='dg-ask' hidden data-testid='dg-ask'>Ask the browser to keep it</button>" +
+  "</div>" +
   "<div class='data-btns'>" +
     "<button class='data-export'>⬇ Export a backup</button>" +
     "<button class='data-import'>⬆ Restore from a backup</button>" +
@@ -126,19 +131,21 @@ var infoBoss = {
       st.className = 'status-bar data-status' + (kind ? ' ' + kind : '');
     }
 
+    // what protects all this: when the last backup was, and whether the browser keeps it for good
+    var guard = async function(){
+      var last = await dataGuard.lastBackup();
+      c.querySelector('.dg-last').textContent = last ? new Date(last).toLocaleDateString() + ' (' + Math.max(0, Math.round((Date.now() - last) / 86400000)) + ' days ago)' : 'never';
+      c.querySelector('.dg-last').className = 'dg-last' + (last && Date.now() - last < 14 * 86400000 ? ' good' : ' warn');
+      var p = await dataGuard.persisted();
+      c.querySelector('.dg-keep').textContent = p === true ? 'yes — it won’t clear it to save space' : p === false ? 'not yet — it may clear it if space runs low' : 'can’t tell in this browser';
+      c.querySelector('.dg-keep').className = 'dg-keep' + (p === true ? ' good' : ' warn');
+      c.querySelector('.dg-ask').hidden = p !== false;
+    };
+    guard();
+    c.querySelector('.dg-ask').onclick = async function(){ await dbBoss.setSetting('persistAskedAt', '0'); var ok = await dataGuard.protect(); say(ok ? 'The browser will keep it ✓' : 'The browser said no for now — backups matter all the more', ok ? 'ok' : 'warn'); guard(); };
     c.querySelector('.data-export').onclick = async function(){
-      try {
-        var data = await dbBoss.exportData();
-        data.wallet = await dbBoss.getSetting('wallet');   // the tokens travel with it
-        var blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        var d = new Date().toISOString().slice(0, 10);
-        a.href = url; a.download = 'riffrolled-backup-' + d + '.json';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-        say('Backup downloaded ✓', 'ok');
-      } catch(e){ say('Export failed: ' + e.message, 'err'); }
+      try { await dataGuard.backup(); say('Backup downloaded ✓', 'ok'); guard(); }
+      catch(e){ say('Export failed: ' + e.message, 'err'); }
     };
 
     var file = c.querySelector('.data-file');
@@ -158,7 +165,8 @@ var infoBoss = {
         }
         if (window.plBoss) await plBoss.renderPlaylists();
         if (window.searchBoss) searchBoss.render();
-        say('Merged +' + r.addedPlaylists + ' playlists, +' + r.addedTracks + ' tracks, +' + r.addedJoins + ' entries', 'ok');
+        say('Merged +' + r.addedPlaylists + ' playlists, +' + r.addedTracks + ' tracks, +' + r.addedJoins + ' entries' +
+            (r.addedReactions ? ', +' + r.addedReactions + ' likes' : '') + (r.addedPlays ? ', +' + r.addedPlays + ' plays' : ''), 'ok');
       } catch(e){ say('Import failed: ' + e.message, 'err'); }
       file.value = '';
     };

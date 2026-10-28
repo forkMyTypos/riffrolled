@@ -203,6 +203,9 @@ var djMenuBoss = {
   },
 
   speed(){ return djAi.state.textMode === 'speed'; },
+  simple(){ return djAi.state.textMode === 'simple' && !this.seeded(); },
+  // the Riffenator: the guided, multi-step way
+  riff(){ return djAi.state.textMode === 'details' && !this.seeded(); },
 
   /* which categories get a section of their own, and which wait behind
      More settings. Speed mode asks four things; everything else is still
@@ -227,15 +230,19 @@ var djMenuBoss = {
      brief, the track list, then Link Hunter. It gives better mixes, and
      the panel says so. */
   renderSubModes(){
-    var speed = this.speed();
+    var speed = this.speed(), simple = djAi.state.textMode === 'simple';
     this.el.querySelector('.dj-submodes').innerHTML =
+      "<button class='dj-sub" + (simple ? ' on' : '') + "' data-s='simple' data-testid='dj-simple' " +
+        "title='Just say what kind of music, copy the brief, paste the answer back'>🌱 Simple</button>" +
       "<button class='dj-sub" + (speed ? ' on' : '') + "' data-s='speed' data-testid='dj-oneshot' " +
         "title='One prompt: the AI picks the songs, finds the YouTube links and sends back the finished playlist'>🎯 One-shot prompt</button>" +
       "<button class='dj-sub dj-sub-riff" + (speed ? '' : ' on') + "' data-s='details' data-testid='dj-multishot' " +
         "title='Better mixes: a DJ picks the songs, then Link Hunter finds real YouTube links — guided, step by step'>" +
         "🤖🎸 The Riffenator<span class='dj-better'>BETTER</span></button>" +
       /* say it, don't just badge it: why the Riffenator is the better choice */
-      "<div class='dj-sub-why' data-testid='dj-sub-why'>" + (speed
+      "<div class='dj-sub-why' data-testid='dj-sub-why'>" + (simple
+        ? "Say what kind of music. Copy the brief into your AI, paste its answer back. That's it."
+        : speed
         ? "Quick, but one AI doing everything often makes up links. <b>The Riffenator</b> gets better mixes: a DJ picks the songs, then Link Hunter finds the real YouTube links."
         : "🤖🎸 <b>The Riffenator</b> — our best mixes. A DJ picks the songs first, then Link Hunter finds the real YouTube links. A pop-up walks you through it.") +
       "</div>";
@@ -245,7 +252,7 @@ var djMenuBoss = {
   renderModes(){
     var box = this.el.querySelector('.dj-modes');
     var cur = djAi.state.mode || 'text';
-    box.innerHTML = djAi.modes.map(function(m){
+    box.innerHTML = djAi.modes.filter(function(m){ return m.state === 'ACTIVE'; }).map(function(m){
       var live = m.state === 'ACTIVE', on = live && m.id === cur;
       var badge = !live ? m.state : (on ? 'ACTIVE' : (m.id === 'seeded' ? 'NEW' : 'PICK'));
       return "<button class='dj-mode" + (live ? ' live' : ' soon') + (on ? ' on' : '') + "' data-m='" + m.id + "' data-testid='dj-mode-" + m.id + "'" +
@@ -331,6 +338,57 @@ var djMenuBoss = {
 
   seeded(){ return djAi.state.mode === 'seeded'; },
 
+  /* SIMPLE: one search box for what kind of music (a few hundred styles,
+     music-styles.js, or your own words), up to three, then copy. */
+  simpleHtml(){
+    return "<div class='dj-simple' data-testid='dj-simple-box'>" +
+      "<div class='dj-simple-q'>What kind of music?</div>" +
+      "<div class='dj-simple-chips' data-testid='dj-simple-chips'></div>" +
+      "<input type='text' class='dj-simple-in' data-testid='dj-simple-in' placeholder='Type a style… trance, bossa nova, 90s hip hop' autocomplete='off' maxlength='60'>" +
+      "<div class='dj-simple-hits' data-testid='dj-simple-hits' role='listbox'></div>" +
+      "<div class='dj-simple-note'>Up to three. It's all the DJ needs — the rest is up to them.</div>" +
+    "</div>";
+  },
+
+  renderSimple(){
+    var box = this.el.querySelector('.dj-simple-chips');
+    if (!box) return;
+    var st = djAi.state.simpleStyles || [];
+    box.innerHTML = st.map(function(x, i){
+      var g = window.musicStyles ? musicStyles.genreOf(x) : '';
+      return "<span class='dj-simple-chip' data-testid='dj-simple-chip'>" + escapeHtml(x) +
+        (g && g.toLowerCase() !== x.toLowerCase() ? "<small>" + escapeHtml(g) + "</small>" : '') +
+        "<button class='dj-simple-x' data-i='" + i + "' aria-label='Remove " + escapeHtml(x) + "'>✕</button></span>";
+    }).join('');
+    var inp = this.el.querySelector('.dj-simple-in');
+    if (inp){ inp.disabled = st.length >= 3; inp.placeholder = st.length >= 3 ? 'That’s three — remove one to change' : (st.length ? 'Add another (optional)…' : 'Type a style… trance, bossa nova, 90s hip hop'); }
+    this.renderSimpleHits();
+  },
+
+  renderSimpleHits(){
+    var inp = this.el.querySelector('.dj-simple-in'), box = this.el.querySelector('.dj-simple-hits');
+    if (!inp || !box) return;
+    var q = inp.value.trim();
+    if (!q){ box.innerHTML = ''; return; }
+    var hits = window.musicStyles ? musicStyles.search(q, 8) : [];
+    var exact = hits.some(function(h){ return h.name.toLowerCase() === q.toLowerCase(); });
+    var rows = hits.map(function(h, i){
+      var broad = h.genre !== h.name ? "<small>" + escapeHtml(h.genre) + "</small>" : '';
+      return "<button class='dj-simple-hit" + (i === 0 ? ' first' : '') + "' data-v='" + escapeHtml(h.name) + "' role='option'>" +
+        escapeHtml(h.name) + broad + "</button>";
+    });
+    box.innerHTML = rows.join('') + (exact ? '' : "<button class='dj-simple-hit own" + (hits.length ? '' : ' first') + "' data-v='" + escapeHtml(q) + "' role='option'>Use “" + escapeHtml(q) + "”<small>your own words</small></button>");
+  },
+
+  async addSimple(v){
+    try {
+      if (await djAi.addSimpleStyle(v)){
+        var inp = this.el.querySelector('.dj-simple-in'); if (inp){ inp.value = ''; inp.focus(); }
+        this.renderSimple(); this.sync();
+      }
+    } catch(e){ this.status(e.message, 'err'); }
+  },
+
   /* Track Rolled Journey: the seeds ARE the brief. Up to five, added from
      what's playing, from the library, or typed / pasted. */
   seedsHtml(){
@@ -401,6 +459,13 @@ var djMenuBoss = {
     this.el.classList.toggle('dj-seeded', seeded);
     var cats = seeded ? djAi.cats.filter(function(c){ return c.key === 'personality' && c.enabled; }) : this.mainCats();
 
+    if (this.simple()){
+      box.innerHTML = this.simpleHtml();
+      this.renderSimple();
+      this.renderMore();
+      this.sync();
+      return;
+    }
     var html = seeded ? this.seedsHtml() : '';
     html += cats.map(function(c){ return self.sectionHtml(c); }).join('');
     // familiarity is a details-mode control; in speed it waits behind More
@@ -539,8 +604,20 @@ var djMenuBoss = {
     });
     root.querySelector('.dj-sections').addEventListener('input', function(e){
       if (e.target.classList.contains('dj-seed-in')) self.renderSeedHits(e.target.value);
+      if (e.target.classList.contains('dj-simple-in')) self.renderSimpleHits();
+    });
+    root.querySelector('.dj-sections').addEventListener('click', async function(e){
+      var hit = e.target.closest('.dj-simple-hit'); if (hit){ await self.addSimple(hit.dataset.v); return; }
+      var x = e.target.closest('.dj-simple-x');
+      if (x){ await djAi.removeSimpleStyle(+x.dataset.i); self.renderSimple(); self.sync(); }
     });
     root.querySelector('.dj-sections').addEventListener('keydown', async function(e){
+      if (e.key === 'Enter' && e.target.classList.contains('dj-simple-in')){
+        e.preventDefault();
+        var first = self.el.querySelector('.dj-simple-hit.first');
+        if (first) await self.addSimple(first.dataset.v);
+        return;
+      }
       if (e.key === 'Enter' && e.target.classList.contains('dj-seed-in')){
         e.preventDefault();
         try { await self.addSeedAndRender(await djAi.seedFromText(e.target.value)); }
@@ -922,10 +999,13 @@ var djMenuBoss = {
 
     root.querySelector('.dj-brief').textContent = djAi.briefLine();
     var seeded = this.seeded();
-    root.querySelector('.dj-copy').textContent = seeded ? '⧉ COPY TRACK ROLLED JOURNEY' : (this.speed() ? '⧉ COPY DJ BRIEF' : '⧉ COPY PROMPT 1 · DJ BRIEF');
+    root.querySelector('.dj-copy').textContent = seeded ? '⧉ COPY TRACK ROLLED JOURNEY' : (this.riff() ? '⧉ COPY PROMPT 1 · DJ BRIEF' : '⧉ COPY DJ BRIEF');
     // the seeds are the brief: no one-shot / Riffenator choice, no Riff Roll dice, no extra sections
-    ['.dj-submodes', '.dj-rollbar', '.dj-more', '.dj-est'].forEach(function(sel){ var n = root.querySelector(sel); if (n) n.hidden = seeded; });
-    root.querySelector('.dj-reply').placeholder = (this.speed() || seeded)
+    ['.dj-submodes'].forEach(function(sel){ var n = root.querySelector(sel); if (n) n.hidden = seeded; });
+    // Simple asks one thing: no dice, no extra settings
+    var simple = this.simple();
+    ['.dj-rollbar', '.dj-more', '.dj-est'].forEach(function(sel){ var n = root.querySelector(sel); if (n) n.hidden = seeded || simple; });
+    root.querySelector('.dj-reply').placeholder = !this.riff()
       ? 'Paste AI response here…'
       : 'Copy prompt 1 — the steps after it open in a pop-up…';
     root.querySelector('.dj-est').textContent = 'DJ thinking time ' + djAi.estimateLabel();
@@ -934,6 +1014,10 @@ var djMenuBoss = {
     if (seeded){
       var n = (djAi.state.seeds || []).length;
       root.querySelector('.dj-copy-note').textContent = n ? '' : 'add a seed track first';
+      return;
+    }
+    if (simple){
+      root.querySelector('.dj-copy-note').textContent = (djAi.state.simpleStyles || []).length ? '' : 'say what kind of music first — or the DJ chooses';
       return;
     }
     var missing = this.mainCats().filter(function(x){ return !djAi.picked(x.key); }).length;
@@ -981,7 +1065,11 @@ var djMenuBoss = {
       should only ever be one definition of what that button does. */
   async rollAndCopy(){
     await djAi.ready();            // may be pressed before the menu finished loading
-    await djAi.rollAll({ chaos: djAi.state.chaos });
+    if (this.simple() && window.MUSIC_STYLES && !(djAi.state.simpleStyles || []).length){
+      // Simple has no dice of its own: a style at random, so the tour's ROLL THE RIFF still rolls
+      var pick = MUSIC_STYLES[Math.floor(Math.random() * MUSIC_STYLES.length)][0];
+      await djAi.addSimpleStyle(pick);
+    } else if (!this.simple()) await djAi.rollAll({ chaos: djAi.state.chaos });
     this.renderSections();
     this.sync();
     var copied = await this.copyBrief({ silent:true });
@@ -1126,7 +1214,7 @@ var djMenuBoss = {
         if (!opts.silent) this.status('Brief copied ✓', 'ok');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         this.arm(text);             // offer the one-click paste on the way back
-        if (!this.speed() && !this.seeded()) this.wizOpen('list', {});      // the Riffenator: on to step 2
+        if (this.riff()) this.wizOpen('list', {});      // the Riffenator: on to step 2
         return true;
       } catch(e){
         var box = this.el.querySelector('.dj-promptbox') || (function(sec){
@@ -1135,7 +1223,7 @@ var djMenuBoss = {
         })(this.el.querySelector('.dj-brief-sec'));
         box.value = text; box.select();
         this.status('Select the text below and copy it');
-        if (!this.speed() && !this.seeded()) this.wizOpen('list', { prompt1: text });
+        if (this.riff()) this.wizOpen('list', { prompt1: text });
         if (window.appToast) appToast('Clipboard blocked — the prompt is in the box below', 'warn');
         this.el.querySelector('.dj-import-sec').classList.add('ready');
         return false;
@@ -1544,10 +1632,11 @@ var djHistoryBoss = {
     var main =
       "<div class='hist-tabs' role='tablist' data-testid='hist-tabs'>" +
         "<button class='hist-tab' role='tab' data-tab='liked' data-testid='hist-tab-liked'>👍 Liked</button>" +
-        "<button class='hist-tab' role='tab' data-tab='played' data-testid='hist-tab-played'>▶ Most played</button>" +
+        "<button class='hist-tab' role='tab' data-tab='played' data-testid='hist-tab-played'>▶ Played</button>" +
         "<button class='hist-tab' role='tab' data-tab='recent' data-testid='hist-tab-recent'>Recent</button>" +
         "<button class='hist-tab' role='tab' data-tab='sets' data-testid='hist-tab-sets'>DJ sets</button>" +
         "<button class='hist-tab' role='tab' data-tab='ads' data-testid='hist-tab-ads'>Ads</button>" +
+        "<button class='hist-tab' role='tab' data-tab='links' data-testid='hist-tab-links'>Links</button>" +
       "</div>" +
       "<div class='sec hist-music' data-testid='hist-music'>" +
         "<div class='ym-list scrollable'></div>" +
@@ -1597,10 +1686,13 @@ var djHistoryBoss = {
     this.el.querySelector('.ym-make').addEventListener('click', function(){ self.makePlaylist(); });
     // a like or a play elsewhere refreshes the list, if it is on screen
     document.addEventListener('riffrolled:music', function(){
-      if (!self.el.classList.contains('is-hidden') && self.tab !== 'sets' && self.tab !== 'ads') self.renderMusic();
+      if (!self.el.classList.contains('is-hidden') && ['sets', 'ads', 'links'].indexOf(self.tab) < 0) self.renderMusic();
     });
     document.addEventListener('riffrolled:ads', function(){
       if (!self.el.classList.contains('is-hidden') && self.tab === 'ads') self.renderMusic();
+    });
+    document.addEventListener('riffrolled:links', function(){
+      if (!self.el.classList.contains('is-hidden') && self.tab === 'links') self.renderMusic();
     });
     // fresh numbers every time the panel is opened
     var wasHidden = true;
@@ -1616,7 +1708,7 @@ var djHistoryBoss = {
   },
 
   show(tab, quiet){
-    if (['liked', 'played', 'recent', 'sets', 'ads'].indexOf(tab) < 0) tab = 'liked';
+    if (['liked', 'played', 'recent', 'sets', 'ads', 'links'].indexOf(tab) < 0) tab = 'liked';
     this.tab = tab;
     var el = this.el;
     el.querySelectorAll('.hist-tab').forEach(function(b){
@@ -1661,6 +1753,7 @@ var djHistoryBoss = {
     var box = this.el.querySelector('.ym-list');
     var tab = this.tab;
     if (tab === 'ads') return this.renderAds();
+    if (tab === 'links') return this.renderLinks();
     var rows = await this.musicRows(tab);
     if (this.tab !== tab) return;
     this._rows = rows;
@@ -1737,6 +1830,71 @@ var djHistoryBoss = {
     }
   },
 
+  /* ── Links: what you sent and what you opened (data-guard.js, Dexie only) ── */
+  async renderLinks(){
+    var box = this.el.querySelector('.ym-list');
+    var rows = window.linksLog ? await linksLog.list() : [];
+    if (this.tab !== 'links') return;
+    this._links = rows;
+    this.el.querySelector('.ym-foot').hidden = true;
+    if (!rows.length){
+      box.innerHTML = "<div class='empty' data-testid='links-empty'>No links yet.<br>Links you send (SHARE → Send this playlist) and links people send you show up here.</div>";
+      return;
+    }
+    var plays = await this.mixPlays();
+    if (this.tab !== 'links') return;
+    var self = this;
+    var row = function(r){
+      var p = r.kind === 'sent' && r.slug && plays[r.slug] !== undefined ? plays[r.slug] : null;
+      var meta = [{ playlist: 'playlist', track: 'track', mix: 'mix' }[r.type] || 'link', self.ago(r.ts)];
+      if (p !== null) meta.push('▶ ' + p + (p === 1 ? ' play' : ' plays'));
+      return "<div class='ym-row link-row' data-l='" + Number(r.id) + "' data-testid='link-row'>" +
+        "<span class='link-ico'>" + (r.type === 'track' ? '♪' : '🔗') + "</span>" +
+        "<div class='ym-txt'>" +
+          "<div class='ym-name'>" + escapeHtml(r.title || r.url.replace(/^https?:\/\//, '')) + "</div>" +
+          "<div class='ym-meta'>" + meta.map(escapeHtml).join(" <span class='mx-dot'>·</span> ") + "</div>" +
+        "</div>" +
+        "<button class='link-copy' title='Copy the link' aria-label='Copy the link'>⧉</button>" +
+        "<button class='ym-play link-open' title='Open it' aria-label='Open it'>▶</button>" +
+        "<button class='ad-x' title='Remove from this list' aria-label='Remove from this list'>✕</button>" +
+      "</div>";
+    };
+    var sent = rows.filter(function(r){ return r.kind === 'sent'; }), opened = rows.filter(function(r){ return r.kind === 'opened'; });
+    box.innerHTML =
+      (sent.length ? "<div class='link-h'>Sent</div>" + sent.map(row).join('') : '') +
+      (opened.length ? "<div class='link-h'>Opened from others</div>" + opened.map(row).join('') : '') +
+      "<div class='ad-note'>Kept in this browser only. Plays are counted for playlists you sent as a link.</div>";
+  },
+
+  /* plays of the mixes this key shared, by link code (one request, a minute's cache) */
+  async mixPlays(){
+    if (this._mp && Date.now() - this._mp.at < 60000) return this._mp.map;
+    var map = {};
+    try {
+      var h = window.riffWallet ? await riffWallet.headers() : {};
+      var r = await fetch('/api/mixes/mine', { headers: h, cache: 'no-store' });
+      if (r.ok){ ((await r.json()).mixes || []).forEach(function(m){ if (m.slug) map[m.slug] = Number(m.plays) || 0; }); }
+    } catch(e){}
+    this._mp = { at: Date.now(), map: map };
+    return map;
+  },
+
+  async onLink(e){
+    var row = e.target.closest('.link-row'); if (!row) return;
+    var r = (this._links || []).find(function(x){ return x.id === Number(row.dataset.l); });
+    if (!r) return;
+    if (e.target.closest('.ad-x')){ await linksLog.remove(r.id); return; }
+    if (e.target.closest('.link-copy')){
+      try { await navigator.clipboard.writeText(r.url); this.status('Link copied', 'ok'); }
+      catch(err){ this.status('Copy this link: ' + r.url, 'err'); }
+      return;
+    }
+    if (e.target.closest('.link-open') || e.target.closest('.ym-txt')){
+      if (r.type === 'track' && r.ytId) player.load(r.ytId, r.title || r.ytId);
+      else if (r.slug && window.mixesBoss) mixesBoss.openFromUrl(r.slug);
+    }
+  },
+
   ago(ts){
     var sec = Math.max(0, (Date.now() - ts) / 1000);
     if (sec < 90) return 'just now';
@@ -1747,6 +1905,7 @@ var djHistoryBoss = {
 
   async onMusic(e){
     if (this.tab === 'ads') return this.onAd(e);
+    if (this.tab === 'links') return this.onLink(e);
     var row = e.target.closest('.ym-row'); if (!row) return;
     var r = (this._rows || []).find(function(x){ return x.ytId === row.dataset.yt; });
     if (!r) return;

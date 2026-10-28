@@ -998,3 +998,39 @@ body.mobile .pl-beside { display:none; }
 .pl-pop-h { padding:6px 8px 4px; font-size:11px; color:#46e0ff; font-weight:700; }
 .pl-pop.win-mode .pl-open-win { display:none; }
 .pl-sel-make:disabled { opacity:.45; cursor:default; }
+
+/* Playlist window: the menu bar above the search */
+.pl-menubar { display:flex; gap:6px; padding:8px 10px 0; flex-shrink:0; flex-wrap:wrap; }
+.pl-mb { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:7px; font-size:11.5px; cursor:pointer; white-space:nowrap;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); }
+.pl-mb:hover { background:rgba(157,140,255,0.16); border-color:rgba(157,140,255,0.55); color:#fff; }
+.pl-mb.pl-add { border-color:rgba(157,140,255,0.5); color:#fff; }
+.pl-mb .share-ico { width:14px; height:14px; }
+body.mobile .pl-mb.pl-beside { display:none; }
+.pl-new-win { width:100%; text-align:left; font:inherit; font-size:12.5px; color:#c3b6ff; background:transparent; }
+.plw-addhere { margin-top:8px; padding:5px 10px; border-radius:7px; font-size:11.5px; cursor:pointer; background:rgba(157,140,255,0.12); border:1px solid rgba(157,140,255,0.4); color:#fff; }
+
+/* playlists get a scrollbar back (base.css hides them everywhere) */
+.active-pl-tracks, .pl-pop, .plw-tracks { scrollbar-width:thin; scrollbar-color:rgba(157,140,255,0.5) transparent; }
+.active-pl-tracks::-webkit-scrollbar, .pl-pop::-webkit-scrollbar, .plw-tracks::-webkit-scrollbar { display:block; width:8px; height:8px; }
+.active-pl-tracks::-webkit-scrollbar-track, .pl-pop::-webkit-scrollbar-track, .plw-tracks::-webkit-scrollbar-track { background:rgba(255,255,255,0.02); border-radius:20px; }
+.active-pl-tracks::-webkit-scrollbar-thumb, .pl-pop::-webkit-scrollbar-thumb, .plw-tracks::-webkit-scrollbar-thumb {
+  background:rgba(157,140,255,0.4); border-radius:20px; border:2px solid transparent; background-clip:content-box; }
+.active-pl-tracks::-webkit-scrollbar-thumb:hover, .pl-pop::-webkit-scrollbar-thumb:hover, .plw-tracks::-webkit-scrollbar-thumb:hover {
+  background:rgba(157,140,255,0.75); background-clip:content-box; }
+
+/* right-click on a track (track-menu.js) */
+#trackMenu.track-menu { position:fixed; bottom:auto; right:auto; transform:none; z-index:2700; min-width:240px; max-width:320px; }
+.track-menu .tm-head { padding:6px 9px 6px; margin-bottom:3px; font-size:11px; font-weight:700; color:#fff; border-bottom:1px solid rgba(255,255,255,0.08);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.track-menu .t-mi small { display:block; font-size:10px; color:rgba(255,255,255,0.42); }
+.track-menu .t-mi:focus-visible { outline:2px solid #c3b6ff; outline-offset:-2px; }
+.track-menu .tm-del:hover { background:rgba(192,57,43,0.3); }
+
+/* About → Your data: what protects it */
+.data-guard { margin:8px 0 12px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.03); font-size:12px; }
+.dg-row { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+.dg-row span { color:rgba(255,255,255,0.6); }
+.dg-row b { font-weight:600; text-align:right; }
+.dg-row b.good { color:#8fdcb2; } .dg-row b.warn { color:#ffcc8a; }
+.dg-ask { margin-top:6px; padding:4px 10px; border-radius:6px; font-size:11.5px; cursor:pointer; background:rgba(143,220,178,0.12); border:1px solid rgba(143,220,178,0.45); color:#fff; }

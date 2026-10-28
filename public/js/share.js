@@ -162,7 +162,10 @@ var shareBoss = {
     var sig = rows.map(function(t){ return t.ytId; }).join(',');
     if (window.riffUsage) riffUsage.count('share_link');
     // the same tracks as last time: the same link, no new mix
-    if (pl.sharedSlug && pl.sharedSig === sig) return this.giveLink(pl.sharedSlug, pl.name);
+    if (pl.sharedSlug && pl.sharedSig === sig){
+      if (window.linksLog) linksLog.add({ kind: 'sent', type: 'playlist', url: this.linkForMix(pl.sharedSlug), title: pl.name, slug: pl.sharedSlug });
+      return this.giveLink(pl.sharedSlug, pl.name);
+    }
     appToast('Making a link to “' + pl.name + '”…');
     var tracks = rows.map(function(t){
       return { name: t.name || '', artist: t.artist || '', genre: t.genre || '', url: 'https://www.youtube.com/watch?v=' + t.ytId };
@@ -187,6 +190,7 @@ var shareBoss = {
         appNotify('Your link to “' + pl.name + '” is made. It starts working once your key has had a quick check.', '');
         return;
       }
+      if (window.linksLog) linksLog.add({ kind: 'sent', type: 'playlist', url: this.linkForMix(res.j.slug), title: pl.name, slug: res.j.slug });
       return this.giveLink(res.j.slug, pl.name);
     } catch(e){
       appNotify('Couldn’t make a link: ' + (e && e.message || e), 'warn');
@@ -220,6 +224,8 @@ var shareBoss = {
     if (!id) return;
     var link = this.linkForTrack(id);
     if (window.riffUsage) riffUsage.count('share_track');
+    if (window.linksLog) linksLog.add({ kind: 'sent', type: 'track', url: link, ytId: id,
+      title: (player.el && player.el.title && player.el.title.textContent) || id });
     var title = (player.el && player.el.title && player.el.title.textContent) || 'A track';
     if (navigator.share && document.body.classList.contains('mobile')){
       try { await navigator.share({ title: title, text: title + ' — on riffrolled', url: link }); return; }
@@ -246,6 +252,7 @@ var shareBoss = {
     var v = window.djAi && djAi.oembed ? await djAi.oembed(id) : 'offline';
     if (v === null){ appNotify('That video isn’t on YouTube any more, or can’t be played here', 'warn'); return; }
     if (v && v !== 'offline') title = v.name;
+    if (window.linksLog) linksLog.add({ kind: 'opened', type: 'track', url: this.linkForTrack(id), ytId: id, title: title });
     var self = this;
     // a neutral note (not 'ok'), so it waits for an answer instead of fading after a few seconds
     appNotify('Someone shared “' + title + '” with you.', '', { label: 'Add it', run: function(){ setTimeout(function(){ self.addShared(id, title, v); }, 0); } });

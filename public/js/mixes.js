@@ -396,6 +396,7 @@ var mixesBoss = {
   async copyLink(slug, name){
     if (!slug){ this.status('That mix has no link yet — try again in a moment', 'warn'); return; }
     var link = this.linkFor(slug);
+    if (window.linksLog) linksLog.add({ kind: 'sent', type: 'mix', url: link, title: name || '', slug: slug });
     // phones: the native share sheet, which is where people send links from
     if (navigator.share && document.body.classList.contains('mobile')){
       try { await navigator.share({ title: name || 'A mix on riffrolled', text: 'A mix on riffrolled', url: link }); return; }
@@ -420,7 +421,9 @@ var mixesBoss = {
       if (r.status === 404){ this.status('That mix isn’t available. It may have been removed, or it’s still waiting to be approved.', 'warn'); return; }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       if (window.riffUsage) riffUsage.count('mix_open');
-      this.showLinked(await r.json());
+      var mx = await r.json();
+      if (window.linksLog) linksLog.add({ kind: 'opened', type: 'mix', url: this.linkFor(code), title: mx.name || '', slug: code });
+      this.showLinked(mx);
     } catch(e){ this.status('Couldn’t open that link just now. Check your connection and try again.', 'err'); }
   },
 

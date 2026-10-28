@@ -17,8 +17,8 @@ async function runSelfTests(){
          a label somebody typed — reach an HTML sink without escapeHtml
          around it? A field merely being tested (`t.artist ? … : ''`) is
          not being rendered, so it doesn't count. */
-      const FILES = ['db','ui','player','playlist','playlist-select','playlist-windows','share','mixes','panels-music','panels-tokens',
-                     'dj-data','aidj','dj-menu','info','promo-popup','dock','tutorial','selftest'];
+      const FILES = ['db','ui','data-guard','player','playlist','playlist-select','playlist-windows','track-menu','share','mixes','panels-music','panels-tokens',
+                     'dj-data','music-styles','aidj','dj-menu','info','promo-popup','dock','tutorial','selftest'];
       const RISKY = /\.(name|artist|genre|ytTitle|title|label|channel|playlistName|request|reason|msg)\b/g;
       const SINK  = /(innerHTML|outerHTML)\s*\+?=\s*([\s\S]*?);\n|insertAdjacentHTML\s*\(([\s\S]*?)\);/g;
 
@@ -395,6 +395,15 @@ async function runSelfTests(){
       assert((await djAi.buildSpeedPrompt()).indexOf('Song 23') < 0, 'and gone when switched off');
       djAi.state.likedN = 15; djAi.state.textMode = 'speed'; djAi.state.shareContext = true;
     }],
+    ['Simple mode: every style belongs to a genre on the closed list, and search finds it', async () => {
+      assert(window.MUSIC_STYLES && MUSIC_STYLES.length > 300, 'a few hundred styles');
+      const bad = MUSIC_STYLES.filter(s => riffGenres.LIST.indexOf(s[1]) < 0).map(s => s[0]);
+      assert(!bad.length, 'not on the list: ' + bad.join(', '));
+      const names = MUSIC_STYLES.map(s => s[0].toLowerCase());
+      assert(names.length === new Set(names).size, 'no style twice');
+      assert(musicStyles.search('psytr')[0].name === 'Psytrance', 'search finds by the start of a name');
+      assert(musicStyles.genreOf('Psytrance') === 'Trance' && musicStyles.genreOf('progressive trance thing') === 'Trance', 'broad genre for a style and for own words');
+    }],
     ['DJ AI never mistakes an 11-character title for a video id', async () => {
       // Parcels' "Gamesofluck" is exactly eleven word characters. Before
       // this, the title was read as the link and everything shifted right.
@@ -445,7 +454,10 @@ async function runSelfTests(){
   // run against a throwaway DB so real data is never touched
   const realDb = db;
   const testDb = new Dexie('vinyl_selftest_' + Date.now());
-  testDb.version(11).stores({
+  testDb.version(14).stores({
+    promoArchive: 'id, ytId, endedAt, archivedAt',
+    adHistory: '++id, ts, promoId, ytId',
+    sharedLinks: '++id, ts, kind, url',
     playlists: '++id, name, createdAt, plays, tags',
     tracks: '++id, ytId, name, artist, tags, plays',
     playlistTracks: '++id, playlistId, trackId, addedAt, order',
@@ -464,7 +476,7 @@ async function runSelfTests(){
   db = testDb;                       // dbBoss now operates on the throwaway DB
   try {
     for (const [name, fn] of tests){
-      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.links, db.playHistory, db.reactions, db.aiSessions, db.djCategories, db.djOptions].map(t => t.clear()));
+      await Promise.all([db.tracks, db.playlists, db.playlistTracks, db.links, db.playHistory, db.reactions, db.aiSessions, db.djCategories, db.djOptions, db.sharedLinks, db.adHistory].map(t => t.clear()));
       try { await fn(); results.push({ ok:true, name }); pass++; }
       catch (e){ results.push({ ok:false, name, msg:e.message }); fail++; }
     }

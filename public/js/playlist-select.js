@@ -7,6 +7,7 @@
                                   is in this list, else the top / bottom)
                 Shift + click     stretch the run to that track
                 Ctrl / ⌘ + click  add or remove one
+                Shift + drag      sweep a run (any drag does, with ☑ Select on)
                 Enter             name it (a suggestion is filled in), Enter
                                   again makes it; Esc clears
      phone      long-press        start picking (that track); then a tap adds
@@ -84,10 +85,44 @@ PlSelect.prototype = {
   /* Delegated on the list, so re-rendering the rows loses nothing. */
   bindList: function(){
     var self = this, list = this.o.list, timer = null, start = null;
-    // a Shift + click shouldn't also select the rows' text
+    /* Shift + drag (or any drag while ☑ Select is on) sweeps a run of
+       tracks. A drag that never leaves its first row is just a click.
+       Holding Shift also stops the rows' text being selected and the row
+       being picked up to reorder. Near the top or bottom edge, the list
+       scrolls. */
     list.addEventListener('mousedown', function(e){
-      if (e.shiftKey && e.target.closest('.track-item')) e.preventDefault();
+      if (e.button !== 0 || PlSelect.isMobile()) return;
+      var row = e.target.closest('.track-item');
+      if (!row || e.target.closest('button, input, .track-handle')) return;
+      if (!e.shiftKey && !self.mode) return;
+      e.preventDefault();
+      var startI = Number(row.dataset.i), moved = false;
+      var from = (e.shiftKey && self.anchor !== null && self.ids.size && !self.mode) ? self.anchor : startI;
+      var base = self.mode ? new Set(self.ids) : null;      // in Select mode a sweep adds to what is picked
+      self._dragging = true;
+      PlSelect.last = self;
+      var onMove = function(ev){
+        var lr = list.getBoundingClientRect();
+        if (ev.clientY < lr.top + 20) list.scrollTop -= 16;
+        else if (ev.clientY > lr.bottom - 20) list.scrollTop += 16;
+        var el = document.elementFromPoint(Math.min(Math.max(ev.clientX, lr.left + 4), lr.right - 4), Math.min(Math.max(ev.clientY, lr.top + 2), lr.bottom - 2));
+        var r = el && el.closest && el.closest('.track-item');
+        if (!r || !list.contains(r)) return;
+        var i = Number(r.dataset.i);
+        if (i !== startI) moved = true;
+        if (moved) self.sweep(from, i, base);
+      };
+      var onUp = function(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        self._dragging = false;
+        if (moved){ self._suppress = true; setTimeout(function(){ self._suppress = false; }, 0); }
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
+    // a sweep never turns into dragging the row to reorder it
+    list.addEventListener('dragstart', function(e){ if (self._dragging || e.shiftKey) e.preventDefault(); }, true);
     // long-press (touch / pen) starts picking
     var cancel = function(){ clearTimeout(timer); timer = null; start = null; };
     list.addEventListener('pointerdown', function(e){
@@ -168,6 +203,14 @@ PlSelect.prototype = {
     var lo = Math.min(a, b), hi = Math.max(a, b);
     this.ids = new Set(this.o.view().slice(lo, hi + 1).map(function(t){ return t.joinId; }));
     this.anchor = a; this.cursor = b;
+    this.paint();
+  },
+
+  /** a swept run from a to b, added to `base` (Select mode) or on its own */
+  sweep: function(a, b, base){
+    var lo = Math.min(a, b), hi = Math.max(a, b), ids = new Set(base || []);
+    this.o.view().slice(lo, hi + 1).forEach(function(t){ ids.add(t.joinId); });
+    this.ids = ids; this.anchor = a; this.cursor = b;
     this.paint();
   },
 

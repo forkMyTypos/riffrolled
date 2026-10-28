@@ -34,17 +34,16 @@ var djAi = {
        copy + paste system as TEXT; only the brief is different. */
     { id:'seeded', label:'TRACK ROLLED', sub:'JOURNEY', state:'ACTIVE',
       blurb:'Pick a few tracks you love — the DJ rolls a journey outward from them.' },
-    { id:'byoai', label:'YOUR AI',     sub:'BRING YOUR OWN', state:'COMING SOON',
-      blurb:'Connect the AI you already pay for and skip the clipboard.' },
-    { id:'riffroll', label:'RIFFROLL IT', sub:'WE HANDLE IT', state:'COMING SOON',
-      blurb:'riffrolled talks to the DJ for you. One button, one journey.' }
+    /* hidden until they exist: { byoai: YOUR AI · BRING YOUR OWN },
+       { riffroll: RIFFROLL IT · WE HANDLE IT } */
   ],
 
   /* ── brief state. Picks are keyed by category key; everything here is
      persisted to settings so the menu looks the same tomorrow. ── */
   state: {
     mode: 'text',
-    textMode: 'speed',    // 'speed' | 'details' — the two ways to brief
+    textMode: 'simple',   // 'simple' | 'speed' | 'details' — the three ways to brief
+    simpleStyles: [],     // Simple mode: up to three kinds of music, as named
     picks: {},            // { activity: optionId, feel: optionId, … }
     familiarity: 30,      // % familiar; the rest is discovery
     chaos: false,
@@ -88,6 +87,8 @@ var djAi = {
     } catch(e){ /* a bad saved state is not worth failing over */ }
     if (!Array.isArray(this.state.seeds)) this.state.seeds = [];
     if (['text', 'seeded'].indexOf(this.state.mode) < 0) this.state.mode = 'text';
+    if (['simple', 'speed', 'details'].indexOf(this.state.textMode) < 0) this.state.textMode = 'simple';
+    if (!Array.isArray(this.state.simpleStyles)) this.state.simpleStyles = [];
     // anything picked that has since been deleted quietly clears
     var self = this;
     Object.keys(this.state.picks).forEach(function(k){
@@ -448,6 +449,10 @@ var djAi = {
   /* ── the brief, as one line (what the menu shows) ── */
   briefLine(){
     var self = this, bits = [];
+    if (this.state.mode !== 'seeded' && this.state.textMode === 'simple'){
+      var st = this.state.simpleStyles || [];
+      return (st.length ? st.join(' + ') : 'Any music') + ' | ' + this.state.count + ' tracks · ' + this.state.minutes + ' min';
+    }
     if (this.state.mode === 'seeded'){
       var seeds = this.state.seeds.map(function(t){ return (t.artist ? t.artist + ' — ' : '') + (t.title || t.ytId); });
       bits.push('From: ' + (seeds.length ? seeds.join(', ') : 'no seeds yet'));
@@ -485,6 +490,7 @@ var djAi = {
      brief underneath. ── */
   async buildPrompt(){
     if (this.state.mode === 'seeded') return await this.buildSeededPrompt();
+    if (this.state.textMode === 'simple') return await this.buildSimplePrompt();
     return this.state.textMode === 'speed'
       ? await this.buildSpeedPrompt()
       : await this.buildDetailsPrompt();
@@ -675,7 +681,52 @@ var djAi = {
       .replace(/\{\{count\}\}/g, String(s.count));
   },
 
-  /** most-played, as "Artist — Title (23 plays)" */
+  /* SIMPLE. One question — what kind of music — and the one-shot prompt
+     (DJ_ONESHOT_PROMPT) around it, so the reply comes back the same way. */
+  async buildSimplePrompt(){
+    var s = this.state, L = [];
+    var st = (s.simpleStyles || []).slice(0, 3);
+    L.push('In short: ' + this.briefLine());
+    L.push('');
+    if (st.length){
+      L.push('Music: ' + st.join(', ') + ' (stay in it: most tracks should clearly be ' + (st.length > 1 ? 'one of these' : 'this') +
+             '; a few close neighbours are fine — this is the listener\'s own choice)');
+      var gs = [];
+      st.forEach(function(x){ var g = window.musicStyles ? musicStyles.genreOf(x) : ''; if (g && gs.indexOf(g) < 0) gs.push(g); });
+      if (gs.length) L.push('For the GENRE line, these count as: ' + gs.join(', '));
+    } else {
+      L.push('Music: your choice — make it good');
+    }
+    L.push('Tracks: exactly ' + s.count);
+    L.push('Total duration: about ' + s.minutes + ' minutes');
+    L.push('Longest single track: ' + s.maxTrackMin + ' minutes');
+    var g = this._genreList();
+    if (g) L.push('Allowed genres for the GENRE line: ' + g);
+    var lb = await this.listeningBlock();
+    if (lb){ L.push(''); L.push(lb); }
+    var promoted = await this.promotedBlock();
+    if (promoted){ L.push(''); L.push(promoted.trim()); }
+    return DJ_ONESHOT_PROMPT
+      .replace('{{brief}}', L.join('\n'))
+      .replace(/\{\{count\}\}/g, String(s.count));
+  },
+
+  /** Simple mode: add / remove a kind of music (up to three) */
+  async addSimpleStyle(name){
+    name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!name) return false;
+    var st = this.state.simpleStyles = this.state.simpleStyles || [];
+    if (st.some(function(x){ return x.toLowerCase() === name.toLowerCase(); })) return false;
+    if (st.length >= 3) throw new Error('Up to three kinds of music — remove one first');
+    st.push(name);
+    await this.save();
+    return true;
+  },
+  async removeSimpleStyle(i){
+    (this.state.simpleStyles || []).splice(i, 1);
+    await this.save();
+  },
+
   /** The listener's most-liked tracks, "Artist - Title", most likes first
       (a tie goes to the one liked most recently). This is all the DJ is
       told about the listener's taste: no plays, history, tags or library. */
@@ -1003,7 +1054,7 @@ var djAi = {
       speedPerTrack:4, detailsPerTrack:10, extraCategory:10, shareContext:15,
       chaosMultiplier:1.25, minimum:30
     };
-    var speed = this.state.textMode === 'speed';
+    var speed = this.state.textMode !== 'details';
     var secs = this.state.count * (speed ? T.speedPerTrack : T.detailsPerTrack);
 
     // every brief line beyond the core four is another consideration

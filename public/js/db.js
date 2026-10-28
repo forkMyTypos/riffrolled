@@ -242,6 +242,25 @@ db.version(13).stores({
   adHistory: '++id, ts, promoId, ytId'
 });
 
+/* v14: sharedLinks — the links you sent (playlists, tracks, mixes) and the
+   ones you opened from other people, newest first in History → Links.
+   Kept in this browser only. */
+db.version(14).stores({
+  playlists: '++id, name, createdAt, plays, tags',
+  tracks: '++id, ytId, name, artist, tags, plays',
+  playlistTracks: '++id, playlistId, trackId, addedAt, order',
+  playHistory: '++id, trackId, ytId, ts',
+  settings: 'k',
+  reactions: '++id, ytId, trackId, kind, ts',
+  aiSessions: '++id, ts, playlistId',
+  djCategories: '++id, &key, order',
+  djOptions: '++id, categoryId, favourite, useCount',
+  links: '++id, &key, type, [type+a], [type+b], origin, createdBy, lastTs',
+  promoArchive: 'id, ytId, endedAt, archivedAt',
+  adHistory: '++id, ts, promoId, ytId',
+  sharedLinks: '++id, ts, kind, url'
+});
+
 /* A storage upgrade cannot finish while another riffrolled tab still has
    the old database open. Dexie asks the other tab to step aside, which
    works for tabs running recent code but not for one that is frozen,
@@ -390,8 +409,11 @@ var dbBoss = {
     const tracks = await db.tracks.toArray();
     const playlists = await db.playlists.orderBy('createdAt').toArray();
     const out = { app:'vinyl-player', version:1, exportedAt: Date.now(), library:[], playlists:[] };
+    out.version = 2;
     out.library = tracks.map(t => {
       const row = { ytId:t.ytId, name:t.name };
+      // version 2: everything you typed or learned about a track travels too
+      ['artist', 'genre', 'genreRaw', 'tags'].forEach(k => { if (t[k]) row[k] = t[k]; });
       // carry the playability verdict so a restore doesn't rediscover every
       // dead video by playing it again
       if (t.playable !== undefined) row.playable = t.playable;
@@ -417,6 +439,12 @@ var dbBoss = {
         count: l.count || 1, by: l.createdBy || ''
       });
     });
+    // version 2: likes and dislikes, play history (counts are worked out
+    // from it), the links you sent and opened, and the ads you were shown
+    out.reactions = (await db.reactions.toArray()).map(r => ({ ytId: r.ytId, kind: r.kind, ts: r.ts }));
+    out.plays = (await db.playHistory.toArray()).map(h => ({ ytId: h.ytId, ts: h.ts }));
+    out.sharedLinks = (await db.sharedLinks.toArray()).map(l => ({ ts: l.ts, kind: l.kind, type: l.type, url: l.url, title: l.title || '', slug: l.slug || '', ytId: l.ytId || '' }));
+    out.adHistory = (await db.adHistory.toArray()).map(a => { const c = Object.assign({}, a); delete c.id; return c; });
     return out;
   },
 
@@ -437,6 +465,13 @@ var dbBoss = {
           });
         }
         if(!before) addedTracks++;
+        // version 2 backups: fill in what this browser doesn't already know
+        const row = await db.tracks.where('ytId').equals(t.ytId).first();
+        if (row){
+          const fill = {};
+          ['artist', 'genre', 'genreRaw', 'tags'].forEach(k => { if (t[k] && !row[k]) fill[k] = String(t[k]).slice(0, 500); });
+          if (Object.keys(fill).length) await db.tracks.update(row.id, fill);
+        }
       }
     }
     if (Array.isArray(obj.playlists)){
@@ -467,7 +502,47 @@ var dbBoss = {
         if (r === 'added') addedLinks++;
       }
     }
-    return { addedTracks, addedPlaylists, addedJoins, addedLinks };
+    // version 2: likes, plays, links log, ad history — merged, never doubled
+    let addedReactions = 0, addedPlays = 0;
+    const ok = (s) => /^[A-Za-z0-9_-]{6,20}$/.test(String(s || ''));
+    if (Array.isArray(obj.reactions)){
+      const have = new Set((await db.reactions.toArray()).map(r => r.ytId + '|' + r.kind + '|' + r.ts));
+      for (const r of obj.reactions){
+        if (!r || !ok(r.ytId) || (r.kind !== 'like' && r.kind !== 'dislike')) continue;
+        const k = r.ytId + '|' + r.kind + '|' + (Number(r.ts) || 0);
+        if (have.has(k)) continue;
+        const t = await db.tracks.where('ytId').equals(r.ytId).first();
+        await db.reactions.add({ ytId: r.ytId, trackId: t ? t.id : null, kind: r.kind, ts: Number(r.ts) || 0 });
+        have.add(k); addedReactions++;
+      }
+    }
+    if (Array.isArray(obj.plays)){
+      const have = new Set((await db.playHistory.toArray()).map(h => h.ytId + '|' + h.ts));
+      const add = [];
+      for (const h of obj.plays){
+        if (!h || !ok(h.ytId)) continue;
+        const k = h.ytId + '|' + (Number(h.ts) || 0);
+        if (have.has(k)) continue;
+        const t = await db.tracks.where('ytId').equals(h.ytId).first();
+        add.push({ ytId: h.ytId, trackId: t ? t.id : null, ts: Number(h.ts) || 0 }); have.add(k);
+      }
+      if (add.length) await db.playHistory.bulkAdd(add);
+      addedPlays = add.length;
+    }
+    if (Array.isArray(obj.sharedLinks)){
+      const have = new Set((await db.sharedLinks.toArray()).map(l => l.kind + '|' + l.url));
+      for (const l of obj.sharedLinks){
+        if (!l || !/^https?:\/\/[^\s]+$/.test(String(l.url || '')) || (l.kind !== 'sent' && l.kind !== 'opened')) continue;
+        if (have.has(l.kind + '|' + l.url)) continue;
+        await db.sharedLinks.add({ ts: Number(l.ts) || 0, kind: l.kind, type: ['playlist', 'track', 'mix'].indexOf(l.type) >= 0 ? l.type : 'mix',
+          url: String(l.url).slice(0, 300), title: String(l.title || '').slice(0, 200), slug: String(l.slug || '').slice(0, 20), ytId: ok(l.ytId) ? l.ytId : '' });
+        have.add(l.kind + '|' + l.url);
+      }
+    }
+    if (Array.isArray(obj.adHistory) && !(await db.adHistory.count())){
+      for (const a of obj.adHistory.slice(-dbBoss.AD_HISTORY_MAX)) if (a && ok(a.ytId)) await this.addAdSeen(a);
+    }
+    return { addedTracks, addedPlaylists, addedJoins, addedLinks, addedReactions, addedPlays };
   },
 
   /* ── LINKS ───────────────────────────────────────────────────────────

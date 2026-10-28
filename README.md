@@ -560,6 +560,25 @@ touch), so the caller doesn't play. One capture-phase keydown handler sends Shif
 `create()` makes the playlist in list order (`dbBoss.createPl`, `addToPlaylist`) and leaves you where
 you were, with an "Open it" banner. All local (Dexie).
 
+## 28 Oct (no schema change)
+
+**DJ AI**: modes filtered to `state:'ACTIVE'` (Your AI / Riffroll It hidden). `textMode` adds `'simple'`
+(default for new visitors): `state.simpleStyles` (≤3), `djAi.buildSimplePrompt()` wraps DJ_ONESHOT_PROMPT
+("Music: … (stay in it…)", broad genres for the GENRE line). `js/music-styles.js`: `MUSIC_STYLES` (556
+`[style, broad genre]`) and `musicStyles.search/genreOf`; the selftest checks every broad genre is on
+the closed list.
+
+**Playlist window**: `.pl-menubar` (`.pl-add` New playlist, `.pl-beside` New window with
+`.pl-new-win`, `.pl-share`); `js/track-menu.js` (contextmenu on `.active-pl-tracks .track-item`, main
+and extra windows); `PlSelect.sweep()` for Shift + drag (and any drag in Select mode); thin scrollbars on
+`.active-pl-tracks`, `.pl-pop`, `.plw-tracks`.
+
+**Data** (`js/data-guard.js`): `linksLog` → Dexie v14 `sharedLinks` (sent / opened; History → Links,
+plays from `/api/mixes/mine`); `dataGuard` → `navigator.storage.persist()` once there's data,
+`lastBackupAt`, a 14-day reminder (`backupSnoozeUntil`), `backup()`. Backups are version 2: tracks carry
+artist/genre/genreRaw/tags, plus `reactions`, `plays`, `sharedLinks`, `adHistory`; `importData` merges
+them without duplicates.
+
 ## Schema 30: hole, Trance, usage totals, instant links
 
 **Schema 30** (`hole-trance-usage`): `promotions.hole` (1 = with the spindle hole; `cleanHole` in

@@ -36,6 +36,39 @@ var plBoss = {
   selr: null,
   get sel(){ return this.selr; },
 
+  /* ── more than one Playlist window ──
+     Every extra window (playlist-windows.js) is this same panel: spawn()
+     makes another copy of plBoss with its own window, playlist (activeId),
+     rows (view) and picker (selr), and everything else — the queue, what
+     is playing, repeat — still lives here, on plBoss, so there is one deck
+     and one queue however many windows are open. plBoss itself is the main
+     window, and is what the rest of the site talks to. */
+  isWin: false,
+  lastPanel: null,           // the playlist window last clicked in
+
+  /** every playlist panel: the main one first, then the windows */
+  panels(){
+    return [plBoss].concat(window.plWins ? plWins.wins.map(function(w){ return w.p; }) : []);
+  },
+
+  /** where "add to playlist" goes: the playlist window last clicked in, else the main one */
+  get targetId(){
+    const p = plBoss.lastPanel;
+    if (p && p !== plBoss && p.currentEl && p.currentEl.isConnected && !p.currentEl.classList.contains('is-hidden') && p.activeId) return p.activeId;
+    return plBoss.activeId;
+  },
+
+  spawn(n){
+    const p = Object.create(plBoss);
+    ['queue', 'playingId', 'currentIndex', 'repeat'].forEach(function(k){
+      Object.defineProperty(p, k, { get: function(){ return plBoss[k]; }, set: function(v){ plBoss[k] = v; }, enumerable: true });
+    });
+    p.isWin = true; p.winN = n;
+    p.activeId = null; p.view = []; p.selr = null; p.currentEl = null;
+    p.currentM();
+    return p;
+  },
+
   async setup(){
     this.currentM();        // the one merged Playlist panel
     this.bindTransport();
@@ -273,27 +306,38 @@ var plBoss = {
     }
   },
 
+  /** the playing track, lit in every window that shows its playlist */
   syncHighlight(){
-    const c = this.currentEl.querySelector('.active-pl-tracks');
-    const here = this.playingId === this.activeId;
-    if (c) c.querySelectorAll('.track-item').forEach(el=>{
-      el.classList.toggle('active', here && el.dataset.yt === player.currentYtId);
-    });
+    plBoss.panels().forEach(function(p){ p.paintHighlight(); });
     if (window.plWins) plWins.sync();
   },
 
+  paintHighlight(){
+    const c = this.currentEl && this.currentEl.querySelector('.active-pl-tracks');
+    const here = plBoss.playingId === this.activeId;
+    if (c) c.querySelectorAll('.track-item').forEach(el=>{
+      el.classList.toggle('active', here && el.dataset.yt === player.currentYtId);
+    });
+  },
+
+  /** ▶ Playing / ❚❚ Paused / ■ Stopped, in every window */
   updateStatus(){
+    plBoss.panels().forEach(function(p){ p.paintStatus(); });
+    if (window.plWins) plWins.sync();
+  },
+
+  paintStatus(){
     if (!this.currentEl) return;
     const mini = this.currentEl.querySelector('.mini-play');
     if (mini) mini.textContent = player.isPlaying ? '⏸' : '▶';
     const el = this.currentEl.querySelector('.pl-status');
     if (!el) return;
     if (!player.currentYtId){
+      this.currentEl.classList.remove('pl-is-playing');
       el.textContent = '■ Stopped'; el.style.color = 'rgba(255,255,255,0.4)'; return;
     }
-    const inThis = this.playingId === this.activeId && this.queue.some(t => t.ytId === player.currentYtId);
+    const inThis = plBoss.playingId === this.activeId && plBoss.queue.some(t => t.ytId === player.currentYtId);
     this.currentEl.classList.toggle('pl-is-playing', inThis);
-    if (window.plWins) plWins.sync();
     if (player.isPlaying){
       el.textContent = inThis ? '▶ Playing' : '▶ Playing (another playlist)';
       el.style.color = '#5ab88a';
@@ -320,8 +364,9 @@ var plBoss = {
   /** Redraw the main window, reload the playing queue if it is another
    *  playlist, and redraw any playlist windows. */
   async refreshAll(){
-    await this.renderTracks();
-    if (this.playingId && this.playingId !== this.activeId) await this.refreshQueue();
+    const m = plBoss;               // the same from any window
+    await m.renderTracks();
+    if (m.playingId && m.playingId !== m.activeId) await m.refreshQueue();
     if (window.plWins) await plWins.refreshAll();
   },
 
@@ -344,23 +389,26 @@ var plBoss = {
   /** The playing playlist changed in the database: reload the queue and
    *  find the playing track in it again. */
   async refreshQueue(){
-    if (!this.playingId) return;
-    const pl = await db.playlists.get(this.playingId);
-    if (!pl){ this.playingId = null; return; }        // deleted: the queue plays on until something else starts
-    this.queue = await this.loadTracks(this.playingId);
-    this.currentIndex = this.queue.findIndex(t => t.ytId === player.currentYtId);
+    const m = plBoss;
+    if (!m.playingId) return;
+    const pl = await db.playlists.get(m.playingId);
+    if (!pl){ m.playingId = null; return; }        // deleted: the queue plays on until something else starts
+    m.queue = await m.loadTracks(m.playingId);
+    m.currentIndex = m.queue.findIndex(t => t.ytId === player.currentYtId);
   },
 
   /* ── PLAYLIST PANEL (merged: pick/search/create + current playlist) ── */
   currentM(){
-    var title = PLAYLIST_SVG.replace(/plg/g, 'plgT') + ' Playlist';
+    // each copy of the icon needs its own gradient id (see PLAYLIST_SVG)
+    var gid = this.isWin ? 'W' + this.winN : '';
+    var title = PLAYLIST_SVG.replace(/plg/g, 'plgT' + gid) + ' Playlist';
     var main = `
       <div class="active-pl">
 
         <!-- the menu bar: make, open beside, share -->
         <div class="pl-menubar" role="toolbar" aria-label="Playlist actions">
           <button class="pl-mb pl-add" data-testid="pl-new" title="Start a new, empty playlist">＋ New playlist</button>
-          <button class="pl-mb pl-beside" data-testid="pl-beside" title="Open a playlist in its own window, beside this one">⧉ New window</button>
+          <button class="pl-mb pl-beside" data-testid="pl-beside" title="Open another Playlist window, with a new empty playlist in it">⧉ New window</button>
           <button class="pl-mb pl-share" data-testid="pl-share" title="Send this playlist to someone, or share it to Community"><img class="share-ico" src="img/share-icon.webp" alt="" width="14" height="14" draggable="false"> Share</button>
         </div>
 
@@ -376,7 +424,7 @@ var plBoss = {
         </div>
 
         <div class="active-pl-name-row">
-          <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN')}</span>
+          <span class="pl-name-icon">${PLAYLIST_SVG.replace(/plg/g, 'plgN' + gid)}</span>
           <input type="text" class="active-pl-name" value="No playlist" title="Rename this playlist" aria-label="Playlist name">
           <button class="icon-btn pl-switch" title="Switch playlist" aria-label="Switch playlist" aria-haspopup="listbox" data-testid="pl-switch">▾</button>
         </div>
@@ -401,7 +449,9 @@ var plBoss = {
       </div>
     `;
     this.currentEl = menuB.createMenu(title, main);
-    menuB.place(this.currentEl, { right:'92px', top:'48px', width:'340px', height:'520px' });
+    // an extra window is placed by playlist-windows.js, beside this one
+    if (!this.isWin) menuB.place(this.currentEl, { right:'92px', top:'48px', width:'340px', height:'520px' });
+    this.currentEl.addEventListener('pointerdown', () => { plBoss.lastPanel = this; }, true);
 
     // dynamic "Playlist — {name}" in the header
     const hdr = this.currentEl.querySelector('.panel-header');
@@ -446,7 +496,7 @@ var plBoss = {
     const srh = root.querySelector('.pl-srh');
     const pop = root.querySelector('.pl-pop');
     const openPop = () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); };
-    srh.addEventListener('focus', () => { pop.classList.remove('win-mode'); openPop(); });
+    srh.addEventListener('focus', openPop);
     srh.addEventListener('input', () => { pop.style.top = ''; pop.classList.add('open'); this.renderPlPopup(); });
     document.addEventListener('click', (e) => {
       if (!e.target.closest || !e.target.closest('.pl-srh-wrap')) pop.classList.remove('open');
@@ -455,17 +505,6 @@ var plBoss = {
     pop.addEventListener('click', async (e) => {
       const del = e.target.closest('.del-btn');
       if (del){ e.stopPropagation(); await this.deletePlaylist(Number(del.dataset.id)); this.renderPlPopup(); return; }
-      if (e.target.closest('.pl-new-win')){
-        e.stopPropagation();
-        pop.classList.remove('open', 'win-mode'); srh.value = '';
-        const names = new Set((await dbBoss.getPlaylists()).map(p => p.name));
-        let name = 'New playlist';
-        for (let n = 2; names.has(name); n++) name = 'New playlist ' + n;
-        const nid = await dbBoss.createPl(name);
-        await this.renderPlaylists();
-        if (window.plWins) await plWins.open(nid);
-        return;
-      }
       const win = e.target.closest('.pl-open-win');
       if (win){
         e.stopPropagation();
@@ -475,32 +514,22 @@ var plBoss = {
       }
       const item = e.target.closest('.pl-item');
       if (item){
-        const winMode = pop.classList.contains('win-mode');
-        pop.classList.remove('open', 'win-mode');
+        pop.classList.remove('open');
         srh.value = '';
-        if (winMode && window.plWins && Number(item.dataset.id) !== this.activeId) await plWins.open(Number(item.dataset.id));
-        else await this.setActivePlaylist(Number(item.dataset.id));
+        await this.setActivePlaylist(Number(item.dataset.id));
       }
     });
 
-    // ── ⧉ next to the name: the same list, but a pick opens in its own window ──
+    // ── ⧉ New window: another window like this one, on a new empty playlist ──
     root.querySelector('.pl-beside').onclick = (e) => {
       e.stopPropagation();
-      const was = pop.classList.contains('open') && pop.classList.contains('win-mode');
-      pop.classList.remove('open', 'win-mode');
-      if (was) return;
-      srh.value = '';
-      const w = root.querySelector('.pl-srh-wrap').getBoundingClientRect();
-      const nr = root.querySelector('.active-pl-name-row').getBoundingClientRect();
-      pop.style.top = Math.round(nr.bottom - w.top + 4) + 'px';
-      pop.classList.add('open', 'win-mode');
-      this.renderPlPopup();
+      pop.classList.remove('open');
+      if (window.plWins) plWins.newWindow(this);
     };
 
     // ── ▾ next to the name: the list of playlists, to switch ──
     root.querySelector('.pl-switch').onclick = (e) => {
       e.stopPropagation();
-      pop.classList.remove('win-mode');
       if (pop.classList.contains('open')){ pop.classList.remove('open'); return; }
       srh.value = '';
       // drop the list down from the name row rather than from the search box
@@ -537,7 +566,9 @@ var plBoss = {
 
     // ── ＋ add tracks → open the Tracks panel ──
     root.querySelector('.add-track-btn').onclick = () => {
+      plBoss.lastPanel = this;        // what you add next goes into THIS window's playlist
       if (window.dock && window.importBoss) dock.openPanel(importBoss.el);
+      if (window.plWins && plWins.wins.length && this.activeId) appToast('Tracks you add now go to “' + root.querySelector('.active-pl-name').value + '”', 'ok');
     };
 
   },
@@ -551,18 +582,14 @@ var plBoss = {
     const q = (root.querySelector('.pl-srh').value || '').trim().toLowerCase();
     const pls = await dbBoss.getPlaylists();
     const shown = q ? pls.filter(p => p.name.toLowerCase().includes(q)) : pls;
-    const winMode = pop.classList.contains('win-mode');
-    const head = winMode
-      ? `<div class="pl-pop-h" data-testid="pl-beside-h">Open in a new window, beside this one</div>` +
-        `<button class="row-item pl-new-win" data-testid="pl-new-win">＋ A new, empty playlist</button>`
-      : '';
+    const head = '';
     if (!shown.length){
       pop.innerHTML = head + `<div class="empty">${pls.length ? 'No matches' : 'No playlists yet — hit ＋ New playlist'}</div>`;
       return;
     }
     const counts = {};
     await Promise.all(shown.map(async pl=>{ counts[pl.id] = await dbBoss.countTracks(pl.id); }));
-    pop.innerHTML = head + shown.filter(pl => !winMode || pl.id !== this.activeId).map(pl => `
+    pop.innerHTML = head + shown.map(pl => `
       <div class="row-item pl-item ${pl.id === this.activeId ? 'active' : ''}" data-id="${pl.id}">
         <span class="name pl-item-name">${escapeHtml(pl.name)}</span>
         <span class="pl-item-count">${counts[pl.id]}</span>
@@ -582,27 +609,29 @@ var plBoss = {
     }
   },
 
+  /* From any window. Windows showing it close; the main window moves on to
+     another playlist. */
   async deletePlaylist(id){
+    const m = plBoss;
     await db.playlists.delete(id);
     const joins = await db.playlistTracks.where('playlistId').equals(id).toArray();
     await db.playlistTracks.bulkDelete(joins.map(j => j.id));
-    if (this.activeId === id) this.activeId = null;
-    if (this.playingId === id) this.playingId = null;
+    if (m.playingId === id) m.playingId = null;
     if (window.plWins) plWins.closeFor(id);
+    if (m.activeId !== id){ if (window.plWins) plWins.renderPop(); return; }
+    m.activeId = null;
 
-    if (!this.activeId){
-      const remaining = await dbBoss.getPlaylists();
-      if (remaining.length){
-        await this.setActivePlaylist(remaining[0].id);
-      } else {
-        this.setTitleName('');
-        this.currentEl.querySelector('.active-pl-name').value = 'No playlist';
-        this.currentEl.querySelector('.active-pl-tracks').innerHTML = `<div class="empty">No playlist selected</div>`;
-        this.currentEl.querySelector('.active-pl-sub .count').textContent = '· 0';
-        this.view = [];
-        if (!this.playingId){ this.queue = []; this.currentIndex = -1; }
-        this.updateStatus();
-      }
+    const remaining = await dbBoss.getPlaylists();
+    if (remaining.length){
+      await m.setActivePlaylist(remaining[0].id);
+    } else {
+      m.setTitleName('');
+      m.currentEl.querySelector('.active-pl-name').value = 'No playlist';
+      m.currentEl.querySelector('.active-pl-tracks').innerHTML = `<div class="empty">No playlist selected</div>`;
+      m.currentEl.querySelector('.active-pl-sub .count').textContent = '· 0';
+      m.view = [];
+      if (!m.playingId){ m.queue = []; m.currentIndex = -1; }
+      m.updateStatus();
     }
   },
 
@@ -621,12 +650,21 @@ var plBoss = {
       const newName = nameInput.value.trim();
       if(!newName) return;
       await db.playlists.update(id, { name: newName });
-      this.setTitleName(newName);
+      // every window showing it says the new name
+      plBoss.panels().forEach(p => {
+        if (p.activeId !== id) return;
+        p.setTitleName(newName);
+        if (p !== this) p.currentEl.querySelector('.active-pl-name').value = newName;
+      });
       this.renderPlPopup();
+      if (window.plWins) plWins.renderPop();
     };
 
-    if (window.searchBoss) searchBoss.render();
-    this.renderTracks();
+    if (this.isWin){
+      this.currentEl.dataset.pl = String(id);
+      if (window.plWins){ plWins.saveSoon(); plWins.renderPop(); }
+    } else if (window.searchBoss) searchBoss.render();
+    await this.renderTracks();
   },
 
   /* ── TRACKS (ordered + drag-reorderable) ── */

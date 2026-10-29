@@ -15,6 +15,11 @@
    Closing or minimizing a window never stops the music: the queue lives
    in plBoss, not in a window.
 
+   Every window is the whole Playlist panel, and they all work the same way
+   (plBoss.spawn in playlist.js): switch, rename, reorder, share, pick
+   several, play. ⧉ New window opens another one, on a new empty playlist. What you add from Tracks, Search or DJ AI goes into the
+   playlist window you last clicked in (plBoss.targetId).
+
    Phones keep one playlist window. These extra windows are not created
    there, and any that are open are hidden while the layout is mobile. */
 var plWins = {
@@ -58,55 +63,61 @@ var plWins = {
   find(id){ return this.wins.find(function(w){ return w.id === id; }); },
 
   /* ── open / close ── */
+  _n: 0,
+
+  /** ⧉ New window: another Playlist window, the same as `src` and the same
+   *  size, beside it, on a new empty playlist ("New playlist 2"…) with its
+   *  name ready to type over. Switch it to any playlist with its search or ▾. */
+  async newWindow(src){
+    if (!this.isDesktop()){ appNotify('On a phone there is one Playlist window — use ＋ New playlist', ''); return null; }
+    var names = new Set((await dbBoss.getPlaylists()).map(function(p){ return p.name; }));
+    var name = 'New playlist';
+    for (var n = 2; names.has(name); n++) name = 'New playlist ' + n;
+    var id = await dbBoss.createPl(name);
+    var r = src.currentEl.getBoundingClientRect(), gap = 14;
+    var left = r.left - r.width - gap, top = r.top;
+    if (left < 8) left = r.right + gap;                              // no room on the left: the right
+    if (left + r.width > innerWidth - 60){ left = r.left + 28; top = r.top + 28; }   // no room either side: just offset
+    var w = await this.open(id, { left: left, top: top, width: r.width, height: r.height });
+    plBoss.renderPlPopup();
+    if (w){
+      plBoss.lastPanel = w.p;
+      var inp = w.el.querySelector('.active-pl-name'); inp.focus(); inp.select();
+    }
+    return w;
+  },
+
   async open(id, opts){
     opts = opts || {};
     if (!id) return null;
-    if (!this.isDesktop() || id === plBoss.activeId){
+    var copy = opts.restored;          // restored windows come back as they were, even two on one playlist
+    if (!this.isDesktop() || (!copy && id === plBoss.activeId)){
       // phones (and the playlist already in the main window) use the main window
       if (id !== plBoss.activeId) await plBoss.setActivePlaylist(id);
       this.showMain();
       return null;
     }
-    var w = this.find(id);
+    var w = copy ? null : this.find(id);
     if (w){ this.show(w); return w; }
-    var pl = await db.playlists.get(id);
-    if (!pl) return null;
+    if (!(await db.playlists.get(id))) return null;
 
-    var title = PLAYLIST_SVG.replace(/plg/g, 'plgW' + id) + ' <span class="plw-name">' + escapeHtml(pl.name) + '</span>';
-    var el = menuB.createMenu(title,
-      '<div class="plw">' +
-        '<div class="plw-top">' +
-          '<span class="pl-status plw-status">■ Not playing</span>' +
-          '<span class="plw-count"></span>' +
-          '<button class="pl-select plw-select" data-testid="plw-select" aria-pressed="false" title="Pick several tracks to make a new playlist from them">☑ Select</button>' +
-          '<button class="icon-btn plw-play" title="Play this playlist from the top" data-testid="plw-play">▶</button>' +
-          '<button class="icon-btn plw-main" title="Show it in the main Playlist window instead">⤢</button>' +
-        '</div>' +
-        '<div class="active-pl-tracks plw-tracks"></div>' +
-      '</div>');
+    /* The same panel as the main Playlist window — menu bar, search and
+       switch, rename, Select, the mini transport, the rows with drag to
+       reorder, ℹ and ✕ — because it IS that panel: plBoss.spawn() builds
+       another copy of it. Only the queue is shared. */
+    var p = plBoss.spawn(++this._n);
+    var el = p.currentEl;
     el.classList.add('pl-win');
     el.style.setProperty('--accent', '#9d8cff');      // the Playlist panel's own colour
-    el.dataset.pl = String(id);
     el.setAttribute('data-testid', 'pl-win');
-    w = { id: id, el: el, tracks: [], minimized: false };
-    if (opts.left == null && window.riffUsage) riffUsage.count('playlist_window');      // opened now, not restored
+    w = { p: p, el: el, minimized: false,
+          get id(){ return p.activeId; },
+          get tracks(){ return p.view; },
+          get sel(){ return p.selr; } };
+    if (!opts.restored && window.riffUsage) riffUsage.count('playlist_window');      // opened now, not restored
     this.wins.push(w);
 
     var self = this;
-    // picking several tracks → a new playlist, the same as in the main window
-    w.sel = new PlSelect({
-      root: el,
-      list: el.querySelector('.plw-tracks'),
-      view: function(){ return w.tracks; },
-      name: function(){ return el.querySelector('.plw-name').textContent; },
-      playlistId: function(){ return w.id; },
-      open: async function(nid){ await plBoss.setActivePlaylist(nid); self.showMain(); },
-      onMode: function(on){
-        var b = el.querySelector('.plw-select');
-        if (b){ b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-      }
-    });
-    el.querySelector('.plw-select').onclick = function(){ w.sel.setMode(!w.sel.mode); };
     this.addMinimize(el, function(){ self.minimize(w); });
     this.addBadge(el);
     // its ✕ closes it for good: the window goes, the music does not
@@ -115,36 +126,11 @@ var plWins = {
       self.close(w);
     });
     el.addEventListener('mousedown', function(){ bringToFront(el); });
-    el.querySelector('.plw-play').onclick = function(){
-      if (w.tracks.length) plBoss.playFrom(w.id, w.tracks, 0);
-    };
-    el.querySelector('.plw-main').onclick = async function(){
-      self.close(w);
-      await plBoss.setActivePlaylist(w.id);
-      self.showMain();
-    };
-    el.querySelector('.plw-tracks').addEventListener('click', async function(e){
-      var info = e.target.closest('.info-btn');
-      if (info){ e.stopPropagation(); if (window.trackInfo) trackInfo.show(info.dataset.yt); return; }
-      var del = e.target.closest('.del-btn');
-      if (del){
-        e.stopPropagation();
-        await db.playlistTracks.delete(Number(del.dataset.join));
-        await plBoss.refreshAll();
-        plBoss.renderPlaylists();
-        return;
-      }
-      if (e.target.closest('.plw-addhere')){ el.querySelector('.plw-main').click(); return; }
-      var row = e.target.closest('.track-item');
-      if (!row) return;
-      if (w.sel && w.sel.rowClick(e, Number(row.dataset.i))) return;     // picking, not playing
-      plBoss.playFrom(w.id, w.tracks, Number(row.dataset.i));
-    });
 
     // beside the main window, cascading, kept on screen
     var m = plBoss.currentEl.getBoundingClientRect();
     var n = this.wins.length - 1;
-    var wdt = 320, hgt = 440;
+    var wdt = 340, hgt = 520;                          // the main window's size
     var left = opts.left != null ? opts.left : Math.max(8, (m.width ? m.left : innerWidth - 440) - wdt - 14 - n * 26);
     var top = opts.top != null ? opts.top : Math.max(8, (m.height ? m.top : 48) + n * 26);
     left = Math.min(Math.max(0, left), innerWidth - 120);
@@ -154,7 +140,7 @@ var plWins = {
     if (window.ResizeObserver){ new ResizeObserver(function(){ self.saveSoon(); }).observe(el); }
     el.querySelector('.panel-header').addEventListener('mouseup', function(){ self.saveSoon(); });
 
-    await this.render(w);
+    await p.setActivePlaylist(id);
     if (opts.minimized) this.minimize(w); else this.show(w);
     this.saveSoon();
     return w;
@@ -175,15 +161,16 @@ var plWins = {
 
   close(w){
     w.el.remove();
-    if (w.sel) PlSelect.all = PlSelect.all.filter(function(s){ return s !== w.sel; });
+    if (w.p.selr){ var s = w.p.selr; PlSelect.all = PlSelect.all.filter(function(x){ return x !== s; }); if (PlSelect.last === s) PlSelect.last = null; }
+    if (plBoss.lastPanel === w.p) plBoss.lastPanel = null;
     this.wins = this.wins.filter(function(x){ return x !== w; });
     this.renderPop(); this.saveSoon();
   },
 
-  /** A playlist was deleted: its window goes too. */
+  /** A playlist was deleted: its windows go too. */
   closeFor(id){
-    var w = this.find(id);
-    if (w) this.close(w);
+    var self = this;
+    this.wins.filter(function(w){ return w.id === id; }).forEach(function(w){ self.close(w); });
   },
 
   showMain(){
@@ -194,56 +181,24 @@ var plWins = {
 
   /* ── contents ── */
   async render(w){
-    var pl = await db.playlists.get(w.id);
-    if (!pl){ this.close(w); return; }
-    w.el.querySelector('.plw-name').textContent = pl.name;
-    w.tracks = await plBoss.loadTracks(w.id);
-    var box = w.el.querySelector('.plw-tracks');
-    w.el.querySelector('.plw-count').textContent = '· ' + w.tracks.length + (w.tracks.length === 1 ? ' track' : ' tracks');
-    if (!w.tracks.length){
-      box.innerHTML = '<div class="empty">No tracks in this playlist yet.<br><button class="plw-addhere" data-testid="plw-addhere">⤢ Add tracks to it (opens it in the main window)</button></div>';
-    } else {
-      var promoted = (window.promoTrack && promoTrack.ids) || new Set();
-      box.innerHTML = w.tracks.map(function(t, i){
-        return '<div class="row-item track-item' + (promoted.has(t.ytId) ? ' is-promoted' : '') + '" data-i="' + i + '" data-yt="' + escapeHtml(t.ytId) + '">' +
-          '<span class="track-num">' + (i + 1) + '</span>' +
-          '<span class="name">' + (t.artist ? '<span class="track-artist">' + escapeHtml(t.artist) + '</span>' : '') + escapeHtml(t.name) + '</span>' +
-          (promoted.has(t.ytId) ? '<span class="promo-tag" title="Promoted: somebody spent riff tokens to put this track in front of people.">promoted</span>' : '') +
-          '<button class="info-btn" data-yt="' + escapeHtml(t.ytId) + '" title="Track info">ℹ</button>' +
-          '<button class="del-btn" data-join="' + Number(t.joinId) + '" title="Remove from playlist">✕</button>' +
-        '</div>';
-      }).join('');
-    }
-    if (w.sel) w.sel.paint();
-    this.syncOne(w);
+    if (!w.id || !(await db.playlists.get(w.id))){ this.close(w); return; }
+    await w.p.renderTracks();
   },
 
   async refreshAll(){
-    for (var i = 0; i < this.wins.length; i++) await this.render(this.wins[i]);
+    var list = this.wins.slice();
+    for (var i = 0; i < list.length; i++) await this.render(list[i]);
     this.renderPop();
   },
 
-  /** Which window is playing, and which track: called on every player change. */
+  /** Which windows are playing: called on every player change. */
   sync(){
-    var self = this;
-    this.wins.forEach(function(w){ self.syncOne(w); });
-    var mb = plBoss.currentEl.querySelector('.pl-playing-badge');
-    if (mb) mb.hidden = !(plBoss.playingId === plBoss.activeId && player.currentYtId && plBoss.currentIndex >= 0);
-    this.renderPop();
-  },
-
-  syncOne(w){
-    var playing = plBoss.playingId === w.id && plBoss.currentIndex >= 0 && !!player.currentYtId;
-    w.el.classList.toggle('pl-is-playing', playing);
-    var b = w.el.querySelector('.pl-playing-badge'); if (b) b.hidden = !playing;
-    var st = w.el.querySelector('.plw-status');
-    if (st){
-      st.textContent = playing ? (player.isPlaying ? '▶ Playing' : '❚❚ Paused') : '■ Not playing';
-      st.classList.toggle('on', playing);
-    }
-    w.el.querySelectorAll('.track-item').forEach(function(r){
-      r.classList.toggle('active', playing && r.dataset.yt === player.currentYtId);
+    var playing = function(p){ return plBoss.playingId === p.activeId && plBoss.currentIndex >= 0 && !!player.currentYtId; };
+    plBoss.panels().forEach(function(p){
+      var b = p.currentEl && p.currentEl.querySelector('.pl-playing-badge');
+      if (b) b.hidden = !playing(p);
     });
+    this.renderPop();
   },
 
   /* ── the dock: hover the Playlist button for the open playlists ── */
@@ -280,8 +235,8 @@ var plWins = {
       if (!it) return;
       pop.hidden = true;
       if (it.dataset.main){ self.showMain(); return; }
+      var w = it.dataset.w != null ? self.wins[Number(it.dataset.w)] : null;
       var id = Number(it.dataset.id);
-      var w = self.find(id);
       if (w) self.show(w);
       else await self.open(id);         // the playing playlist, with no window open
     });
@@ -299,21 +254,21 @@ var plWins = {
     for (var i = 0; i < ids.length; i++){ var p = await db.playlists.get(ids[i]); if (p) names[ids[i]] = p.name; }
     var playing = function(id){ return plBoss.playingId === id && !!player.currentYtId && plBoss.currentIndex >= 0; };
     if (plBoss.activeId && (mainOpen || this.mainMin)){
-      rows.push({ main: true, id: plBoss.activeId, name: names[plBoss.activeId], state: mainOpen ? 'main window' : 'minimized', playing: playing(plBoss.activeId) });
+      rows.push({ main: true, id: plBoss.activeId, name: names[plBoss.activeId], state: mainOpen ? 'open' : 'minimized', playing: playing(plBoss.activeId) });
     }
-    this.wins.forEach(function(w){
-      rows.push({ id: w.id, name: names[w.id], state: w.minimized ? 'minimized' : 'window', playing: playing(w.id) });
+    this.wins.forEach(function(w, i){
+      rows.push({ w: i, id: w.id, name: names[w.id], state: w.minimized ? 'minimized' : 'open', playing: playing(w.id) });
     });
     if (plBoss.playingId && !rows.some(function(r){ return r.id === plBoss.playingId; }) && playing(plBoss.playingId)){
       rows.push({ id: plBoss.playingId, name: names[plBoss.playingId], state: 'window closed', playing: true });
     }
     pop.innerHTML = '<div class="pdp-h">Open playlists</div>' + (rows.length ? rows.map(function(r){
-      return '<button class="pdp-item' + (r.playing ? ' playing' : '') + '"' + (r.main ? ' data-main="1"' : '') + ' data-id="' + Number(r.id) + '">' +
+      return '<button class="pdp-item' + (r.playing ? ' playing' : '') + '"' + (r.main ? ' data-main="1"' : '') + (r.w != null ? ' data-w="' + r.w + '"' : '') + ' data-id="' + Number(r.id) + '">' +
         '<span class="pdp-dot">' + (r.playing ? '♪' : '') + '</span>' +
         '<span class="pdp-name">' + escapeHtml(r.name || 'Playlist') + '</span>' +
         '<span class="pdp-state">' + escapeHtml(r.state) + '</span></button>';
     }).join('') : '<div class="pdp-empty">None open. Click the button to open the Playlist window.</div>') +
-      '<div class="pdp-hint">⧉ in the playlist list opens another one in its own window.</div>';
+      '<div class="pdp-hint">⧉ New window, in any Playlist window, opens another one with a new, empty playlist.</div>';
   },
 
   /* ── remembered between visits ── */
@@ -340,8 +295,8 @@ var plWins = {
       var list = raw ? JSON.parse(raw) : [];
       for (var i = 0; i < list.length; i++){
         var d = list[i];
-        if (d && d.id && d.id !== plBoss.activeId && !this.find(d.id) && await db.playlists.get(d.id)){
-          await this.open(d.id, { left: d.left, top: d.top, width: d.width, height: d.height, minimized: d.minimized });
+        if (d && d.id && await db.playlists.get(d.id)){
+          await this.open(d.id, { restored: true, left: d.left, top: d.top, width: d.width, height: d.height, minimized: d.minimized });
         }
       }
     } catch(e){ /* a layout we cannot read is a layout we start again */ }

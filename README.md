@@ -687,8 +687,12 @@ because the deck is transformed) that is on screen and clear of the YouTube play
 **Playlists as windows** (`js/playlist-windows.js`, desktop). `plBoss` now separates the playing
 `queue`/`playingId` from the main window's `view`/`activeId`; the queue follows the main window unless a
 track from another playlist is playing. `playIndex(i)` plays from the main window, `playFrom(id, tracks,
-i)` from anywhere, `playQueue(i)` moves within the queue. Extra windows (⧉ in the playlist list) list a
-playlist, play from it, remove tracks; every playlist window has – (minimize); the dock's Playlist
+i)` from anywhere, `playQueue(i)` moves within the queue. Extra windows are the whole panel:
+`plBoss.spawn(n)` returns `Object.create(plBoss)` with its own `currentEl`/`activeId`/`view`/`selr` and
+`queue`/`playingId`/`currentIndex`/`repeat` forwarded to plBoss, so every panel method works in a window
+and there is still one queue. `plBoss.panels()` lists main + windows (status and highlight paint all of
+them); `plBoss.targetId` is where "add to playlist" goes (the window last clicked in, else the main
+one). Every window follows the same queue rule in `renderTracks`. ⧉ New window = `plWins.newWindow(src)`: a new empty playlist in a window the size of `src`, beside it. Every playlist window has – (minimize); the dock's Playlist
 button lists open ones on hover. Open windows are remembered (`playlistWindows` setting). Hidden on
 phones. Panels registered with `noButton` are now closed at start by `dock.render()` itself.
 

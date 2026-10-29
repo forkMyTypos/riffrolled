@@ -1816,9 +1816,9 @@ var djHistoryBoss = {
     var cur = { id: r.promoId, url: r.url, ytId: r.ytId, name: r.name };
     if (e.target.closest('.ad-x')){ await dbBoss.forgetAd(r.id); return; }
     if (e.target.closest('.ym-add')){
-      if (!plBoss.activeId){ this.status('Open or make a playlist first', 'err'); return; }
+      if (!plBoss.targetId){ this.status('Open or make a playlist first', 'err'); return; }
       var tid = await dbBoss.createTrack(r.ytId, r.name);
-      var res = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+      var res = await dbBoss.addToPlaylist(plBoss.targetId, tid);
       plBoss.afterDbChange();
       if (window.promoPopup) promoPopup.count('play', cur);
       this.status(res === 'added' ? 'Added to the playlist' : 'It’s already in that playlist', 'ok');
@@ -1910,8 +1910,8 @@ var djHistoryBoss = {
     var r = (this._rows || []).find(function(x){ return x.ytId === row.dataset.yt; });
     if (!r) return;
     if (e.target.closest('.ym-add')){
-      if (!plBoss.activeId){ this.status('Open or make a playlist first', 'err'); return; }
-      var res = await dbBoss.addToPlaylist(plBoss.activeId, r.id);
+      if (!plBoss.targetId){ this.status('Open or make a playlist first', 'err'); return; }
+      var res = await dbBoss.addToPlaylist(plBoss.targetId, r.id);
       plBoss.afterDbChange();
       this.status(res === 'added' ? 'Added to the playlist' : 'It’s already in that playlist', 'ok');
       return;

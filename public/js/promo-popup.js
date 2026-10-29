@@ -498,8 +498,8 @@ var promoPopup = {
     var cur = c.cur;
     try {
       var tid = await dbBoss.createTrack(cur.ytId, cur.name);
-      if (window.plBoss && plBoss.activeId){
-        await dbBoss.addToPlaylist(plBoss.activeId, tid);
+      if (window.plBoss && plBoss.targetId){
+        await dbBoss.addToPlaylist(plBoss.targetId, tid);
         plBoss.afterDbChange();
         appNotify('Added “' + cur.name + '” to your playlist', 'ok');
       } else {

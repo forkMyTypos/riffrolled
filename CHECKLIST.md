@@ -73,8 +73,13 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
 9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
 
+## 28 Oct, part 2
+- [x] **Live**: `/api/health` says build 20261028073518-542179, schema 30. Cloudflare rate limit turned on by Dan.
+- [ ] **Check the rate limit works**: in PowerShell run `1..40 | % { try { (Invoke-WebRequest "https://riffrolled.com/api/health?rl=$_" -UseBasicParsing).StatusCode } catch { $_.Exception.Response.StatusCode.value__ } }` — about 30 × `200`, then `429`. (Your own address is blocked for 10 s afterwards; harmless.) Blocks also show under riffrolled.com → Security → Events.
+- [x] **Playlist windows are all the same.** ⧉ New window (in any Playlist window) opens another identical window, beside it, on a new empty playlist ("New playlist 2"…) with the name ready to type. Each window has everything: ＋ New playlist, ⧉ New window, Share, find/switch, rename, ▾, ☑ Select, mini transport, drag to reorder, ℹ, ✕, right-click. Any window can switch to any playlist, even one open in another window. One queue: starting a track in a window makes it the playing playlist. Adding tracks (Tracks, Search, DJ AI lists, promoted cards) goes into the window you last clicked in. Computer only; phones keep one window.
+
 ## 28 Oct round
-- [ ] **First: get Cloudflare building again.** The live site is still the 23 Oct build (`/api/health` says schema 29) even though GitHub has the 26 Oct code: Cloudflare didn't build it. Open the build log (dash.cloudflare.com → Compute (Workers) → riffrolled → Deployments) and send me the error, or sign in in my browser pane and I'll read it. Nothing below goes live until that's fixed.
+- [x] ~~First: get Cloudflare building again.~~ Done — it built.
 - [x] **DJ AI**: Your AI and Riffroll It are hidden. Text has a new **🌱 Simple** mode (the default for new visitors): "What kind of music?" — type and pick from 556 styles (each tied to one of the broad genres), or use your own words, up to three — then COPY DJ BRIEF and paste the answer back. One-shot and the Riffenator are unchanged.
 - [x] **Genres**: the 32 broad genres stay (they sort the catalogue, target promotions and fill the GENRE line); Simple's search covers far more styles, each mapped to a broad genre.
 - [x] **Playlist window**: a menu bar above the search with **＋ New playlist** (an empty one, named "New playlist", "New playlist 2"…, ready to rename), **⧉ New window** (another playlist, or a new empty one, in its own window — computer only) and **Share**. The name row is just the name and ▾.

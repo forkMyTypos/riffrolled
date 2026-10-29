@@ -77,8 +77,8 @@ var searchBoss = {
       if (item.classList.contains('st-cat')) return self.onCatalogue(e, item);
       if (e.target.closest('.st-play')){ ytPlay(item.dataset.yt, item.dataset.name); return; }
       if (e.target.closest('.st-add')){
-        if (!window.plBoss || !plBoss.activeId){ self.status('Select a playlist first', 'err'); return; }
-        var r = await dbBoss.addToPlaylist(plBoss.activeId, Number(item.dataset.id));
+        if (!window.plBoss || !plBoss.targetId){ self.status('Select a playlist first', 'err'); return; }
+        var r = await dbBoss.addToPlaylist(plBoss.targetId, Number(item.dataset.id));
         self.status(r === 'dupe' ? 'Already in current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
         plBoss.afterDbChange();
       }
@@ -134,8 +134,8 @@ var searchBoss = {
       this._localYt = new Set(all.map(function(t){ return t.ytId; }));
       total += mt.length;
       var inList = new Set();
-      if (plBoss.activeId){
-        var joins = await db.playlistTracks.where('playlistId').equals(plBoss.activeId).toArray();
+      if (plBoss.targetId){
+        var joins = await db.playlistTracks.where('playlistId').equals(plBoss.targetId).toArray();
         joins.forEach(function(j){ inList.add(j.trackId); });
       }
       var showT = mt.slice(0, cap);
@@ -214,8 +214,8 @@ var searchBoss = {
     } catch(err){}
     if (e.target.closest('.st-play')){ ytPlay(t.ytId, t.name); return; }
     if (e.target.closest('.st-add')){
-      if (!window.plBoss || !plBoss.activeId){ this.status('Open or make a playlist first — it’s saved to your library meanwhile', 'err'); return; }
-      var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+      if (!window.plBoss || !plBoss.targetId){ this.status('Open or make a playlist first — it’s saved to your library meanwhile', 'err'); return; }
+      var r = await dbBoss.addToPlaylist(plBoss.targetId, tid);
       this.status(r === 'dupe' ? 'Already in the current playlist' : 'Added ✓', r === 'dupe' ? null : 'ok');
       plBoss.afterDbChange();
     }
@@ -368,14 +368,14 @@ var importBoss = {
             body: JSON.stringify({ name: title, url: 'https://www.youtube.com/watch?v=' + id,
                                    wallet: cw }) });
         } catch(e){ /* offline is fine — local library is the source of truth for you */ }
-        if (window.plBoss && plBoss.activeId){
-          if ((await dbBoss.addToPlaylist(plBoss.activeId, tid)) === 'added') added++;
+        if (window.plBoss && plBoss.targetId){
+          if ((await dbBoss.addToPlaylist(plBoss.targetId, tid)) === 'added') added++;
         } else { added++; }
         pStatus('Adding… ' + (i + 1) + '/' + ids.length);
       }
       plBoss.afterDbChange();
       pStatus('Added ' + added + ' of ' + ids.length +
-        (plBoss.activeId ? ' to the current playlist' : ' to your library'), 'ok');
+        (plBoss.targetId ? ' to the current playlist' : ' to your library'), 'ok');
       // readable without parsing the sentence above, which is written for
       // a person and will be reworded
       pStatusEl.setAttribute('data-added', String(added));
@@ -454,8 +454,8 @@ var dataBoss = {
       if (e.target.closest('.st-add')){
         self.status('Adding…');
         var tid = await dbBoss.createTrack(vid, name);
-        if (window.plBoss && plBoss.activeId){
-          var r = await dbBoss.addToPlaylist(plBoss.activeId, tid);
+        if (window.plBoss && plBoss.targetId){
+          var r = await dbBoss.addToPlaylist(plBoss.targetId, tid);
           self.status(r === 'dupe' ? 'Already in current playlist' : '✓ Added “' + name + '”', r === 'dupe' ? null : 'ok');
           plBoss.afterDbChange();
         } else {

@@ -833,14 +833,6 @@ body .promo-pop.pp-mini.pp-style-poster { width:66px; height:92px; }
 .pl-title-name + .pl-playing-badge { margin-left:4px; }
 .panel.pl-is-playing { box-shadow:0 0 0 1px rgba(90,184,138,0.55), 0 12px 30px rgba(0,0,0,0.45); }
 
-.pl-win .mainC { display:flex; flex-direction:column; min-height:0; }
-.plw-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
-.plw { display:flex; flex-direction:column; flex:1; min-height:0; height:100%; }
-.plw-top { display:flex; align-items:center; gap:6px; padding:8px 10px 4px; }
-.plw-status { font-size:11px; color:rgba(255,255,255,0.4); }
-.plw-status.on { color:#5ab88a; }
-.plw-count { font-size:11px; color:rgba(255,255,255,0.3); margin-right:auto; }
-.plw-top .icon-btn { width:26px; height:26px; font-size:11px; }
 
 .pl-open-win { background:none; border:none; color:rgba(255,255,255,0.35); font-size:12px; cursor:pointer; padding:0 5px;
   border-radius:3px; flex-shrink:0; }
@@ -993,7 +985,6 @@ body.mobile .usage-note button { min-height:36px; }
   background:rgba(70,224,255,0.07); border:1px solid rgba(70,224,255,0.35); color:#bff4ff; }
 .pl-select:hover { background:rgba(70,224,255,0.16); }
 .pl-select.on { background:rgba(70,224,255,0.28); border-color:#46e0ff; color:#fff; }
-.plw-top .pl-select { margin-left:auto; }
 body.mobile .pl-beside { display:none; }
 .pl-pop-h { padding:6px 8px 4px; font-size:11px; color:#46e0ff; font-weight:700; }
 .pl-pop.win-mode .pl-open-win { display:none; }
@@ -1008,15 +999,14 @@ body.mobile .pl-beside { display:none; }
 .pl-mb .share-ico { width:14px; height:14px; }
 body.mobile .pl-mb.pl-beside { display:none; }
 .pl-new-win { width:100%; text-align:left; font:inherit; font-size:12.5px; color:#c3b6ff; background:transparent; }
-.plw-addhere { margin-top:8px; padding:5px 10px; border-radius:7px; font-size:11.5px; cursor:pointer; background:rgba(157,140,255,0.12); border:1px solid rgba(157,140,255,0.4); color:#fff; }
 
 /* playlists get a scrollbar back (base.css hides them everywhere) */
-.active-pl-tracks, .pl-pop, .plw-tracks { scrollbar-width:thin; scrollbar-color:rgba(157,140,255,0.5) transparent; }
-.active-pl-tracks::-webkit-scrollbar, .pl-pop::-webkit-scrollbar, .plw-tracks::-webkit-scrollbar { display:block; width:8px; height:8px; }
-.active-pl-tracks::-webkit-scrollbar-track, .pl-pop::-webkit-scrollbar-track, .plw-tracks::-webkit-scrollbar-track { background:rgba(255,255,255,0.02); border-radius:20px; }
-.active-pl-tracks::-webkit-scrollbar-thumb, .pl-pop::-webkit-scrollbar-thumb, .plw-tracks::-webkit-scrollbar-thumb {
+.active-pl-tracks, .pl-pop { scrollbar-width:thin; scrollbar-color:rgba(157,140,255,0.5) transparent; }
+.active-pl-tracks::-webkit-scrollbar, .pl-pop::-webkit-scrollbar { display:block; width:8px; height:8px; }
+.active-pl-tracks::-webkit-scrollbar-track, .pl-pop::-webkit-scrollbar-track { background:rgba(255,255,255,0.02); border-radius:20px; }
+.active-pl-tracks::-webkit-scrollbar-thumb, .pl-pop::-webkit-scrollbar-thumb {
   background:rgba(157,140,255,0.4); border-radius:20px; border:2px solid transparent; background-clip:content-box; }
-.active-pl-tracks::-webkit-scrollbar-thumb:hover, .pl-pop::-webkit-scrollbar-thumb:hover, .plw-tracks::-webkit-scrollbar-thumb:hover {
+.active-pl-tracks::-webkit-scrollbar-thumb:hover, .pl-pop::-webkit-scrollbar-thumb:hover {
   background:rgba(157,140,255,0.75); background-clip:content-box; }
 
 /* right-click on a track (track-menu.js) */

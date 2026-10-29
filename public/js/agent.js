@@ -122,8 +122,8 @@
             fetch('/api/track', { method:'POST', headers:{ 'content-type':'application/json' },
               body: JSON.stringify({ name:title, url:'https://www.youtube.com/watch?v=' + id, wallet:cw }) });
           } catch(e2){}
-          if (opts.toPlaylist !== false && window.plBoss && plBoss.activeId){
-            await dbBoss.addToPlaylist(plBoss.activeId, tid);
+          if (opts.toPlaylist !== false && window.plBoss && plBoss.targetId){
+            await dbBoss.addToPlaylist(plBoss.targetId, tid);
           }
           made.push({ id:id, title:title, trackId:tid });
         } catch(e){ failed.push({ id:id, error:String(e && e.message || e) }); }

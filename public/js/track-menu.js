@@ -43,13 +43,10 @@ var trackMenu = {
 
   /** which window a row is in, and what it holds */
   contextFor(row){
-    if (window.plBoss && plBoss.currentEl && plBoss.currentEl.contains(row)){
-      return { view: plBoss.view, sel: plBoss.selr, plId: plBoss.activeId,
-               play: function(i){ plBoss.playIndex(i); } };
-    }
-    var w = window.plWins && plWins.wins.find(function(x){ return x.el.contains(row); });
-    if (w) return { view: w.tracks, sel: w.sel, plId: w.id, play: function(i){ plBoss.playFrom(w.id, w.tracks, i); } };
-    return null;
+    if (!window.plBoss) return null;
+    var p = plBoss.panels().find(function(x){ return x.currentEl && x.currentEl.contains(row); });
+    if (!p) return null;
+    return { view: p.view, sel: p.selr, plId: p.activeId, play: function(i){ p.playIndex(i); } };
   },
 
   open(x, y, ctx, i){
@@ -107,7 +104,6 @@ var trackMenu = {
       await db.playlistTracks.delete(Number(t.joinId));
       await plBoss.refreshAll();
       plBoss.renderPlaylists();
-      if (window.plWins) plWins.refreshAll();
       if (window.searchBoss) searchBoss.render();
       appToast('Removed “' + (t.name || 'that track') + '”', 'ok');
       return;

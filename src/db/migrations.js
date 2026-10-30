@@ -482,6 +482,18 @@ const MIGRATIONS = [
        n     INTEGER NOT NULL DEFAULT 0,
        PRIMARY KEY (day, event))`,
   ] },
+  { id: 31, name: 'automix-daily', sql: [
+    /* How many auto mixes each visitor has made today, so one person
+       can't use up the site's free AI allowance. `who` is a hash of the
+       address and the day with a server secret, so it can't be reversed
+       or joined across days; who = '*' is the whole site's total.
+       Rows older than yesterday are deleted by the sweep. */
+    `CREATE TABLE IF NOT EXISTS automix_daily (
+       day TEXT NOT NULL,
+       who TEXT NOT NULL,
+       n   INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY (day, who))`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

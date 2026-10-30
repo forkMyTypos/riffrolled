@@ -230,6 +230,18 @@
 
 .dj-copyrow { padding:8px 0 0; }
 
+/* ✨ MAKE MY MIX — Simple mode's main button; COPY DJ BRIEF becomes the second choice */
+.dj-auto-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 0 2px; }
+.dj-auto-row[hidden] { display:none; }
+.dj-auto { flex:1 1 auto; min-height:44px; font-size:13px; font-weight:700; letter-spacing:.04em; padding:11px 14px; border-radius:9px; cursor:pointer; color:#fff;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--accent,#ff9de2) 55%, transparent), rgba(70,224,255,0.35));
+  border:1px solid color-mix(in srgb, var(--accent,#ff9de2) 70%, transparent); }
+.dj-auto:hover:not(:disabled) { filter:brightness(1.12); }
+.dj-auto:disabled { opacity:.6; cursor:progress; }
+.dj-auto-left { font-size:11px; color:rgba(255,255,255,0.55); white-space:nowrap; }
+.dj-auto-left.none { color:#d8a657; }
+.dj-auto-or { flex-basis:100%; text-align:center; font-size:10.5px; color:rgba(255,255,255,0.3); padding-top:4px; }
+
 .dj-copy-note { font-size:10.5px; color:rgba(255,255,255,0.3); }
 
 .dj-copy { margin-left:auto; font-size:12px; font-weight:600; padding:8px 13px;

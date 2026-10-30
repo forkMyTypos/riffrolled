@@ -24,7 +24,7 @@ export const EVENTS = new Set([
   // listening
   'play', 'like', 'dislike',
   // DJ AI
-  'dj_copy', 'dj_import',
+  'dj_copy', 'dj_import', 'automix',
   // playlists
   'playlist_new', 'playlist_from_selection', 'playlist_window',
   // sharing

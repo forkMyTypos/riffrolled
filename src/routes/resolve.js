@@ -119,13 +119,22 @@ export async function handleResolve(request, env) {
   const raw = Array.isArray(body?.items) ? body.items : null;
   if (!raw || !raw.length) return errorJson(env, 'Missing items', 400);
   if (raw.length > MAX_ITEMS) return errorJson(env, `Too many items (max ${MAX_ITEMS})`, 400);
+  return json(env, await resolveItems(env, raw, { allowYouTube: body?.allowYouTube !== false }));
+}
 
+/**
+ * The three tiers, for any caller: POST /api/resolve, and the auto mix
+ * (routes/automix.js), which asks for a few new tracks beside the ones it
+ * picked from the catalogue. `perRequest` can only lower the configured cap.
+ */
+export async function resolveItems(env, raw, opts = {}) {
   const cfg = await resolveConfig(env);
   const now = nowIso();
   const day = now.slice(0, 10);
-  const allowYouTube = body?.allowYouTube !== false;
+  const allowYouTube = opts.allowYouTube !== false;
+  const perRequest = opts.perRequest == null ? cfg.perRequest : Math.min(cfg.perRequest, opts.perRequest);
 
-  const items = raw.map(cleanItem);
+  const items = raw.slice(0, MAX_ITEMS).map(cleanItem);
   const results = items.map(() => null);
   const toInsert = [];
 
@@ -169,7 +178,7 @@ export async function handleResolve(request, env) {
   if (pending.length) {
     const spentToday = await countAiLookups(env.DB, day);
     left = Math.max(cfg.dailyLookups - spentToday, 0);
-    const budget = allowYouTube ? Math.min(pending.length, cfg.perRequest, left) : 0;
+    const budget = allowYouTube ? Math.min(pending.length, perRequest, left) : 0;
 
     for (const i of pending.slice(0, budget)) {
       const it = items[i];
@@ -208,12 +217,12 @@ export async function handleResolve(request, env) {
   // one write for everything new — deduped by url inside insertTracks
   if (toInsert.length) await insertTracks(env.DB, toInsert, 'ai', 1);      // resolved against YouTube before this point
 
-  return json(env, {
+  return {
     results,
     resolved: results.filter((r) => r && r.ok).length,
     lookups_used: used,
     lookups_left: left,
     lookups_limit: cfg.dailyLookups,
     ...(warning ? { warning } : {}),
-  });
+  };
 }

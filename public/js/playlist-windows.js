@@ -253,8 +253,9 @@ var plWins = {
     var ids = [plBoss.activeId, plBoss.playingId].concat(this.wins.map(function(w){ return w.id; })).filter(Boolean);
     for (var i = 0; i < ids.length; i++){ var p = await db.playlists.get(ids[i]); if (p) names[ids[i]] = p.name; }
     var playing = function(id){ return plBoss.playingId === id && !!player.currentYtId && plBoss.currentIndex >= 0; };
-    if (plBoss.activeId && (mainOpen || this.mainMin)){
-      rows.push({ main: true, id: plBoss.activeId, name: names[plBoss.activeId], state: mainOpen ? 'open' : 'minimized', playing: playing(plBoss.activeId) });
+    // the first Playlist window is always listed, even when it is closed (a click opens it again)
+    if (plBoss.activeId){
+      rows.push({ main: true, id: plBoss.activeId, name: names[plBoss.activeId], state: mainOpen ? 'open' : this.mainMin ? 'minimized' : 'closed', playing: playing(plBoss.activeId) });
     }
     this.wins.forEach(function(w, i){
       rows.push({ w: i, id: w.id, name: names[w.id], state: w.minimized ? 'minimized' : 'open', playing: playing(w.id) });

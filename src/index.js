@@ -11,6 +11,7 @@ import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleResolve } from './routes/resolve.js';
+import { handleAutomix, handleAutomixStatus } from './routes/automix.js';
 import { handleSavePlaylist } from './routes/playlists.js';
 import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMixReport, handleMyMixes } from './routes/mixes.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
@@ -26,6 +27,8 @@ const ROUTES = [
   ['GET',  /^\/api\/tracks$/, (req, env, url) => handleListTracks(req, env, url)],
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
   ['POST', /^\/api\/resolve$/, (req, env) => handleResolve(req, env)],
+  ['POST', /^\/api\/automix$/, (req, env) => handleAutomix(req, env)],
+  ['GET',  /^\/api\/automix$/, (req, env) => handleAutomixStatus(req, env)],
   ['POST', /^\/api\/playlist\/save$/, (req, env) => handleSavePlaylist(req, env)],
   ['GET',  /^\/api\/mixes$/,            (req, env, url) => handleListMixes(req, env, url)],
   ['POST', /^\/api\/mixes\/share$/,     (req, env) => handleShareMix(req, env)],

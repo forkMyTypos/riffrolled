@@ -120,6 +120,16 @@ export const SCHEMA = {
   AI_YT_PER_REQUEST:    { type: 'num', def: 8,  min: 0,  max: 30,
     note: 'YouTube searches allowed within one resolve request.' },
 
+  // ── auto mix: riffrolled's own AI makes the mix (routes/automix.js) ──
+  AUTOMIX_ON:           { type: 'bool', def: true,
+    note: 'Listeners can ask riffrolled itself for a mix (DJ AI → Simple → Make my mix). Off hides nothing; it says it is resting.' },
+  AUTOMIX_PER_DAY:      { type: 'num', def: 5,   min: 0, max: 100,
+    note: 'Auto mixes a day for each visitor.' },
+  AUTOMIX_DAILY:        { type: 'num', def: 300, min: 0, max: 100000,
+    note: 'Auto mixes a day, whole site. Keeps it inside the free Workers AI allowance (10,000 neurons a day).' },
+  AUTOMIX_NEW:          { type: 'num', def: 4,   min: 0, max: 8,
+    note: 'New tracks one auto mix may look up on YouTube (shares AI_YT_DAILY). Doubled when the catalogue has almost nothing for the request.' },
+
   /* ── not wired up yet ───────────────────────────────────────────────
      Seeded now so the admin tool can show them, the ranges are agreed
      before anything depends on them, and the step that implements each

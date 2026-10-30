@@ -29,6 +29,13 @@ database_id = "fc38c5e0-2d5f-4dbf-9c2b-44b69ef7280c"
 #
 # Nothing breaks without this. Every sweep target is housekeeping: the
 # site stays correct, the tables just keep rows they no longer need.
+# Workers AI, for auto mixes (src/routes/automix.js). Nothing to set up in
+# the dashboard: the binding comes with the deploy, and the free allowance
+# (10,000 neurons a day) covers a few hundred mixes. Without it the auto mix
+# still works, from the best-liked matching tracks, and says so.
+[ai]
+binding = "AI"
+
 [triggers]
 crons = ["17 * * * *"]
 

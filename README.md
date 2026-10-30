@@ -696,6 +696,14 @@ one). Every window follows the same queue rule in `renderTracks`. ⧉ New window
 button lists open ones on hover. Open windows are remembered (`playlistWindows` setting). Hidden on
 phones. Panels registered with `noButton` are now closed at start by `dock.render()` itself.
 
+**Auto mixes** (`src/routes/automix.js`, schema 31). `POST /api/automix {styles, n}`: catalogue
+candidates (`candidates()`: genre via `normalizeGenre`, or keyword LIKE on genre_raw/name/artist,
+verified only, ≤120, best-liked first with a little randomness) → Workers AI (`env.AI`, `MODELS`, JSON
+reply `{name, picks:[codes], new:[{artist,title}]}`) → picks validated against the codes → new ones through
+`resolveItems()` (split out of routes/resolve.js) → `{name, via:'ai'|'basic', tracks:[{ytId,name,artist,genre,fresh?}], left}`.
+`GET /api/automix` → `{on, left, limit}`. Counted in `automix_daily` (hashed visitor + '*' for the site).
+Client: `djMenuBoss.autoMix()` saves it through `djAi.importPlaylist()`.
+
 **History / Your music.** Tabs Liked (like count, then most recently liked), Most played, Recent,
 DJ sets; `HISTORY_SVG` icon. `dbBoss.getPlayCount`, a `riffrolled:music` event on every like and logged
 play; the deck shows ▶ plays.

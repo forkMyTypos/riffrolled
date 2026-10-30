@@ -604,7 +604,12 @@ var plBoss = {
     this.renderPlPopup();
     if (!this.activeId){
       const pls = await dbBoss.getPlaylists();
-      if (pls.length) await this.setActivePlaylist(pls[0].id);
+      // the first window comes back on the playlist it showed last time, else the newest one
+      let keep = null;
+      if (!this.isWin){ try { keep = Number(await dbBoss.getSetting('shownPlaylist')) || null; } catch(e){} }
+      const pick = pls.find(p => p.id === keep) || pls[0];
+      if (this.activeId) return;               // something chose one meanwhile
+      if (pick) await this.setActivePlaylist(pick.id);
       else this.setTitleName('');
     }
   },
@@ -663,7 +668,10 @@ var plBoss = {
     if (this.isWin){
       this.currentEl.dataset.pl = String(id);
       if (window.plWins){ plWins.saveSoon(); plWins.renderPop(); }
-    } else if (window.searchBoss) searchBoss.render();
+    } else {
+      if (window.dbBoss) dbBoss.setSetting('shownPlaylist', String(id));
+      if (window.searchBoss) searchBoss.render();
+    }
     await this.renderTracks();
   },
 

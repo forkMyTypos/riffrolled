@@ -240,7 +240,14 @@
 .dj-auto:disabled { opacity:.6; cursor:progress; }
 .dj-auto-left { font-size:11px; color:rgba(255,255,255,0.55); white-space:nowrap; }
 .dj-auto-left.none { color:#d8a657; }
-.dj-auto-or { flex-basis:100%; text-align:center; font-size:10.5px; color:rgba(255,255,255,0.3); padding-top:4px; }
+/* AUTO mode: the style picker and the button, nothing else */
+.dj-mode-auto .dj-submodes, .dj-mode-auto .dj-rollbar, .dj-mode-auto .dj-est, .dj-mode-auto .dj-used,
+.dj-mode-auto .dj-more, .dj-mode-auto .dj-knows, .dj-mode-auto .dj-brief-sec, .dj-mode-auto .dj-import-sec { display:none !important; }
+.dj-autobox .dj-auto-row { padding-top:12px; }
+.dj-auto-status:empty { display:none; }
+.dj-auto-status { margin-top:8px; }
+.dj-linkish { background:none; border:0; padding:0; color:var(--accent,#ff9de2); text-decoration:underline; cursor:pointer; font:inherit; }
+.dj-modes .dj-mode { min-width:0; }
 
 .dj-copy-note { font-size:10.5px; color:rgba(255,255,255,0.3); }
 

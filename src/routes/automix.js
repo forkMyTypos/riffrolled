@@ -34,6 +34,7 @@ import { json, errorJson, readJson, nowIso } from '../utils/response.js';
 import { getConfig } from '../config.js';
 import { normalizeGenre } from '../genres.js';
 import { resolveItems } from './resolve.js';
+import { wantMore } from '../grow.js';
 
 /* Small, fast instruct models on Workers AI, best first. If one is
    unavailable on the account's plan, the next is tried. */
@@ -110,12 +111,17 @@ export async function candidates(db, genres, words, limit = MAX_CANDIDATES) {
              `artist LIKE ?${k} ESCAPE '\\' COLLATE NOCASE`);
   }
   if (!ors.length) return [];
+  /* "strong": a word of the request is in the track's own genre, title or
+     artist — closer than sharing only the broad genre ("deep house" vs
+     everything filed under House). Strong ones come first. */
+  const wordOrs = ors.slice(genres.length);
+  const strong = wordOrs.length ? `CASE WHEN (${wordOrs.join(' OR ')}) THEN 1 ELSE 0 END` : '1';
   binds.push(limit);
   const { results } = await db.prepare(
-    `SELECT id, name, artist, genre, url
+    `SELECT id, name, artist, genre, url, ${strong} AS strong
        FROM tracks
       WHERE verified = 1 AND (${ors.join(' OR ')})
-      ORDER BY (likes * 3 + plays - dislikes * 4) + (abs(random()) % 25) DESC
+      ORDER BY strong DESC, (likes * 3 + plays - dislikes * 4) + (abs(random()) % 25) DESC
       LIMIT ?${binds.length}`
   ).bind(...binds).all();
   return results || [];
@@ -128,8 +134,8 @@ export function buildMessages(request, cands, n, newCap) {
   const system =
     'You are the DJ for riffrolled, a player for music that lives on YouTube. You build one playlist for one listener.\n' +
     'Rules:\n' +
-    `- Pick up to ${n} tracks from CANDIDATES by their code (c1, c2, …). Use only codes that are in the list.\n` +
-    '- Only pick candidates that fit the request. Fewer good picks beat a long list of poor ones.\n' +
+    `- Pick ${n} tracks from CANDIDATES by their code (c1, c2, …). Use only codes that are in the list.\n` +
+    `- Aim for all ${n}. Leave a candidate out only if it clearly does not fit the request.\n` +
     '- Order the picks so the playlist flows: ease in, build, land.\n' +
     (newCap > 0
       ? `- You may add up to ${newCap} real, well-known tracks that are NOT in the list and fit the request, as artist and title. Only songs you are certain exist. Never invent one.\n`
@@ -198,10 +204,10 @@ export async function handleAutomix(request, env) {
   const who = await visitor(request, env, day);
   const c = await counts(env.DB, day, who);
   if (c.mine >= cfg.AUTOMIX_PER_DAY) {
-    return json(env, { error: `That's your ${cfg.AUTOMIX_PER_DAY} auto mixes for today — more tomorrow, or copy the DJ brief to your own AI`, left: 0, limit: cfg.AUTOMIX_PER_DAY }, 429);
+    return json(env, { error: `That's your ${cfg.AUTOMIX_PER_DAY} auto mixes for today — more tomorrow, or use TEXT with your own AI (no limit)`, left: 0, limit: cfg.AUTOMIX_PER_DAY }, 429);
   }
   if (c.site >= cfg.AUTOMIX_DAILY) {
-    return json(env, { error: 'riffrolled has made all the auto mixes it can today — try again tomorrow, or copy the DJ brief to your own AI', left: 0, limit: cfg.AUTOMIX_PER_DAY }, 429);
+    return json(env, { error: 'riffrolled has made all the auto mixes it can today — try again tomorrow, or use TEXT with your own AI', left: 0, limit: cfg.AUTOMIX_PER_DAY }, 429);
   }
   // counted now, so a burst of requests can't all slip under the limit; given back if nothing is found
   await bump(env.DB, day, who, 1);
@@ -233,6 +239,19 @@ export async function handleAutomix(request, env) {
     if (ai) via = 'basic';
     picks = cands.slice(0, n);
   }
+  /* Small models stop early. Top up to n from the closest matches it
+     left out — strong ones (a word of the request in the track's own
+     genre, title or artist) first, then the broad genre — after the AI's
+     own picks, so its order still opens the mix. */
+  let filled = 0;
+  if (picks.length < n) {
+    const have = new Set(picks.map((t) => t.url));
+    for (const t of cands) {
+      if (picks.length >= n) break;
+      if (have.has(t.url)) continue;
+      have.add(t.url); picks.push(t); filled++;
+    }
+  }
 
   // ── 2. new tracks, found the same way as every AI DJ playlist ──
   let added = [];
@@ -256,17 +275,25 @@ export async function handleAutomix(request, env) {
   }
 
   // the new ones spread through the mix rather than piled at the end
+  // new finds take the place of top-ups, so the mix is the length asked for
+  const over = picks.length + added.length - n;
+  if (over > 0 && filled > 0){ const cut = Math.min(over, filled); picks.splice(picks.length - cut, cut); filled -= cut; }
   const out = picks.map((t) => ({ url: t.url, name: t.name, artist: t.artist, genre: t.genre || '' }));
   added.forEach((t, k) => {
     const at = Math.min(out.length, Math.round(((k + 1) * out.length) / (added.length + 1)) + k);
     out.splice(at, 0, t);
   });
 
+  // short of what was asked: the catalogue grower looks for more of this within the hour (src/grow.js)
+  if (out.length < n) {
+    try { await wantMore(env.DB, styles.length ? styles : [ask]); } catch (err) { console.error('automix: wantMore: ' + (err && err.message)); }
+  }
+
   if (!out.length) {
     await bump(env.DB, day, who, -1);
     return json(env, {
-      name: '', tracks: [], via,
-      error: 'riffrolled has nothing for that yet — try a broader style, or copy the DJ brief to your own AI',
+      name: '', tracks: [], via, asked_for: n, catalogue_matches: cands.length,
+      error: 'riffrolled has nothing for that yet — try a broader style, or use TEXT with your own AI',
       left: Math.max(0, cfg.AUTOMIX_PER_DAY - c.mine),
       limit: cfg.AUTOMIX_PER_DAY,
     });
@@ -283,6 +310,9 @@ export async function handleAutomix(request, env) {
     via,
     tracks: out.map((t) => ({ ytId: ytIdOf(t.url), name: t.name, artist: t.artist, genre: t.genre, ...(t.fresh ? { fresh: true } : {}) })),
     from_catalogue: picks.length,
+    filled,
+    asked_for: n,
+    catalogue_matches: cands.length,
     new_found: added.length,
     new_asked: wanted.length,
     left: Math.max(0, Math.min(cfg.AUTOMIX_PER_DAY - c.mine - 1, cfg.AUTOMIX_DAILY - c.site - 1)),

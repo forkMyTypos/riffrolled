@@ -46,6 +46,58 @@ async function ytFetch(env, endpoint, params) {
 
 const watchUrl = (id) => `https://www.youtube.com/watch?v=${id}`;
 
+/** "Artist - Topic" (YouTube's automatic artist channels) → "Artist" */
+export function artistName(channel) {
+  return String(channel || '').replace(/\s+-\s+Topic$/i, '').trim();
+}
+
+/**
+ * Playlists about something ("deep house", "bossa nova"): search.list with
+ * type=playlist. 100 units, like any search, but each result can hold
+ * hundreds of tracks that cost 1 unit per 50 to read.
+ */
+export async function searchYouTubePlaylists(env, query, limit = 10) {
+  const data = await ytFetch(env, 'search', {
+    part: 'snippet',
+    type: 'playlist',
+    maxResults: String(Math.min(Math.max(limit, 1), 50)),
+    q: query,
+  });
+  return (data.items || [])
+    .filter((it) => /^[A-Za-z0-9_-]{10,64}$/.test(it?.id?.playlistId || ''))
+    .map((it) => ({ id: it.id.playlistId, title: it.snippet?.title || '', channel: it.snippet?.channelTitle || '' }));
+}
+
+/** "PT4M13S" → 253 seconds */
+export function isoSeconds(d) {
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(String(d || ''));
+  if (!m) return 0;
+  return (+(m[1] || 0)) * 86400 + (+(m[2] || 0)) * 3600 + (+(m[3] || 0)) * 60 + (+(m[4] || 0));
+}
+
+/**
+ * What YouTube says about up to 50 videos per call (1 unit per call):
+ * Map id → { ok, secs, title, channel }. ok = public and embeddable.
+ * Videos YouTube doesn't return (deleted, private) are absent.
+ */
+export async function videoDetails(env, ids) {
+  const out = new Map();
+  const list = [...new Set(ids)].filter((id) => /^[A-Za-z0-9_-]{11}$/.test(id));
+  for (let i = 0; i < list.length; i += 50) {
+    const data = await ytFetch(env, 'videos', { part: 'snippet,status,contentDetails', id: list.slice(i, i + 50).join(','), maxResults: '50' });
+    for (const it of data.items || []) {
+      const st = it.status || {};
+      out.set(it.id, {
+        ok: st.embeddable !== false && (st.privacyStatus || 'public') === 'public' && st.uploadStatus !== 'rejected',
+        secs: isoSeconds(it.contentDetails?.duration),
+        title: it.snippet?.title || '',
+        channel: artistName(it.snippet?.channelTitle || ''),
+      });
+    }
+  }
+  return out;
+}
+
 /**
  * Search YouTube; returns rows in our tracks shape { name, artist, genre, url }.
  * name = video title, artist = channel title, genre = '' (user fills in).
@@ -55,7 +107,8 @@ export async function searchYouTube(env, query, limit = 15) {
     part: 'snippet',
     type: 'video',
     videoCategoryId: '10', // Music; remove to search all categories
-    maxResults: String(Math.min(Math.max(limit, 1), 25)),
+    // 50 is the most YouTube returns, and costs the same 100 units as 1
+    maxResults: String(Math.min(Math.max(limit, 1), 50)),
     q: query,
   });
   return (data.items || [])
@@ -79,7 +132,7 @@ export async function searchYouTubeTrack(env, query, limit = 6) {
     type: 'video',
     videoCategoryId: '10',        // Music
     videoEmbeddable: 'true',
-    maxResults: String(Math.min(Math.max(limit, 1), 10)),
+    maxResults: String(Math.min(Math.max(limit, 1), 50)),
     q: query,
   });
   return (data.items || [])
@@ -173,7 +226,9 @@ export async function fetchChannelUploads(env, uploadsPlaylistId, limit = 50) {
       if (!/^[A-Za-z0-9_-]{11}$/.test(vid || '') || sn.title === 'Private video' || sn.title === 'Deleted video') continue;
       out.push({
         name: sn.title || '',
-        artist: sn.channelTitle || '',
+        // in a playlist, channelTitle is whoever made the playlist; the
+        // artist is the channel that uploaded the video ("Artist - Topic")
+        artist: artistName(sn.videoOwnerChannelTitle || sn.channelTitle || ''),
         genre: '',
         url: watchUrl(vid),
       });

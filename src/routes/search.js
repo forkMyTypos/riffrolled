@@ -9,7 +9,7 @@ import { getConfig } from '../config.js';
 import { searchYouTube, YouTubeError } from '../services/youtube.js';
 
 const MIN_LOCAL_RESULTS = 8;   // fewer local hits than this triggers a YouTube fetch
-const YT_FETCH_SIZE = 15;
+const YT_FETCH_SIZE = 50;     // the same 100 units as 15; every result joins the catalogue
 
 export async function handleSearch(request, env, url) {
   const q = (url.searchParams.get('q') || '').trim();

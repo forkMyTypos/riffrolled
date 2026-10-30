@@ -26,19 +26,28 @@ var tourBoss = {
          ROLL — same code path as the one in the menu — so by the end of step 1
          there is a finished brief on the clipboard. */
       title: 'Start with DJ AI',
-      body: "You don't have to know what you want to listen to. Tell DJ AI roughly " +
-            "what you're after — or don't, and let it decide the lot.<br><br>" +
-            "<b>Your AI picks the tracks, YouTube plays them.</b> riffrolled writes the brief; " +
-            "you paste it into whichever AI you already use and paste the answer back. " +
-            "No key, no account, nothing to pay for.<br><br>" +
-            "<span class='tt-dim'>Press the button — it really rolls, and the brief lands on your clipboard.</span>",
+      body: "You don't have to know what you want to listen to. Pick a style or two in " +
+            "<b>DJ AI → AUTO</b> — or don't, and let it choose — and riffrolled makes the mix.<br><br>" +
+            "<b>riffrolled picks the tracks, YouTube plays them.</b> No key, no account, nothing to pay for. " +
+            "Rather use your own AI (ChatGPT, Claude…)? <b>TEXT</b> writes it a brief.<br><br>" +
+            "<span class='tt-dim'>Press the button — it really makes a mix, and it starts playing.</span>",
       panel: function(){ return window.djMenuBoss && djMenuBoss.el; },
       action: {
-        label: '🎲 ROLL THE RIFF',
-        done: 'Rolled — brief copied ✓',
+        label: '✨ MAKE A MIX',
+        done: 'Mix made — it’s playing ✓',
         run: async function(){
           if (!window.djMenuBoss) return false;
           if (window.dock) dock.openPanel(djMenuBoss.el);
+          if (djMenuBoss.auto()){
+            // no style yet: a broad one at random (a niche style may have few tracks yet)
+            var broad = (window.MUSIC_STYLES || []).filter(function(x){ return x[0] === x[1]; });
+            if (!(djAi.state.simpleStyles || []).length && broad.length){
+              await djAi.addSimpleStyle(broad[Math.floor(Math.random() * broad.length)][0]);
+              djMenuBoss.renderSimple(); djMenuBoss.sync();
+            }
+            if (await djMenuBoss.autoMix()) return true;
+          }
+          // TEXT, or no auto mixes left today: roll a brief instead
           return await djMenuBoss.rollAndCopy();
         }
       },
@@ -74,7 +83,7 @@ var tourBoss = {
     },
     {
       title: 'Back from the AI',
-      body: "Paste the reply into <b>🤖 DJ AI</b> and it becomes a set — artist, running time and " +
+      body: "Used <b>TEXT</b> with your own AI? Paste its reply into <b>🤖 DJ AI</b> and it becomes a set — artist, running time and " +
             "genre land on each track, and the deck starts playing.<br><br>" +
             "Every link is checked as it comes in. Anything dead is listed on its own, with a " +
             "follow-up you can paste back to get replacements.<br><br>" +

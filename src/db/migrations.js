@@ -494,6 +494,33 @@ const MIGRATIONS = [
        n   INTEGER NOT NULL DEFAULT 0,
        PRIMARY KEY (day, who))`,
   ] },
+  { id: 32, name: 'grow-wants', sql: [
+    /* What the catalogue grower (src/grow.js) should look for next: a style
+       an auto mix came back short on (asked counts how often), or a broad
+       genre the catalogue is thin on (asked = 0). done_at is when it was
+       last grown; it waits a week before the next go. */
+    `CREATE TABLE IF NOT EXISTS grow_wants (
+       style   TEXT PRIMARY KEY,
+       genre   TEXT NOT NULL DEFAULT '',
+       asked   INTEGER NOT NULL DEFAULT 0,
+       last_at TEXT NOT NULL DEFAULT '',
+       done_at TEXT,
+       added   INTEGER NOT NULL DEFAULT 0,
+       runs    INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS idx_grow_wants_next ON grow_wants(done_at, asked)`,
+  ] },
+  { id: 33, name: 'refresh-30-days', sql: [
+    /* YouTube's developer policies: data from YouTube (a video's title, its
+       channel) may be kept for 30 days, then it has to be refreshed or
+       deleted. src/refresh.js re-checks the tracks checked longest ago,
+       every hour; checked_at is when YouTube last confirmed a track ('' =
+       never, so those go first). gone_at is set the first time YouTube
+       says a video isn't there or can't be embedded; it is hidden at once
+       and deleted when a later check agrees. */
+    `ALTER TABLE tracks ADD COLUMN checked_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE tracks ADD COLUMN gone_at TEXT NOT NULL DEFAULT ''`,
+    `CREATE INDEX IF NOT EXISTS idx_tracks_checked ON tracks(checked_at)`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

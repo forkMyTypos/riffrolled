@@ -58,6 +58,9 @@ var DJAI_SVG =
 /* mode tiles: a clipboard, a plug, a record — drawn rather than emoji so
    they sit properly next to each other at any size */
 var DJ_MODE_ICONS = {
+  auto:
+    "<svg viewBox='0 0 24 24' aria-hidden='true' fill='currentColor'><path d='M11 2.5l1.7 4.6 4.6 1.7-4.6 1.7L11 15.1l-1.7-4.6-4.6-1.7 4.6-1.7z'/>" +
+    "<path d='M18 13l.9 2.4 2.4.9-2.4.9L18 19.6l-.9-2.4-2.4-.9 2.4-.9z' opacity='.8'/><path d='M6 15.5l.7 1.8 1.8.7-1.8.7L6 20.5l-.7-1.8-1.8-.7 1.8-.7z' opacity='.65'/></svg>",
   text:
     "<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='5' y='3.5' width='14' height='17' rx='2.6' fill='none' stroke='currentColor' stroke-width='1.7'/>" +
     "<rect x='9' y='1.8' width='6' height='3.4' rx='1.2' fill='currentColor'/>" +
@@ -137,13 +140,6 @@ var djMenuBoss = {
       "<div class='sec dj-brief-sec'>" +
         "<div class='sec-head'>DJ brief</div>" +
         "<div class='dj-brief'></div>" +
-        /* Simple only: riffrolled makes the mix itself (POST /api/automix),
-           from the catalogue plus a few new finds — no other AI needed. */
-        "<div class='dj-auto-row' data-testid='dj-auto-row' hidden>" +
-          "<button class='dj-auto' data-testid='dj-auto' title='riffrolled picks the tracks now, from what it already has plus a few new finds'>✨ MAKE MY MIX</button>" +
-          "<span class='dj-auto-left' data-testid='dj-auto-left'></span>" +
-          "<div class='dj-auto-or'>— or copy the brief to your own AI —</div>" +
-        "</div>" +
         "<div class='row dj-copyrow'>" +
           "<span class='dj-copy-note'></span>" +
           "<button class='dj-copy' data-testid='dj-copy-btn' aria-label='Copy DJ brief'>⧉ COPY DJ BRIEF</button>" +
@@ -209,10 +205,11 @@ var djMenuBoss = {
     this.sync();
   },
 
-  speed(){ return djAi.state.textMode === 'speed'; },
-  simple(){ return djAi.state.textMode === 'simple' && !this.seeded(); },
+  auto(){ return djAi.state.mode === 'auto'; },
+  speed(){ return djAi.state.textMode === 'speed' && !this.auto(); },
+  simple(){ return djAi.state.textMode === 'simple' && !this.seeded() && !this.auto(); },
   // the Riffenator: the guided, multi-step way
-  riff(){ return djAi.state.textMode === 'details' && !this.seeded(); },
+  riff(){ return djAi.state.textMode === 'details' && !this.seeded() && !this.auto(); },
 
   /* which categories get a section of their own, and which wait behind
      More settings. Speed mode asks four things; everything else is still
@@ -248,7 +245,7 @@ var djMenuBoss = {
         "🤖🎸 The Riffenator<span class='dj-better'>BETTER</span></button>" +
       /* say it, don't just badge it: why the Riffenator is the better choice */
       "<div class='dj-sub-why' data-testid='dj-sub-why'>" + (simple
-        ? "Say what kind of music, then ✨ Make my mix — riffrolled picks the tracks. Or copy the brief into your own AI and paste its answer back."
+        ? "Say what kind of music. Copy the brief into your AI, paste its answer back. That's it."
         : speed
         ? "Quick, but one AI doing everything often makes up links. <b>The Riffenator</b> gets better mixes: a DJ picks the songs, then Link Hunter finds the real YouTube links."
         : "🤖🎸 <b>The Riffenator</b> — our best mixes. A DJ picks the songs first, then Link Hunter finds the real YouTube links. A pop-up walks you through it.") +
@@ -261,7 +258,7 @@ var djMenuBoss = {
     var cur = djAi.state.mode || 'text';
     box.innerHTML = djAi.modes.filter(function(m){ return m.state === 'ACTIVE'; }).map(function(m){
       var live = m.state === 'ACTIVE', on = live && m.id === cur;
-      var badge = !live ? m.state : (on ? 'ACTIVE' : (m.id === 'seeded' ? 'NEW' : 'PICK'));
+      var badge = !live ? m.state : (on ? 'ACTIVE' : (m.id === 'seeded' || m.id === 'auto' ? 'NEW' : 'PICK'));
       return "<button class='dj-mode" + (live ? ' live' : ' soon') + (on ? ' on' : '') + "' data-m='" + m.id + "' data-testid='dj-mode-" + m.id + "'" +
         (live ? '' : " disabled") + " title='" + escapeHtml(m.blurb) + "' aria-pressed='" + (on ? 'true' : 'false') + "'>" +
         "<span class='dj-mode-ico'>" + (DJ_MODE_ICONS[m.id] || '') + "</span>" +
@@ -354,6 +351,24 @@ var djMenuBoss = {
       "<input type='text' class='dj-simple-in' data-testid='dj-simple-in' placeholder='Type a style… trance, bossa nova, 90s hip hop' autocomplete='off' maxlength='60'>" +
       "<div class='dj-simple-hits' data-testid='dj-simple-hits' role='listbox'></div>" +
       "<div class='dj-simple-note'>Up to three. It's all the DJ needs — the rest is up to them.</div>" +
+    "</div>";
+  },
+
+  /* AUTO: the same style picker, and one button. riffrolled's own AI makes
+     the mix (autoMix) — nothing to copy anywhere. */
+  autoHtml(){
+    return "<div class='dj-simple dj-autobox' data-testid='dj-auto-box'>" +
+      "<div class='dj-simple-q'>What kind of music?</div>" +
+      "<div class='dj-simple-chips' data-testid='dj-simple-chips'></div>" +
+      "<input type='text' class='dj-simple-in' data-testid='dj-simple-in' placeholder='Type a style… trance, bossa nova, 90s hip hop' autocomplete='off' maxlength='60'>" +
+      "<div class='dj-simple-hits' data-testid='dj-simple-hits' role='listbox'></div>" +
+      "<div class='dj-auto-row' data-testid='dj-auto-row'>" +
+        "<button class='dj-auto' data-testid='dj-auto' title='riffrolled picks the tracks now, from what it already has plus a few new finds'>✨ MAKE MY MIX</button>" +
+        "<span class='dj-auto-left' data-testid='dj-auto-left'></span>" +
+      "</div>" +
+      "<div class='status-bar dj-auto-status' data-testid='dj-auto-status'></div>" +
+      "<div class='dj-simple-note'>Up to three styles. riffrolled picks " + (djAi.state.count || 15) + " tracks from its catalogue, plus a few new finds from YouTube, and starts playing. " +
+        "Want more control? <button class='dj-linkish dj-go-text' data-testid='dj-go-text'>Use TEXT with your own AI</button>.</div>" +
     "</div>";
   },
 
@@ -466,6 +481,14 @@ var djMenuBoss = {
     this.el.classList.toggle('dj-seeded', seeded);
     var cats = seeded ? djAi.cats.filter(function(c){ return c.key === 'personality' && c.enabled; }) : this.mainCats();
 
+    this.el.classList.toggle('dj-mode-auto', this.auto());
+    if (this.auto()){
+      box.innerHTML = this.autoHtml();
+      this.renderSimple();
+      this.autoLeft();
+      this.sync();
+      return;
+    }
     if (this.simple()){
       box.innerHTML = this.simpleHtml();
       this.renderSimple();
@@ -614,6 +637,11 @@ var djMenuBoss = {
       if (e.target.classList.contains('dj-simple-in')) self.renderSimpleHits();
     });
     root.querySelector('.dj-sections').addEventListener('click', async function(e){
+      if (e.target.closest('.dj-auto')){ await self.autoMix(); return; }
+      if (e.target.closest('.dj-go-text')){
+        djAi.state.mode = 'text'; djAi.state.textMode = 'simple'; await djAi.save();
+        self.open = {}; self.renderModes(); self.renderSubModes(); self.renderSections(); self.sync(); return;
+      }
       var hit = e.target.closest('.dj-simple-hit'); if (hit){ await self.addSimple(hit.dataset.v); return; }
       var x = e.target.closest('.dj-simple-x');
       if (x){ await djAi.removeSimpleStyle(+x.dataset.i); self.renderSimple(); self.sync(); }
@@ -709,7 +737,6 @@ var djMenuBoss = {
     };
 
     root.querySelector('.dj-copy').onclick = function(){ self.copyBrief(); };
-    root.querySelector('.dj-auto').onclick = function(){ self.autoMix(); };
     root.querySelector('.dj-go').onclick = function(){ self.importReply(); };
 
     root.querySelector('.dj-open-row').addEventListener('click', function(e){
@@ -1024,8 +1051,6 @@ var djMenuBoss = {
       root.querySelector('.dj-copy-note').textContent = n ? '' : 'add a seed track first';
       return;
     }
-    var ar = root.querySelector('.dj-auto-row');
-    if (ar){ ar.hidden = !simple || seeded; if (simple && !seeded) this.autoLeft(); }
     if (simple){
       root.querySelector('.dj-copy-note').textContent = (djAi.state.simpleStyles || []).length ? '' : 'say what kind of music first — or the DJ chooses';
       return;
@@ -1083,28 +1108,28 @@ var djMenuBoss = {
     var st = (djAi.state.simpleStyles || []).slice();
     var btn = root.querySelector('.dj-auto');
     if (!st.length){
-      this.status('Say what kind of music first — type a style above', 'err');
+      this.autoSay('Say what kind of music first — type a style above', 'err');
       var inp = root.querySelector('.dj-simple-in'); if (inp) inp.focus();
-      return;
+      return null;
     }
-    if (btn.disabled) return;
+    if (!btn || btn.disabled) return null;
     btn.disabled = true;
     btn.textContent = '✨ MAKING YOUR MIX…';
-    this.status('Picking tracks for ' + st.join(' + ') + '…');
+    this.autoSay('Picking tracks for ' + st.join(' + ') + '…');
     try {
       var r = await fetch('/api/automix', { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ styles: st, n: Math.min(30, Math.max(8, djAi.state.count || 20)) }) });
       var j = {}; try { j = await r.json(); } catch(e){}
       if (j && j.left != null) this.autoLeft(j.left);
       if (!r.ok || !j.tracks || !j.tracks.length){
-        this.status((j && j.error) || 'Couldn’t make a mix just now — try again, or copy the brief', 'err');
-        return;
+        this.autoSay((j && j.error) || 'Couldn’t make a mix just now — try again, or use TEXT with your own AI', 'err');
+        return null;
       }
       var parsed = { name: j.name, about: '', genre: '', items: j.tracks.map(function(t){
         return { artist: t.artist || '', title: t.name || '', url: t.ytId, genre: t.genre || '' };
       }) };
       var saved = await djAi.importPlaylist(parsed, '');
-      if (!saved){ this.status('Those tracks couldn’t be saved — try again', 'err'); return; }
+      if (!saved){ this.autoSay('Those tracks couldn’t be saved — try again', 'err'); return null; }
       if (window.riffUsage) riffUsage.count('automix');
       await plBoss.setActivePlaylist(saved.playlistId);
       plBoss.renderPlaylists();
@@ -1115,27 +1140,45 @@ var djMenuBoss = {
       var bits = ['Made “' + saved.name + '” · ' + saved.count + (saved.count === 1 ? ' track' : ' tracks')];
       if (j.new_found) bits.push(j.new_found + ' new to riffrolled');
       if (j.via === 'basic') bits.push('picked from the best-liked matches');
+      // short of what was asked: say it's the catalogue, not a fault
+      if (j.asked_for && saved.count < j.asked_for){
+        bits.push('riffrolled only has ' + (j.catalogue_matches || 0) + ' track' + (j.catalogue_matches === 1 ? '' : 's') + ' for ' + st.join(' + ') + ' so far');
+      }
       bits.push('→ Playlist');
-      this.status(bits.join(' · '), 'ok');
-      var sEl = root.querySelector('.dj-status');
+      this.autoSay(bits.join(' · '), 'ok');
+      var sEl = root.querySelector('.dj-auto-status');
       if (sEl){ sEl.setAttribute('data-automix', String(saved.count)); sEl.setAttribute('data-playlist', saved.name); }
+      return saved;
     } catch(e){
-      this.status('Couldn’t reach riffrolled — check your connection and try again', 'err');
+      this.autoSay('Couldn’t reach riffrolled — check your connection and try again', 'err');
+      return null;
     } finally {
       btn.disabled = false;
       btn.textContent = '✨ MAKE MY MIX';
     }
   },
 
-  /** "4 left today", from the server; asked at most once a minute */
+  autoSay(msg, kind){
+    var el = this.el.querySelector('.dj-auto-status');
+    if (!el){ this.status(msg, kind); return; }
+    el.textContent = msg || '';
+    el.className = 'status-bar dj-auto-status' + (kind ? ' ' + kind : '');
+  },
+
+  /** "2 left today", from the server; asked at most once a minute */
   async autoLeft(n){
     var el = this.el.querySelector('.dj-auto-left'); if (!el) return;
     if (n == null){
-      if (this._autoAt && Date.now() - this._autoAt < 60000) return;
-      this._autoAt = Date.now();
-      try { var r = await fetch('/api/automix', { cache: 'no-store' }); var j = await r.json(); n = j.on === false ? -1 : j.left; }
-      catch(e){ return; }
+      // the box is redrawn often: paint what we know, ask again at most once a minute
+      if (this._autoAt && Date.now() - this._autoAt < 60000){ if (this._autoN == null) return; n = this._autoN; }
+      else {
+        this._autoAt = Date.now();
+        try { var r = await fetch('/api/automix', { cache: 'no-store' }); var j = await r.json(); n = j.on === false ? -1 : j.left; }
+        catch(e){ this._autoAt = 0; return; }
+        el = this.el.querySelector('.dj-auto-left'); if (!el) return;
+      }
     } else this._autoAt = Date.now();
+    this._autoN = n;
     el.textContent = n < 0 ? 'resting today' : n === 0 ? 'none left today' : n + ' left today';
     el.classList.toggle('none', !(n > 0));
   },

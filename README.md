@@ -704,6 +704,20 @@ reply `{name, picks:[codes], new:[{artist,title}]}`) → picks validated against
 `GET /api/automix` → `{on, left, limit}`. Counted in `automix_daily` (hashed visitor + '*' for the site).
 Client: `djMenuBoss.autoMix()` saves it through `djAi.importPlaylist()`.
 
+**30-day refresh** (`src/refresh.js`, schema 33, hourly before the grower). `tracks.checked_at` ('' = never)
+and `gone_at`. Due = older than REFRESH_DAYS/2; batch = enough to cycle in REFRESH_DAYS (≥50, ≤REFRESH_MAX_CALLS×50).
+`videoDetails` per 50 → ok: checked_at = now (+ name/artist from YouTube for sources search/channel/playlist);
+missing/not embeddable: strike (verified = 0, gone_at, checked_at = '') then delete (+ mix_tracks) a day later.
+Safety: >½ of a batch missing → oEmbed second opinion on 3. Quota gone → 20 via oEmbed. `insertTracks` sets
+checked_at for verified rows; `markVerified` clears gone_at; shared mixes skip gone tracks.
+
+**Catalogue grower** (`src/grow.js`, schema 32, hourly from `scheduled()`). `grow_wants` (style, genre,
+asked, done_at, added): filled by `wantMore()` when an auto mix is short and by thin broad genres
+(`GROW_MIN_GENRE`). Per style: `searchYouTubePlaylists` (100) → `choosePlaylists` (on topic, no podcasts)
+→ `fetchChannelUploads` (1/50) → impostor filter → `videoDetails` (1/50: embeddable, 60 s–`GROW_MAX_MINUTES`)
+→ `insertTracks(…, 'playlist', 1)` with genre = the style. Units counted in `ai_lookups` as `grow:<day>`.
+All searches ask for 50 results; `resolveItems` keeps same-artist extras (`extras_kept`).
+
 **History / Your music.** Tabs Liked (like count, then most recently liked), Most played, Recent,
 DJ sets; `HISTORY_SVG` icon. `dbBoss.getPlayCount`, a `riffrolled:music` event on every like and logged
 play; the deck shows ▶ plays.

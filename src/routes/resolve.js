@@ -27,6 +27,7 @@ import { searchYouTubeTrack, YouTubeError } from '../services/youtube.js';
 
 const MAX_ITEMS = 30;        // one request can't ask for an unbounded playlist
 const CANDIDATES = 6;        // rows considered per item before scoring
+const YT_RESULTS = 50;       // a YouTube search costs 100 units for 1 result or 50, so take 50
 
 /** Tunables (override in wrangler.toml [vars]). */
 export async function resolveConfig(env) {
@@ -81,7 +82,7 @@ export function matchScore(want, row) {
    to YouTube's Music category keeps most of these out; this catches the
    rest. Penalised, not banned — if the request itself says "live" or
    "cover", that word is what was asked for. */
-const IMPOSTOR = /\b(reaction|reacts?|review|cover|karaoke|instrumental|nightcore|slowed|sped\s*up|8d|tutorial|lesson|loop(ed)?|hours?|mix(tape)?|megamix|compilation|playlist|full\s*album)\b/i;
+export const IMPOSTOR = /\b(reaction|reacts?|review|cover|karaoke|instrumental|nightcore|slowed|sped\s*up|8d|tutorial|lesson|loop(ed)?|hours?|mix(tape)?|megamix|compilation|playlist|full\s*album)\b/i;
 
 function impostorPenalty(want, row) {
   const name = String(row.name || '');
@@ -174,6 +175,7 @@ export async function resolveItems(env, raw, opts = {}) {
   // ── tier 3: YouTube, capped and budgeted ──
   const pending = results.map((r, i) => (r ? -1 : i)).filter((i) => i >= 0);
   let used = 0, left = 0, warning = '';
+  const extras = [];
 
   if (pending.length) {
     const spentToday = await countAiLookups(env.DB, day);
@@ -183,9 +185,22 @@ export async function resolveItems(env, raw, opts = {}) {
     for (const i of pending.slice(0, budget)) {
       const it = items[i];
       try {
-        const found = await searchYouTubeTrack(env, `${it.artist} ${it.title}`.trim(), CANDIDATES);
+        const found = await searchYouTubeTrack(env, `${it.artist} ${it.title}`.trim(), YT_RESULTS);
         used++;
         const hit = pickBest(it, found);
+        /* The other results came free with the search. Keep the ones by
+           the same artist that aren't covers, reactions or loops: real
+           tracks the catalogue didn't have, for the next mix. */
+        if (it.artist) {
+          for (const row of found) {
+            if (hit && row.url === hit.row.url) continue;
+            if (IMPOSTOR.test(row.name || '')) continue;
+            const a = words(it.artist);
+            const hay = norm(`${row.name} ${row.artist}`);
+            if (!a.length || a.filter((w) => hay.includes(w)).length / a.length < 1) continue;
+            extras.push({ ...row, genre: '' });
+          }
+        }
         if (hit) {
           toInsert.push({ ...hit.row, genre: '' });
           results[i] = { i, ok: true, via: 'youtube', url: hit.row.url, name: hit.row.name, artist: hit.row.artist };
@@ -216,11 +231,13 @@ export async function resolveItems(env, raw, opts = {}) {
 
   // one write for everything new — deduped by url inside insertTracks
   if (toInsert.length) await insertTracks(env.DB, toInsert, 'ai', 1);      // resolved against YouTube before this point
+  if (extras.length) await insertTracks(env.DB, extras.slice(0, 120), 'search', 1);   // came from YouTube itself
 
   return {
     results,
     resolved: results.filter((r) => r && r.ok).length,
     lookups_used: used,
+    extras_kept: extras.length,
     lookups_left: left,
     lookups_limit: cfg.dailyLookups,
     ...(warning ? { warning } : {}),

@@ -19,6 +19,8 @@ import { handlePromote, handlePromotions, handlePromoNext, handlePromoEvent, han
 import { handlePublicConfig } from './routes/config.js';
 import { handleStats } from './routes/stats.js';
 import { sweep } from './sweep.js';
+import { grow } from './grow.js';
+import { refresh } from './refresh.js';
 
 const ROUTES = [
   ['GET',  /^\/api\/config$/,       (req, env) => handlePublicConfig(req, env)],
@@ -104,5 +106,21 @@ export default {
     console.log('sweep: deleted ' + done.campaigns + ' finished campaigns'
       + (done.offers ? ', pruned offers' : '')
       + (done.rate ? ', pruned mint rate' : ''));
+    // the 30-day refresh first: keeping what we have honest comes before adding more
+    try {
+      const f = await refresh(env);
+      console.log('refresh: ' + (f.skipped ? '(' + f.skipped + ') ' : '') + f.checked + ' checked via ' + f.via
+        + ', ' + f.renamed + ' renamed, ' + f.struck + ' hidden, ' + f.deleted + ' deleted, ' + f.units + ' units');
+    } catch (err) {
+      console.error('refresh failed:', err && err.message);
+    }
+    // the catalogue grower: its own step, so a YouTube hiccup can't stop the sweep
+    try {
+      const g = await grow(env);
+      console.log('grow: ' + (g.skipped ? '(' + g.skipped + ') ' : '') + g.added + ' tracks, ' + g.units + ' units'
+        + (g.styles.length ? ' — ' + g.styles.join(', ') : ''));
+    } catch (err) {
+      console.error('grow failed:', err && err.message);
+    }
   },
 };

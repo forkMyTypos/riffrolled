@@ -28,6 +28,10 @@ var djAi = {
 
   /* ── the three ways a brief can reach an AI ── */
   modes: [
+    /* Auto: riffrolled's own AI makes the mix (POST /api/automix). Pick a
+       style, press one button — nothing to copy, no other AI needed. */
+    { id:'auto',  label:'AUTO',        sub:'WE MAKE IT', state:'ACTIVE',
+      blurb:'Say what kind of music — riffrolled makes the mix for you, right here.' },
     { id:'text',  label:'TEXT',        sub:'COPY + PASTE', state:'ACTIVE',
       blurb:'Build the brief, copy it, paste your AI\'s answer back.' },
     /* Track Rolled Journey: the listener's own tracks are the brief. Same
@@ -41,7 +45,7 @@ var djAi = {
   /* ── brief state. Picks are keyed by category key; everything here is
      persisted to settings so the menu looks the same tomorrow. ── */
   state: {
-    mode: 'text',
+    mode: 'auto',         // new visitors start with the one-button way
     textMode: 'simple',   // 'simple' | 'speed' | 'details' — the three ways to brief
     simpleStyles: [],     // Simple mode: up to three kinds of music, as named
     picks: {},            // { activity: optionId, feel: optionId, … }
@@ -86,7 +90,7 @@ var djAi = {
       if (saved) this.state = Object.assign(this.state, JSON.parse(saved));
     } catch(e){ /* a bad saved state is not worth failing over */ }
     if (!Array.isArray(this.state.seeds)) this.state.seeds = [];
-    if (['text', 'seeded'].indexOf(this.state.mode) < 0) this.state.mode = 'text';
+    if (['auto', 'text', 'seeded'].indexOf(this.state.mode) < 0) this.state.mode = 'auto';
     if (['simple', 'speed', 'details'].indexOf(this.state.textMode) < 0) this.state.textMode = 'simple';
     if (!Array.isArray(this.state.simpleStyles)) this.state.simpleStyles = [];
     // anything picked that has since been deleted quietly clears
@@ -449,7 +453,7 @@ var djAi = {
   /* ── the brief, as one line (what the menu shows) ── */
   briefLine(){
     var self = this, bits = [];
-    if (this.state.mode !== 'seeded' && this.state.textMode === 'simple'){
+    if (this.state.mode === 'auto' || (this.state.mode !== 'seeded' && this.state.textMode === 'simple')){
       var st = this.state.simpleStyles || [];
       return (st.length ? st.join(' + ') : 'Any music') + ' | ' + this.state.count + ' tracks · ' + this.state.minutes + ' min';
     }

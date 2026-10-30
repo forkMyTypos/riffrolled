@@ -120,10 +120,32 @@ export const SCHEMA = {
   AI_YT_PER_REQUEST:    { type: 'num', def: 8,  min: 0,  max: 30,
     note: 'YouTube searches allowed within one resolve request.' },
 
+  // ── the 30-day refresh (src/refresh.js, hourly) ──
+  REFRESH_ON:           { type: 'bool', def: true,
+    note: 'Re-check catalogue tracks with YouTube so nothing is older than REFRESH_DAYS (YouTube’s 30-day rule).' },
+  REFRESH_DAYS:         { type: 'num', def: 25, min: 1, max: 30,
+    note: 'Every track is re-checked at least this often. Under 30 leaves room for missed runs.' },
+  REFRESH_MAX_CALLS:    { type: 'num', def: 20, min: 1, max: 40,
+    note: 'videos.list calls per hourly run (50 tracks and 1 quota unit each). 20 = up to 24,000 tracks a day.' },
+
+  // ── the catalogue grower (src/grow.js, hourly) ──
+  GROW_ON:              { type: 'bool', def: true,
+    note: 'Each hour, import YouTube playlists for the styles auto mixes came back short on, and for thin genres.' },
+  GROW_UNITS_DAILY:     { type: 'num', def: 1500, min: 0, max: 9000,
+    note: 'YouTube quota units the grower may spend a day (of the key’s 10,000). ~120 units ≈ up to 150 new tracks.' },
+  GROW_STYLES_PER_RUN:  { type: 'num', def: 2,   min: 1, max: 4,
+    note: 'Styles grown per hourly run. Kept small: a free-plan Worker gets 50 outside requests per run.' },
+  GROW_TRACKS_PER_STYLE:{ type: 'num', def: 150, min: 20, max: 1000,
+    note: 'Tracks read from playlists per style per run, before the checks.' },
+  GROW_MIN_GENRE:       { type: 'num', def: 80,  min: 0, max: 100000,
+    note: 'A broad genre with fewer verified tracks than this is grown even if nobody asked. 0 = only grow what people asked for.' },
+  GROW_MAX_MINUTES:     { type: 'num', def: 12,  min: 3, max: 60,
+    note: 'Longer videos (mixes, loops, live sets) are left out.' },
+
   // ── auto mix: riffrolled's own AI makes the mix (routes/automix.js) ──
   AUTOMIX_ON:           { type: 'bool', def: true,
     note: 'Listeners can ask riffrolled itself for a mix (DJ AI → Simple → Make my mix). Off hides nothing; it says it is resting.' },
-  AUTOMIX_PER_DAY:      { type: 'num', def: 5,   min: 0, max: 100,
+  AUTOMIX_PER_DAY:      { type: 'num', def: 3,   min: 0, max: 100,
     note: 'Auto mixes a day for each visitor.' },
   AUTOMIX_DAILY:        { type: 'num', def: 300, min: 0, max: 100000,
     note: 'Auto mixes a day, whole site. Keeps it inside the free Workers AI allowance (10,000 neurons a day).' },

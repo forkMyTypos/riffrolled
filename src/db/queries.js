@@ -95,9 +95,10 @@ export async function insertTracks(db, tracks, source = '', verified = 0) {
   const now = new Date().toISOString();
   const ok = verified ? 1 : 0;
   // NOT EXISTS keeps the first arrival's timestamp: re-adding never rewrites history
+  // a row YouTube just confirmed counts as checked now (src/refresh.js); others wait their turn
   const stmt = db.prepare(
-    `INSERT INTO tracks (name, artist, genre, genre_raw, url, added_at, source, verified)
-     SELECT ?1, ?2, ?3, ?8, ?4, ?5, ?6, ?7
+    `INSERT INTO tracks (name, artist, genre, genre_raw, url, added_at, source, verified, checked_at)
+     SELECT ?1, ?2, ?3, ?8, ?4, ?5, ?6, ?7, CASE WHEN ?7 = 1 THEN ?5 ELSE '' END
       WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
   );
   await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok, t.genre_raw)));
@@ -108,7 +109,7 @@ export async function insertTracks(db, tracks, source = '', verified = 0) {
 export async function markVerified(db, urls) {
   const list = (urls || []).map(canonicalYouTubeUrl).filter(Boolean);
   if (!list.length) return 0;
-  const stmt = db.prepare(`UPDATE tracks SET verified = 1 WHERE url = ?1 AND verified = 0`);
+  const stmt = db.prepare(`UPDATE tracks SET verified = 1, gone_at = '' WHERE url = ?1 AND verified = 0`);
   const res = await db.batch(list.map((u) => stmt.bind(u)));
   return res.reduce((n, r) => n + ((r.meta && r.meta.changes) || 0), 0);
 }

@@ -246,7 +246,7 @@ export async function handleGetMix(request, env, url) {
   const { results } = await env.DB.prepare(
     `SELECT t.id, t.name, t.artist, t.genre, t.url, mt.note
        FROM mix_tracks mt JOIN tracks t ON t.id = mt.track_id
-      WHERE mt.mix_id = ?1 ORDER BY mt.position`
+      WHERE mt.mix_id = ?1 AND t.gone_at = '' ORDER BY mt.position`
   ).bind(m.id).all();
   const tracks = (results || []).map((t) => ({ ...t, note: cleanNote(t.note), ytId: ytId(t.url) })).filter((t) => t.ytId);
   return json(env, { ...shape({ ...m, tracks: tracks.length }), cover: coverOf(m) || (tracks[0] ? tracks[0].ytId : ''),

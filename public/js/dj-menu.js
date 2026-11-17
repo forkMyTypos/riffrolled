@@ -367,7 +367,7 @@ var djMenuBoss = {
         "<span class='dj-auto-left' data-testid='dj-auto-left'></span>" +
       "</div>" +
       "<div class='status-bar dj-auto-status' data-testid='dj-auto-status'></div>" +
-      "<div class='dj-simple-note'>Up to three styles. riffrolled picks " + (djAi.state.count || 15) + " tracks from its catalogue, plus a few new finds from YouTube, and starts playing. " +
+      "<div class='dj-simple-note'>Up to three styles — a genre, a mood, even a game or film. riffrolled's AI picks " + (djAi.state.count || 15) + " songs, finds each one on YouTube, and starts playing. " +
         "Want more control? <button class='dj-linkish dj-go-text' data-testid='dj-go-text'>Use TEXT with your own AI</button>.</div>" +
     "</div>";
   },
@@ -1121,11 +1121,15 @@ var djMenuBoss = {
     if (!btn || btn.disabled) return null;
     btn.disabled = true;
     btn.textContent = '✨ MAKING YOUR MIX…';
-    this.autoSay('Picking tracks for ' + st.join(' + ') + '…');
+    this.autoSay('Picking songs for ' + st.join(' + ') + '…');
+    // a two-step mix (pick, then find every link) can take half a minute: say what's happening
+    var said = [[9000, 'Finding the YouTube links…'], [30000, 'Still hunting links — nearly there…']];
+    var timers = said.map(function(p){ return setTimeout(function(){ if (btn.disabled) self.autoSay(p[1]); }, p[0]); });
     try {
       var r = await fetch('/api/automix', { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ styles: st, n: Math.min(30, Math.max(8, djAi.state.count || 20)) }) });
       var j = {}; try { j = await r.json(); } catch(e){}
+      timers.forEach(clearTimeout);
       if (j && j.left != null) this.autoLeft(j.left);
       if (!r.ok || !j.tracks || !j.tracks.length){
         this.autoSay((j && j.error) || 'Couldn’t make a mix just now — try again, or use TEXT with your own AI', 'err');

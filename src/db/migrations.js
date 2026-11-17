@@ -580,6 +580,20 @@ const MIGRATIONS = [
        at  TEXT NOT NULL DEFAULT '',
        PRIMARY KEY (url, who))`,
   ] },
+  { id: 36, name: 'automix-runs', sql: [
+    /* One row per auto mix: what was asked, which model picked, how many
+       songs each link step found (steps, JSON), every song and how it got
+       its link (songs, JSON). The admin tool's AI tab reads it for hit
+       rates. The last 1000 are kept. No visitor data. */
+    `CREATE TABLE IF NOT EXISTS automix_runs (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       at TEXT NOT NULL, request TEXT NOT NULL DEFAULT '', n INTEGER NOT NULL DEFAULT 0,
+       picker TEXT NOT NULL DEFAULT '', picker_ms INTEGER NOT NULL DEFAULT 0,
+       picked INTEGER NOT NULL DEFAULT 0, linked INTEGER NOT NULL DEFAULT 0, final INTEGER NOT NULL DEFAULT 0,
+       steps TEXT NOT NULL DEFAULT '[]', songs TEXT NOT NULL DEFAULT '[]',
+       error TEXT NOT NULL DEFAULT '', ms INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS idx_automix_runs_at ON automix_runs(at)`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

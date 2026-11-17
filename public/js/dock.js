@@ -293,10 +293,7 @@ var dock = {
      their first mix: credits and promotion are a second product, and a
      newcomer who meets them before a single track reads riffrolled as
      something they have to pay into. */
-  notYet(it){
-    if (!it || !it.needsMix || !window.newHere) return false;
-    return !(newHere.known && newHere.mixed);
-  },
+  notYet(it){ return false; },   // nothing is held back any more: Mine and Promote sit at the bottom
 
   /** What the More page lists: every panel with a button that isn't a tab. */
   moreItems(){
@@ -323,7 +320,7 @@ var dock = {
       '>' +
       '<span class="more-ico">' + (it.iconSvg || escapeHtml(it.icon || '•')) + '</span>' +
       '<span class="more-lbl">' + escapeHtml(it.label) + '</span><span class="more-go">›</span></button>';
-    const music = list.filter(it => it.group !== 'tokens');
+    const music = list.filter(it => it.group !== 'tokens');   // About comes last of these, then the credits group
     const tokens = list.filter(it => it.group === 'tokens');
     el.innerHTML = '<div class="more-head">More</div><div class="mainC more-body">' +
       music.map(row).join('') +
@@ -544,13 +541,13 @@ dock.build([
   // saved layout and opens full-screen on a phone.
   { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
-  // Mine and Promote appear once someone has made their first mix (needsMix, see notYet)
-  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d', needsMix:true },
-  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d', needsMix:true },
   // Your promotions is its own window, opened from the Promote panel and when a
   // campaign starts — so it has no dock button, like Track info
   { icon:'📣', label:'Your promotions', el: promoBoss.mine, startHidden:true, noButton:true, group:'tokens', accent:'#ffcc4d' },
-  { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', bottom:true, accent:'#8a90a8' }
+  // ── the bottom of the dock: earn credits, spend them, and About ──
+  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', bottom:true, accent:'#e0a34d' },
+  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
+  { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', accent:'#8a90a8' }
 ]);
 
 /* Every panel now has its open/closed state, so the stylesheet may stop

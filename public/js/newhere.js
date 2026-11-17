@@ -75,10 +75,6 @@ var newHere = {
     try { dbBoss.setSetting(this.MIX_SETTING, '1'); } catch(e){}
     this._publish();
     if (window.dock && dock.refreshForNewHere) dock.refreshForNewHere();
-    var where = window.dock && dock.mobile ? 'More' : 'the dock';
-    setTimeout(function(){
-      if (window.appToast) appToast('New in ' + where + ': ⛏ Mine and Promote — earn credits to promote a track', '');
-    }, 4000);
   },
 
   _publish(){

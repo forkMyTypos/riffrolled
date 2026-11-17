@@ -1,0 +1,13 @@
+/* riffrolled — the standalone Terms and Privacy pages */
+body { margin:0; background:#0b0b17; color:rgba(255,255,255,0.82); font:15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, main, footer { max-width:760px; margin:0 auto; padding:0 20px; }
+header { display:flex; justify-content:space-between; align-items:center; padding-top:22px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); }
+header .home { color:#fff; font-weight:800; font-size:18px; text-decoration:none; }
+main { padding-top:12px; padding-bottom:30px; }
+main h4 { color:#fff; font-size:20px; margin:22px 0 10px; }
+main p, main li { margin:0 0 12px; }
+main ul { padding-left:22px; }
+a { color:#b7a8ff; }
+.info-meta, .note, footer { color:rgba(255,255,255,0.55); font-size:13px; }
+footer { padding-top:14px; padding-bottom:30px; border-top:1px solid rgba(255,255,255,0.1); }
+button { display:none; }

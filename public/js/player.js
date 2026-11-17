@@ -217,10 +217,16 @@ var player = {
   pause:  function () { if (this.yt && this.yt.pauseVideo) this.yt.pauseVideo(); this.setPlaying(false); },
   resume: function () { this.ensureVisible(); if (this.yt && this.yt.playVideo)  this.yt.playVideo();  this.setPlaying(true);  },
 
-  // on phones, pressing play in Search, a playlist or the promotion poster
-  // switches to the Player tab first — the video is never playing out of sight
+  // on phones the video is pinned above every tab once one is loaded
+  // (mobile.css), so a playing video is never out of sight. Before the
+  // first video there is nothing pinned yet: pressing play then switches to
+  // the Player tab, as it always did. Browsers without :has() keep the old
+  // behaviour of switching tabs every time.
   ensureVisible: function () {
-    if (window.dock && dock.mobile && dock._mActive !== 'player') dock.showMobile('player');
+    if (!(window.dock && dock.mobile && dock._mActive !== 'player')) return;
+    var pinned = false;
+    try { pinned = CSS.supports('selector(:has(*))') && !!document.querySelector('#deck .screen.has-video'); } catch (e) {}
+    if (!pinned) dock.showMobile('player');
   },
 
   setPlaying: function (on) {
@@ -280,6 +286,32 @@ var wakeBoss = {
   }
 };
 wakeBoss.init();
+
+/* ── bgGuard ─────────────────────────────────────────────────────────────
+   YouTube's Developer Policies don't allow playing from a "background
+   player": one not displayed in the page, tab or screen the user is
+   viewing. So when this tab is hidden (another tab, the window minimised,
+   the phone locked) the video pauses, and it carries on by itself when the
+   tab is visible again. Set ON to false to allow background listening (and
+   expect YouTube's API review to object). */
+var bgGuard = {
+  ON: true,
+  resumeOnReturn: false,
+  init(){
+    var self = this;
+    document.addEventListener('visibilitychange', function(){ self.check(); });
+  },
+  check(){
+    if (!this.ON || !window.player) return;
+    if (document.visibilityState === 'hidden'){
+      if (player.isPlaying){ this.resumeOnReturn = true; player.pause(); }
+    } else if (this.resumeOnReturn){
+      this.resumeOnReturn = false;
+      if (!player.isPlaying) player.resume();
+    }
+  }
+};
+bgGuard.init();
 
 /* ── promoted-track counters. Keeps the list of currently promoted video
    ids so a play or a like on one can nudge an anonymous counter on the

@@ -401,8 +401,12 @@ body:not(.mobile) .panel { z-index:10; }
      cursor and the tooltip are the whole affordance. It is nowhere near the
      video, so nothing covers the player. */
   position:absolute; z-index:6; padding:0; margin:0; cursor:nwse-resize; touch-action:none;
-  width:30px; height:30px; right:32px; bottom:32px;
-  background:transparent; border:0; border-radius:0 0 1rem 0; pointer-events:auto;
+  width:30px; height:30px; right:0; bottom:0;     /* flush with the record player's own corner */
+  background:transparent; border:0; border-radius:0 0 16px 0; pointer-events:auto;
+}
+/* on hover, a faint corner grip that follows the player's rounded edge */
+.screen-grip:hover, .deck.resizing .screen-grip {
+  background:linear-gradient(135deg, transparent 0 55%, rgba(255,255,255,0.18) 55% 60%, transparent 60% 70%, rgba(255,255,255,0.18) 70% 75%, transparent 75%);
 }
 .screen-grip:focus-visible { outline:2px solid #8a7bff; outline-offset:-2px; }
 .deck.resizing .screen iframe { pointer-events:none; }
@@ -434,3 +438,6 @@ body.mobile .screen-grip { display:none; }
 /* long titles: two lines, then an ellipsis (the full title is on hover) */
 .np-titlerow .np-title { white-space:normal; }
 #npTitle .np-text { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; line-height:1.25; word-break:break-word; }
+
+/* Spin is hidden until it does something (index.html #spinWrap) */
+#spinWrap[hidden] { display:none !important; }

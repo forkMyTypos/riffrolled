@@ -2,6 +2,34 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: free link finding, one-click Haiku, YouTube review (17 Nov, still schema 36)
+- [x] **Three new free link steps** (`src/ai/automix-ai.js`): `discogs` (the release's own YouTube videos; free token), `brave` (Brave web search; stops at `AI_BRAVE_MONTHLY`, 900, to stay inside Brave's free $5 a month), `musicbrainz` (official YouTube links on recordings; free, slow, off by default). Every link still has to pass the oEmbed title + channel check.
+- [x] **One call budget per mix** (`AI_CALL_BUDGET`, 40): every link step and every oEmbed check takes from it, so the Workers free plan's 50 outside requests are never exceeded. (Replaces a module-level counter that two mixes at once could share.)
+- [x] **Built-in defaults are now the best-value setup:** Haiku picks (Llama 70B backup); links: catalogue → guess → discogs → youtube → brave → hunt; Link Hunter = Gemini 3.6 Flash only, 3 songs, 3 searches; `AI_PICK_HINTS` 60; `AI_YT_DAILY` 50; `AUTOMIX_DAILY` 50.
+- [x] **Admin AI tab → Mix creator card:** what's picking the songs, "Upgrade to Claude Haiku 5.5" (paste the Anthropic key right there), a checklist of the free link sources with key boxes, and "Use the best-value setup" (puts those settings back to built-in, shows what changes first).
+- [x] **YouTube review fixes** (see `YOUTUBE-REVIEW.md`): on phones the video stays pinned above every tab once loaded (was hidden while playing); playback pauses while the tab is hidden and resumes on return (`bgGuard`); Terms and Privacy say "uses YouTube API Services" / "agree to be bound by the YouTube Terms of Service", disclose promoted content as ads, list the new AI and search services; standalone pages at `/terms` and `/privacy` (text shared with the in-app panel via `js/legal-text.js`).
+- [ ] Dan: get a free Discogs token and (optionally) a Brave key with its free credit; paste them in the Mix creator card.
+- [ ] Dan: set up `hello@riffrolled.com` with Cloudflare Email Routing before applying to YouTube.
+- [ ] Later: Made For Kids status in the 30-day refresh (see `YOUTUBE-REVIEW.md`).
+
+## Round: AI tab you can read, and what it costs (17 Nov, still schema 36)
+- [x] **Models chosen from a list**, not typed: "Use / If that fails / If that fails too" for the Picker and the Link Hunter, each model shown with ≈ $ a mix and whether its key is set. Says plainly which model is really in use and why ("needs a key from Anthropic; until then: Llama 3.3 70B"). "Something else…" still takes any `provider:model`.
+- [x] **What it costs** panel: ≈ $ per mix (Picker + Link Hunter + Serper; oEmbed and YouTube are free), a month at N mixes a day, and the most it could cost at the site's daily limit. A price list of every model (per 1M tokens, per web search, per mix in each job).
+- [x] **Real cost of each mix:** the Worker now logs tokens in/out for the Picker and the Link Hunter (step `pick` and `hunt` in `automix_runs.steps`); the admin prices them. "Cost per mix" card and a Cost column in Recent runs.
+- [x] Default Link Hunter backup is now Gemini 3.6 Flash (Google's dates for 2.5 Flash conflict).
+- [x] Plainer words: auto mixes = MAKE MY MIX; the final YouTube check is free (1 of 10,000 daily quota units) and catches length, which oEmbed can't; the prompt box says to deploy first; API keys are site-wide Worker secrets and the bill is Dan's.
+- [ ] Dan: with Haiku 5.5 for both jobs, a mix is roughly $0.09 (almost all of it the Link Hunter's web searches). At the default limit of 300 mixes a day that could reach ~$800 a month: lower "Auto mixes per day, whole site" until sign-in exists.
+
+## Round: AUTO mixes made by a real music brain (17 Nov, schema 36)
+- [x] **Why "Deus Ex, futuristic" gave an Amadeus interview:** the catalogue search matched "deus" inside "Amadeus", the catalogue holds non-music uploads from channel harvests, and the free Llama 8B could only pick from that list.
+- [x] **Two steps now** (`src/ai/automix-ai.js`): 1 · the **picker** model names real songs from its own knowledge (soundtrack + kindred artists for a game/film/artist request; songs only, no interviews/EPs/mixes); 2 · **link steps** in a configurable order: catalogue → guess (picker's own id, oEmbed-checked, free) → hunt (Link Hunter: a model with web search) → serper → youtube. Every found video must match the song's artist and title before it's used.
+- [x] **Any model** (`src/ai/models.js`): `provider:model` with `|` backup chains. Workers AI (no key), Anthropic, OpenAI, Gemini, OpenRouter. Web search for the hunter via each provider's own tool.
+- [x] Catalogue matching is whole-word, and interviews / trailers / reviews / panels / gameplay etc. never go into a mix.
+- [x] Every run logged in `automix_runs` (last 1000): picker, per-step handed/linked, every song and how it got its link.
+- [x] **Admin ✨ AI tab:** try a mix, hit rates per step, recent runs, models, step order, numbers, prompts, API keys (Worker secrets: add / replace / remove).
+- [ ] Dan: add an `ANTHROPIC_API_KEY` (or another provider's) in the AI tab, raise AUTOMIX_PER_DAY while testing, make ~10 mixes, then read the hit rates and decide whether Serper earns a place.
+- [ ] Google sign-in gate for the paid models (planned tiers) — not built; today the daily limits are the only cap.
+
 ## Round: audit fixes, no Haiku yet (17 Nov, schema 35)
 - [x] **Share to X / Facebook.** Send this playlist / Send the track: the share menu turns into a link card: the link (already copied), Copy link, Post on X, Share on Facebook, and on a phone "More apps…" (the phone's share sheet). Counted as `share_x` / `share_fb`.
 - [x] "Say what kind of music first" clears the moment a style is added (`dj-menu.js`).
@@ -9,7 +37,9 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 - [x] **Auto mixes keep to songs:** catalogue candidates skip long-form titles (Full EP / album, hour mixes, live sets, compilations) and anything longer than `GROW_MAX_MINUTES` (12) or under 1 minute once its length is known. New column `tracks.secs`, filled for free by the 30-day refresh and by the check below.
 - [x] **Auto mix check (1 unit a mix):** the finished mix goes through videos.list once; a track that's unembeddable or the wrong length is swapped in place for another catalogue candidate (also checked), so the mix keeps its length. Setting `AUTOMIX_CHECK`. Units are logged as `check:<day>` in ai_lookups.
 - [x] **Blocked at play time:** in an auto-mix playlist, a track that won't play (101 / 150) is swapped for one more track in the same styles (`POST /api/automix/swap`, catalogue only, not counted against the 3 a day) instead of just being removed. Each listener's block is counted once; at `AUTOMIX_BLOCKS` (2) listeners auto mixes stop choosing it. It stays in the catalogue.
-- [x] **Mine and Promote wait for a first mix:** new visitors don't see them until they've made a mix (AUTO or TEXT) or played a ready-made one. Then one line: "New in the dock: ⛏ Mine and Promote — earn credits to promote a track". Anyone who was already listening keeps them.
+- [x] **Mine and Promote always shown, at the bottom of the dock** (with About), not hidden from new visitors (Dan's call, 17 Nov). On a phone they're last on the More page under "Earn credits to promote a track".
+- [x] **Spin toggle hidden** until it does something (`#spinWrap hidden`).
+- [x] **Resize corner flush** with the record player's lower-right corner (it sat 32px in), no grey hover square; a faint grip shows on hover.
 - [x] **Phone ⋯ More tab, always:** the tab bar is Player, DJ AI, Playlist, Mixes, Search (just DJ AI, Playlist, Search while new) and More. More is a page listing History, Import, Database, About, and under "Earn credits to promote a track", Mine and Promote.
 - [ ] Next: Haiku two-step flow (pick freely → match to the catalogue → guess the link → oEmbed check), then measure the hit rate before deciding on Serper.
 - [ ] Ten premade daily mixes for the Mixes panel; first-visit mix picker to replace the tour; TRACK ROLLED one-click with Haiku.

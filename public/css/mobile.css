@@ -111,3 +111,23 @@ body:not(.mobile) #mMoreView { display:none !important; }
 #mMoreView .more-ico svg { width:24px; height:24px; }
 #mMoreView .more-lbl { flex:1; }
 #mMoreView .more-go { color:rgba(255,255,255,0.35); font-size:20px; }
+
+/* ── the video stays on screen on every tab ─────────────────────────────
+   YouTube's Developer Policies forbid playing from a player that isn't
+   displayed on the screen the user is viewing. So once a video is loaded,
+   opening Search, a playlist or any other tab keeps the 200x200 player
+   pinned at the top and the tab fills the space under it. Only CSS moves:
+   the player's iframe is never taken out of the page, so playback doesn't
+   restart. */
+body.mobile.m-view-panel #deck:has(.screen.has-video) {
+  display:block; position:fixed; left:0; right:0; top:0; height:216px; min-height:0;
+  margin:0; padding:0; z-index:81; background:#0b0b17; overflow:hidden;
+}
+body.mobile.m-view-panel #deck:has(.screen.has-video) > *:not(.plinth),
+body.mobile.m-view-panel #deck:has(.screen.has-video) .plinth > *:not(.screen) { display:none !important; }
+body.mobile.m-view-panel #deck:has(.screen.has-video) .plinth {
+  position:relative; width:100%; height:216px; margin:0; padding:0;
+  background:none; border:0; box-shadow:none; transform:none;
+}
+body.mobile.m-view-panel #deck:has(.screen.has-video) .screen { top:8px; left:50%; transform:translateX(-50%); }
+body.mobile.m-view-panel:has(#deck .screen.has-video) .panel.m-active { top:216px !important; }

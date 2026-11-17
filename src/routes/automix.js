@@ -37,6 +37,8 @@ import { resolveItems } from './resolve.js';
 import { wantMore } from '../grow.js';
 import { videoDetails, YouTubeError } from '../services/youtube.js';
 import { addAiLookups } from '../db/queries.js';
+import { pickSongs, linkSongs, logRun, NOT_MUSIC, DEFAULT_PICKER_PROMPT, DEFAULT_HUNTER_PROMPT, STEP_NAMES } from '../ai/automix-ai.js';
+import { PROVIDERS } from '../ai/models.js';
 
 /* Small, fast instruct models on Workers AI, best first. If one is
    unavailable on the account's plan, the next is tried. */
@@ -135,7 +137,7 @@ export async function candidates(db, genres, words, limit = MAX_CANDIDATES, opts
   binds.push(blocks); const kBlk = binds.length;
   binds.push(limit);
   const { results } = await db.prepare(
-    `SELECT id, name, artist, genre, url, ${strong} AS strong
+    `SELECT id, name, artist, genre, genre_raw, url, ${strong} AS strong
        FROM tracks
       WHERE verified = 1 AND (${ors.join(' OR ')})
         AND ${songOnly.join(' AND ')}
@@ -145,6 +147,29 @@ export async function candidates(db, genres, words, limit = MAX_CANDIDATES, opts
       LIMIT ?${binds.length}`
   ).bind(...binds).all();
   return results || [];
+}
+
+/** Whole-word fit and songs only. SQL LIKE finds "deus" inside "Amadeus";
+ *  this keeps a track only when a request word is a whole word of its
+ *  title, artist or source genre, or the request's genre is its genre. */
+export function fitting(rows, genres, words) {
+  const res = words.map((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}\\p{N}]|$)', 'iu'));
+  const gs = new Set(genres);
+  return (rows || []).filter((t) => {
+    if (NOT_MUSIC.test(t.name || '')) return false;
+    const hay = `${t.name || ''} ${t.artist || ''} ${t.genre_raw || ''}`;
+    return gs.has(t.genre) || res.some((r) => r.test(hay));
+  });
+}
+
+/** GET /api/automix/prompts — the built-in prompts and the model/step
+ *  names, so the admin tool's AI tab can show and reset them. Nothing
+ *  secret: the same instructions every auto mix runs on. */
+export async function handleAutomixPrompts(request, env) {
+  return json(env, {
+    picker: DEFAULT_PICKER_PROMPT, hunter: DEFAULT_HUNTER_PROMPT,
+    steps: STEP_NAMES, providers: Object.fromEntries(Object.entries(PROVIDERS).map(([k, v]) => [k, { key: v.key, search: v.search }])),
+  }, 200, { 'Cache-Control': 'no-store' });
 }
 
 /** The instructions and the list, as chat messages. */
@@ -237,74 +262,30 @@ export async function handleAutomix(request, env) {
   const genres = [...new Set(styles.concat(ask ? [ask] : []).map((s) => normalizeGenre(s).genre).filter(Boolean))];
   const words = keywords(styles.join(' ') + ' ' + ask);
   const songRules = { maxSecs: cfg.GROW_MAX_MINUTES * 60, blocks: cfg.AUTOMIX_BLOCKS };
-  const cands = await candidates(env.DB, genres, words, MAX_CANDIDATES, songRules);
-  const thin = cands.length < 12;
-  const newCap = Math.min(8, cfg.AUTOMIX_NEW * (thin ? 2 : 1));
+  const t0 = Date.now();
 
-  // ── 1. the AI picks from the catalogue (and may name a few new ones) ──
-  const ai = await askAI(env, buildMessages(request_, cands, n, newCap));
-  let via = ai ? 'ai' : 'basic';
-  let picks = [];
-  if (ai && Array.isArray(ai.j.picks)) {
-    const seen = new Set();
-    for (const code of ai.j.picks) {
-      const m = /^c?(\d+)$/i.exec(String(code).trim());
-      const t = m && cands[Number(m[1]) - 1];
-      if (!t || seen.has(t.url)) continue;
-      seen.add(t.url); picks.push(t);
-      if (picks.length >= n) break;
-    }
-  }
-  // an AI that picked almost nothing from a list that had plenty: use the list
-  if (picks.length < Math.min(3, cands.length)) {
-    if (ai) via = 'basic';
-    picks = cands.slice(0, n);
-  }
-  /* Small models stop early. Top up to n from the closest matches it
-     left out — strong ones (a word of the request in the track's own
-     genre, title or artist) first, then the broad genre — after the AI's
-     own picks, so its order still opens the mix. */
-  let filled = 0;
-  if (picks.length < n) {
-    const have = new Set(picks.map((t) => t.url));
-    for (const t of cands) {
-      if (picks.length >= n) break;
-      if (have.has(t.url)) continue;
-      have.add(t.url); picks.push(t); filled++;
-    }
-  }
+  /* Catalogue tracks that really fit: a whole word of the request in the
+     track's title, artist or source genre ("deus" is not in "Amadeus"), or
+     the request's broad genre — and nothing that isn't a song. They are
+     the picker's hints, and the spares the check swaps in. */
+  const cands = fitting(await candidates(env.DB, genres, words, MAX_CANDIDATES, songRules), genres, words);
+  const hints = cands.slice(0, cfg.AI_PICK_HINTS);
 
-  // ── 2. new tracks, found the same way as every AI DJ playlist ──
-  let added = [];
-  const wanted = (ai && Array.isArray(ai.j.new) ? ai.j.new : [])
-    .map((x) => ({ artist: cleanText(x && x.artist, 100), title: cleanText(x && x.title, 150) }))
-    .filter((x) => x.title)
-    .slice(0, newCap);
-  let lookups = null;
-  if (wanted.length && newCap > 0) {
-    try {
-      lookups = await resolveItems(env, wanted, { perRequest: newCap });
-      const have = new Set(picks.map((t) => t.url));
-      lookups.results.forEach((r, i) => {
-        if (!r || !r.ok || have.has(r.url)) return;
-        if (LONGFORM.test(r.name || '') || LONGFORM.test(wanted[i].title || '')) return;   // an EP or a mix, not a song
-        have.add(r.url);
-        added.push({ url: r.url, name: wanted[i].title || r.name, artist: wanted[i].artist || r.artist, genre: genres[0] || '', fresh: r.via === 'youtube' });
-      });
-    } catch (err) {
-      console.error('automix: lookups failed: ' + (err && err.message));
-    }
+  // ── 1. pick: a model names real songs from what it knows ──
+  const pick = await pickSongs(env, cfg, request_, n, hints);
+  let via = pick.songs.length ? 'ai' : 'basic';
+  let out = [], trace = [];
+  if (pick.songs.length) {
+    // ── 2. link: catalogue → guess → hunt → … (LINK_STEPS) ──
+    trace = await linkSongs(env, cfg, pick.songs);
+    out = pick.songs.filter((s) => s.url).map((s) => ({
+      url: s.url, name: s.title, artist: s.artist, genre: genres[0] || '', why: s.why || '', fresh: s.via !== 'catalogue',
+    }));
+  } else {
+    // no model answered: the closest catalogue tracks, best liked first
+    out = cands.slice(0, n).map((t) => ({ url: t.url, name: t.name, artist: t.artist, genre: t.genre || '' }));
   }
-
-  // the new ones spread through the mix rather than piled at the end
-  // new finds take the place of top-ups, so the mix is the length asked for
-  const over = picks.length + added.length - n;
-  if (over > 0 && filled > 0){ const cut = Math.min(over, filled); picks.splice(picks.length - cut, cut); filled -= cut; }
-  const out = picks.map((t) => ({ url: t.url, name: t.name, artist: t.artist, genre: t.genre || '' }));
-  added.forEach((t, k) => {
-    const at = Math.min(out.length, Math.round(((k + 1) * out.length) / (added.length + 1)) + k);
-    out.splice(at, 0, t);
-  });
+  const picks = out, filled = 0, added = out.filter((t) => t.fresh), wanted = pick.songs;
 
   // ── 3. one cheap check of the finished mix (1 unit): embeddable, 1–12 min ──
   let checked = null;
@@ -317,6 +298,15 @@ export async function handleAutomix(request, env) {
     try { await wantMore(env.DB, styles.length ? styles : [ask]); } catch (err) { console.error('automix: wantMore: ' + (err && err.message)); }
   }
 
+  await logRun(env, {
+    at: nowIso(), request: request_, n, picker: pick.model || (pick.tried || []).map((t) => t.model + ': ' + t.error).join('; '),
+    picker_ms: pick.ms, picked: pick.songs.length, linked: pick.songs.filter((s) => s.url).length, final: out.length,
+    steps: (pick.model ? [{ step: 'pick', model: pick.model, tin: pick.tin || 0, tout: pick.tout || 0, ms: pick.ms || 0 }] : [])
+      .concat(trace, checked ? [{ step: 'check', swapped: checked.swapped, units: checked.units }] : []),
+    songs: pick.songs.map((s) => ({ a: s.artist, t: s.title, via: s.url ? s.via : '', yt: s.url ? ytIdOf(s.url) : '', g: s.yt || '' })),
+    error: pick.songs.length ? '' : 'no picker answered', ms: Date.now() - t0,
+  });
+
   if (!out.length) {
     await bump(env.DB, day, who, -1);
     return json(env, {
@@ -327,7 +317,7 @@ export async function handleAutomix(request, env) {
     });
   }
 
-  let name = ai ? cleanText(ai.j.name, 60).replace(/["“”]/g, '') : '';
+  let name = pick.name || '';
   if (name.length < 3 || /https?:|www\./i.test(name)) {
     name = (styles.length ? styles.join(' + ') : ask).slice(0, 50) + ' mix';
     name = name.charAt(0).toUpperCase() + name.slice(1);
@@ -336,7 +326,8 @@ export async function handleAutomix(request, env) {
   return json(env, {
     name,
     via,
-    tracks: out.map((t) => ({ ytId: ytIdOf(t.url), name: t.name, artist: t.artist, genre: t.genre, ...(t.fresh ? { fresh: true } : {}) })),
+    tracks: out.map((t) => ({ ytId: ytIdOf(t.url), name: t.name, artist: t.artist, genre: t.genre, ...(t.why ? { why: t.why } : {}), ...(t.fresh ? { fresh: true } : {}) })),
+    picker: pick.model || '',
     from_catalogue: picks.length,
     filled,
     asked_for: n,

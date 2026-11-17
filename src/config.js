@@ -115,7 +115,7 @@ export const SCHEMA = {
     note: 'YouTube searches a day, site-wide, when /api/search falls through to YouTube. Each costs 100 of 10,000 quota units. 0 = catalogue only.' },
 
   // ── AI DJ resolution (dormant) ──
-  AI_YT_DAILY:          { type: 'num', def: 20, min: 0,  max: 100,
+  AI_YT_DAILY:          { type: 'num', def: 50, min: 0,  max: 100,
     note: 'YouTube search.list calls a day, site-wide. Each costs 100 of 10,000 quota units.' },
   AI_YT_PER_REQUEST:    { type: 'num', def: 8,  min: 0,  max: 30,
     note: 'YouTube searches allowed within one resolve request.' },
@@ -167,10 +167,42 @@ export const SCHEMA = {
     note: 'Listeners can ask riffrolled itself for a mix (DJ AI → Simple → Make my mix). Off hides nothing; it says it is resting.' },
   AUTOMIX_PER_DAY:      { type: 'num', def: 3,   min: 0, max: 100,
     note: 'Auto mixes a day for each visitor.' },
-  AUTOMIX_DAILY:        { type: 'num', def: 300, min: 0, max: 100000,
-    note: 'Auto mixes a day, whole site. Keeps it inside the free Workers AI allowance (10,000 neurons a day).' },
+  AUTOMIX_DAILY:        { type: 'num', def: 50, min: 0, max: 100000,
+    note: 'Auto mixes a day, whole site. The cap on what paid AI can cost: about 50 mixes a day stays inside the free link-finding allowances.' },
   AUTOMIX_NEW:          { type: 'num', def: 4,   min: 0, max: 8,
     note: 'New tracks one auto mix may look up on YouTube (shares AI_YT_DAILY). Doubled when the catalogue has almost nothing for the request.' },
+  // ── the AI steps of an auto mix (admin tool → AI tab). Models are
+  //    "provider:model", a chain is tried left to right: see src/ai/models.js ──
+  AI_PICKER:            { type: 'text', def: 'anthropic:claude-haiku-5-5 | workers:@cf/meta/llama-3.3-70b-instruct-fp8-fast', max: 500,
+    note: 'Who picks the songs, from what it knows about music. First usable model in the chain answers.' },
+  AI_HUNTER:            { type: 'text', def: 'gemini:gemini-3.6-flash', max: 500,
+    note: 'Link Hunter: a model that searches the web for each song\'s YouTube link. Needs one with web search (not workers).' },
+  LINK_STEPS:           { type: 'text', def: 'catalogue,guess,discogs,youtube,brave,hunt', max: 200,
+    note: 'How a picked song gets its link, in order; each step only sees the songs still without one. Free: catalogue · guess (the picker\'s own guess, checked with oEmbed) · discogs · youtube (search.list, 100 quota units) · brave (free credit) · musicbrainz. Paid: serper · hunt (Link Hunter).' },
+  AI_HUNT_SEARCHES:     { type: 'num', def: 3, min: 1, max: 30,
+    note: 'Most web searches the Link Hunter may run for one mix.' },
+  AI_HUNT_MAX:          { type: 'num', def: 3, min: 1, max: 30,
+    note: 'Most songs handed to the Link Hunter in one mix.' },
+  AI_SERPER_MAX:        { type: 'num', def: 10, min: 0, max: 30,
+    note: 'Most Serper searches for one mix (about $0.001 each).' },
+  AI_DISCOGS_MAX:       { type: 'num', def: 6, min: 0, max: 15,
+    note: 'Most songs looked up on Discogs in one mix (two free calls each, 60 a minute).' },
+  AI_BRAVE_MAX:         { type: 'num', def: 6, min: 0, max: 20,
+    note: 'Most Brave searches in one mix.' },
+  AI_BRAVE_MONTHLY:     { type: 'num', def: 900, min: 0, max: 100000,
+    note: 'Most Brave searches a month, whole site. Brave gives $5 of credit a month (about 1,000 searches) and then charges with no cap, so stay under 1,000 to keep it free.' },
+  AI_MB_MAX:            { type: 'num', def: 3, min: 0, max: 8,
+    note: 'Most songs looked up on MusicBrainz in one mix (it allows one request a second).' },
+  AI_CALL_BUDGET:       { type: 'num', def: 40, min: 10, max: 900,
+    note: 'Outside requests the link steps may make for one mix. The Workers free plan allows 50 per request in all; on the $5 plan raise it (up to about 900).' },
+  AI_PICK_HINTS:        { type: 'num', def: 60, min: 0, max: 120,
+    note: 'Catalogue tracks that clearly match the request, shown to the picker as songs it may reuse (they need no lookup).' },
+  AI_PICKER_PROMPT:     { type: 'text', def: '', max: 8000,
+    note: 'Instructions for the picker. Empty = the built-in prompt.' },
+  AI_HUNTER_PROMPT:     { type: 'text', def: '', max: 8000,
+    note: 'Instructions for the Link Hunter. Empty = the built-in prompt.' },
+  AI_ANTHROPIC_SEARCH_TOOL: { type: 'text', def: 'web_search_20250305', max: 60,
+    note: 'Anthropic web search tool version.' },
   AUTOMIX_BLOCKS:       { type: 'num', def: 2,   min: 1, max: 50,
     note: 'Different listeners who must find a track blocked in an auto mix before auto mixes stop choosing it. It stays in the catalogue.' },
   AUTOMIX_CHECK:        { type: 'bool', def: true,
@@ -246,6 +278,7 @@ async function load(db) {
 function coerce(key, raw) {
   const spec = SCHEMA[key];
   if (!spec || raw === undefined || raw === null || raw === '') return undefined;
+  if (spec.type === 'text') return String(raw).slice(0, spec.max || 2000);
   if (spec.type === 'bool') {
     const s = String(raw).trim().toLowerCase();
     if (['1', 'true', 'yes', 'on'].includes(s)) return true;
@@ -303,6 +336,11 @@ export function validate(key, raw) {
   const spec = SCHEMA[key];
   if (!spec) return { ok: false, error: `Unknown setting "${key}"` };
 
+  if (spec.type === 'text') {
+    const v = String(raw == null ? '' : raw);
+    if (v.length > (spec.max || 2000)) return { ok: false, error: `${key} is longer than ${spec.max} characters` };
+    return { ok: true, value: v };
+  }
   if (spec.type === 'bool') {
     const v = coerce(key, raw);
     if (v === undefined) return { ok: false, error: `${key} must be true or false` };

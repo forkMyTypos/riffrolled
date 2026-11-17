@@ -521,6 +521,65 @@ const MIGRATIONS = [
     `ALTER TABLE tracks ADD COLUMN gone_at TEXT NOT NULL DEFAULT ''`,
     `CREATE INDEX IF NOT EXISTS idx_tracks_checked ON tracks(checked_at)`,
   ] },
+  { id: 34, name: 'channels', sql: [
+    /* Which YouTube channel uploaded each track. YouTube says so in every
+       answer riffrolled already asks for (search, imports, the 30-day
+       refresh), so this fills in for free. */
+    `ALTER TABLE tracks ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''`,
+    `CREATE INDEX IF NOT EXISTS idx_tracks_channel ON tracks(channel_id)`,
+    /* Channels worth importing whole (src/channels.js). Every channel behind
+       a catalogue track becomes a candidate; YouTube's own facts about it
+       (subscribers, video count, topic labels, refreshed every 25 days like
+       tracks) and how its tracks do here (tracks_here, likes_here,
+       plays_here) rank it in the admin tool's Channels tab. status:
+       'candidate' → 'approved' (by you, or 'auto' for an "Artist - Topic"
+       channel with liked tracks) or 'rejected'. Approved channels are read
+       newest first a few pages per run (backfill_token carries on where it
+       stopped; backfilled = 1 once done), then checked daily for new uploads. */
+    `CREATE TABLE IF NOT EXISTS channels (
+       id             TEXT PRIMARY KEY,
+       title          TEXT NOT NULL DEFAULT '',
+       handle         TEXT NOT NULL DEFAULT '',
+       is_topic       INTEGER NOT NULL DEFAULT 0,
+       subs           INTEGER NOT NULL DEFAULT 0,
+       videos         INTEGER NOT NULL DEFAULT 0,
+       uploads        TEXT NOT NULL DEFAULT '',
+       topics         TEXT NOT NULL DEFAULT '',
+       genre          TEXT NOT NULL DEFAULT '',
+       tracks_here    INTEGER NOT NULL DEFAULT 0,
+       likes_here     INTEGER NOT NULL DEFAULT 0,
+       plays_here     INTEGER NOT NULL DEFAULT 0,
+       status         TEXT NOT NULL DEFAULT 'candidate',
+       approved_by    TEXT NOT NULL DEFAULT '',
+       approved_at    TEXT NOT NULL DEFAULT '',
+       backfill_token TEXT NOT NULL DEFAULT '',
+       backfilled     INTEGER NOT NULL DEFAULT 0,
+       imported       INTEGER NOT NULL DEFAULT 0,
+       last_import_at TEXT NOT NULL DEFAULT '',
+       info_at        TEXT NOT NULL DEFAULT '',
+       created_at     TEXT NOT NULL DEFAULT '')`,
+    `CREATE INDEX IF NOT EXISTS idx_channels_status ON channels(status, last_import_at)`,
+    /* A channel you added by hand in the admin tool (a link or an @handle),
+       waiting for the hourly job to look it up (1 quota unit). */
+    `CREATE TABLE IF NOT EXISTS channel_adds (input TEXT PRIMARY KEY, added_at TEXT NOT NULL DEFAULT '')`,
+  ] },
+  { id: 35, name: 'automix-length-and-blocks', sql: [
+    /* How long each video is, in seconds (0 = not known yet). Filled for
+       free by the 30-day refresh and by the auto mix's own check, so the
+       auto mix can keep to songs: 1 to GROW_MAX_MINUTES minutes, no
+       "Full EP" or hour-long uploads. */
+    `ALTER TABLE tracks ADD COLUMN secs INTEGER NOT NULL DEFAULT 0`,
+    /* How many different listeners found this track blocked when an auto
+       mix played it (a label's region block that videos.list can't see).
+       At AUTOMIX_BLOCKS or more the auto mix stops choosing it. The track
+       stays in the catalogue for everyone else. */
+    `ALTER TABLE tracks ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS automix_blocks (
+       url TEXT NOT NULL,
+       who TEXT NOT NULL,
+       at  TEXT NOT NULL DEFAULT '',
+       PRIMARY KEY (url, who))`,
+  ] },
 ];
 
 /* Exported for the upgrade test, which applies the early migrations,

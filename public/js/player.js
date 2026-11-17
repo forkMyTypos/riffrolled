@@ -73,7 +73,9 @@ var player = {
         // Dan's call: it comes out of the playlist, after the message, with
         // an undo — YouTube occasionally un-breaks things, and a removal
         // nobody asked for should be reversible while the banner is up.
-        if (window.plBoss && plBoss.dropUnplayable) plBoss.dropUnplayable(ytId, msg);
+        // an auto mix swaps it for another track in the same styles, so the mix keeps its length
+        if (window.plBoss && plBoss.swapOrDrop) plBoss.swapOrDrop(ytId, msg, code);
+        else if (window.plBoss && plBoss.dropUnplayable) plBoss.dropUnplayable(ytId, msg);
         else if (window.appNotify) appNotify(msg + ' — skipping.', 'warn');
       });
     } else if (window.appNotify) {
@@ -147,7 +149,8 @@ var player = {
     if (window.deckHint) deckHint.hide();
     var scr = document.querySelector('#deck .screen');
     if (scr) scr.classList.add('has-video');
-    this.el.title.textContent = title || ytId;
+    this.el.title.textContent = (window.cleanTitle ? cleanTitle(title) : title) || ytId;
+    this.el.title.title = title || '';        // the full YouTube title, on hover
     // the panel's title field is filled by trackInfo.render, from the
     // database row rather than from the YouTube title — refreshMeta below
     // creates that row and then tells the panel to follow
@@ -180,9 +183,13 @@ var player = {
       // the deck says who it is, not just what it is — unless the title
       // already carries the artist, which plenty of YouTube titles do
       if (this.el.title && t && t.artist){
-        var shown = t.name || title;
+        var full = t.name || title;
+        var shown = window.cleanTitle ? cleanTitle(full) : full;
+        this.el.title.title = full;
         if (shown.toLowerCase().indexOf(t.artist.toLowerCase()) < 0){
           this.el.title.textContent = t.artist + ' — ' + shown;
+        } else {
+          this.el.title.textContent = shown;
         }
       }
       this.el.likeCount.forEach(function(n){ n.textContent = rc.like; });

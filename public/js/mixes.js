@@ -485,6 +485,7 @@ var mixesBoss = {
         plBoss.renderPlaylists();
         plBoss.playIndex(0);
         try { fetch('/api/mixes/' + id + '/play', { method:'POST' }); } catch(e){}
+        if (window.newHere && newHere.markMixed) newHere.markMixed();
         this.status('Playing “' + mix.name + '”', 'ok');
       } else {
         plBoss.renderPlaylists();

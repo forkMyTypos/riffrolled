@@ -18,11 +18,20 @@ export class YouTubeError extends Error {
   }
 }
 
+/* How many YouTube calls this invocation may still make. A Worker on the
+   free plan gets 50 outside requests per run, and the hourly job runs the
+   refresh, the channel harvest and the grower in one go, so scheduled()
+   sets this and each job stops cleanly ('budget') when it runs out.
+   Requests answer one at a time, so Infinity (no limit) outside the cron. */
+export const callBudget = { left: Infinity };
+
 /** Low-level GET with key injection and quota/rate-limit classification. */
 async function ytFetch(env, endpoint, params) {
   if (!env.YT_API_KEY) {
     throw new YouTubeError('YT_API_KEY secret is not configured', 'config', 500);
   }
+  if (callBudget.left <= 0) throw new YouTubeError('No outside requests left in this run', 'budget', 503);
+  callBudget.left--;
   const url = new URL(`${API_BASE}/${endpoint}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set('key', env.YT_API_KEY);
@@ -92,6 +101,8 @@ export async function videoDetails(env, ids) {
         secs: isoSeconds(it.contentDetails?.duration),
         title: it.snippet?.title || '',
         channel: artistName(it.snippet?.channelTitle || ''),
+        channelId: it.snippet?.channelId || '',
+        music: it.snippet?.categoryId === '10',
       });
     }
   }
@@ -118,6 +129,7 @@ export async function searchYouTube(env, query, limit = 15) {
       artist: it.snippet?.channelTitle || '',
       genre: '',
       url: watchUrl(it.id.videoId),
+      channelId: it.snippet?.channelId || '',
     }));
 }
 
@@ -142,6 +154,7 @@ export async function searchYouTubeTrack(env, query, limit = 6) {
       artist: it.snippet?.channelTitle || '',
       genre: '',
       url: watchUrl(it.id.videoId),
+      channelId: it.snippet?.channelId || '',
     }));
 }
 
@@ -229,12 +242,62 @@ export async function fetchChannelUploads(env, uploadsPlaylistId, limit = 50) {
         // in a playlist, channelTitle is whoever made the playlist; the
         // artist is the channel that uploaded the video ("Artist - Topic")
         artist: artistName(sn.videoOwnerChannelTitle || sn.channelTitle || ''),
+        channelId: sn.videoOwnerChannelId || sn.channelId || '',
         genre: '',
         url: watchUrl(vid),
       });
     }
     pageToken = data.nextPageToken || '';
     if (!pageToken) break;
+  }
+  return out;
+}
+
+
+/**
+ * One page (50) of a playlist, newest first for a channel's uploads, with
+ * the token for the next page: the channel harvest reads a big channel a
+ * few pages per run and carries on where it stopped. 1 unit.
+ */
+export async function playlistPage(env, playlistId, pageToken = '') {
+  const data = await ytFetch(env, 'playlistItems', {
+    part: 'snippet', playlistId, maxResults: '50', ...(pageToken ? { pageToken } : {}),
+  });
+  const items = [];
+  for (const it of data.items || []) {
+    const sn = it.snippet || {};
+    const vid = sn.resourceId?.videoId;
+    if (!/^[A-Za-z0-9_-]{11}$/.test(vid || '') || sn.title === 'Private video' || sn.title === 'Deleted video') continue;
+    items.push({ name: sn.title || '', artist: artistName(sn.videoOwnerChannelTitle || sn.channelTitle || ''),
+                 genre: '', url: watchUrl(vid), channelId: sn.videoOwnerChannelId || sn.channelId || '' });
+  }
+  return { items, next: data.nextPageToken || '' };
+}
+
+/** YouTube's music topics → the words normalizeGenre understands. */
+export function topicWords(urls) {
+  return (urls || []).map((u) => decodeURIComponent(String(u).split('/wiki/')[1] || '').replace(/_/g, ' ')).filter(Boolean);
+}
+
+/**
+ * Up to 50 channels per call (1 unit): title, handle, subscribers, video
+ * count, uploads playlist and YouTube's topic labels for each.
+ */
+export async function channelInfo(env, ids) {
+  const out = new Map();
+  const list = [...new Set(ids)].filter((id) => /^UC[A-Za-z0-9_-]{20,}$/.test(id));
+  for (let i = 0; i < list.length; i += 50) {
+    const data = await ytFetch(env, 'channels', { part: 'snippet,statistics,contentDetails,topicDetails', id: list.slice(i, i + 50).join(','), maxResults: '50' });
+    for (const c of data.items || []) {
+      out.set(c.id, {
+        title: c.snippet?.title || '',
+        handle: c.snippet?.customUrl || '',
+        subs: Number(c.statistics?.subscriberCount || 0),
+        videos: Number(c.statistics?.videoCount || 0),
+        uploads: c.contentDetails?.relatedPlaylists?.uploads || '',
+        topics: topicWords(c.topicDetails?.topicCategories),
+      });
+    }
   }
   return out;
 }

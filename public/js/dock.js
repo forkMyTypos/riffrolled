@@ -50,17 +50,17 @@ var dock = {
     });
 
     if (this.mobile){
-      // app-style bottom tabs: Player first, then one tab per panel
+      // app-style bottom tabs: Player first, then the main panels, then More
       this._mBtns = [];
-      /* While someone is new here (newhere.js) the tab bar is the Player,
-         the three things you can use in your first minute, and a ⋯ for
-         everything else. Eleven icons on a 360px screen is a wall. */
-      const trimmed = this.newHereTrim();
-      const shown = (trimmed ? this.items.filter(it => this.FIRST_MINUTE.includes(it.label)) : this.items)
-        .filter(it => !it.noButton);
+      /* Eleven icons on a 360px screen is a wall, so the tab bar is the
+         Player, the panels you use most (just the first-minute three while
+         someone is new here, newhere.js) and a ⋯ More tab: a page listing
+         everything else — History, Import, Database, Mine, Promote, About. */
+      const main = this.mainTabs();
+      const shown = this.items.filter(it => main.includes(it.label) && !it.noButton && !this.notYet(it));
       const tabs = [{ icon:'🎛', label:'Player', short:'Player', player:true }]
         .concat(shown.map(it => ({ ...it, short: this.shortLabel(it.label) })));
-      if (trimmed) tabs.push({ icon:'⋯', label:'More', short:'More', more:true });
+      if (this.moreItems().length) tabs.push({ icon:'⋯', label:'More', short:'More', more:true });
       tabs.forEach(t => {
         const btn = document.createElement('button');
         btn.className = 'dock-btn';
@@ -78,7 +78,8 @@ var dock = {
         lbl.textContent = t.short;
         btn.appendChild(lbl);
         if (t.more){
-          btn.onclick = () => { this._moreOpen = true; this.render(); this.showMobile(this._mActive || 'player'); };
+          btn.onclick = () => this.showMobile('More');
+          this._mBtns.push(['More', btn]);
           bar.appendChild(btn);
           return;
         }
@@ -90,7 +91,7 @@ var dock = {
       return;
     }
 
-    this.items.filter(it => !it.noButton).forEach((it, idx, list) => {
+    this.items.filter(it => !it.noButton && !this.notYet(it)).forEach((it, idx, list) => {
       if (!it.el) return;
       // hairline between groups: finding music · the token economy · everything else
       if (idx > 0 && it.group && it.group !== list[idx - 1].group){
@@ -281,30 +282,69 @@ var dock = {
   },
 
   /* Panels a newcomer on a phone gets in the tab bar. Everything else is
-     things you go looking for, behind ⋯. */
+     things you go looking for, behind ⋯ More. */
   FIRST_MINUTE: ['DJ AI', 'Playlist', 'Search'],
-  _moreOpen: false,
+  // and once they've listened: the four you use most
+  MAIN_TABS: ['DJ AI', 'Playlist', 'Mixes', 'Search'],
 
-  // is the phone tab bar currently the short, new-here one?
-  newHereTrim(){
-    return !!(this.mobile && window.newHere && newHere.on && !this._moreOpen);
+  mainTabs(){ return (window.newHere && newHere.on) ? this.FIRST_MINUTE : this.MAIN_TABS; },
+
+  /* Mine and Promote (needsMix) stay out of sight until someone has made
+     their first mix: credits and promotion are a second product, and a
+     newcomer who meets them before a single track reads riffrolled as
+     something they have to pay into. */
+  notYet(it){
+    if (!it || !it.needsMix || !window.newHere) return false;
+    return !(newHere.known && newHere.mixed);
+  },
+
+  /** What the More page lists: every panel with a button that isn't a tab. */
+  moreItems(){
+    const main = this.mainTabs();
+    return this.items.filter(it => it.el && !it.noButton && !main.includes(it.label) && !this.notYet(it));
+  },
+
+  /** The More page (phones only): a panel of its own, built on demand. */
+  renderMore(){
+    let el = this.moreEl;
+    if (!el){
+      el = this.moreEl = document.createElement('section');
+      el.className = 'panel m-more-view';
+      el.id = 'mMoreView';
+      el.setAttribute('data-testid', 'more-view');
+      document.body.appendChild(el);
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-more]');
+        if (b) this.showMobile(b.getAttribute('data-more'));
+      });
+    }
+    const list = this.moreItems();
+    const row = (it) => '<button class="more-row" data-more="' + escapeHtml(it.label) + '" data-testid="more-' + this.slugOf(it.label) + '"' +
+      '>' +
+      '<span class="more-ico">' + (it.iconSvg || escapeHtml(it.icon || '•')) + '</span>' +
+      '<span class="more-lbl">' + escapeHtml(it.label) + '</span><span class="more-go">›</span></button>';
+    const music = list.filter(it => it.group !== 'tokens');
+    const tokens = list.filter(it => it.group === 'tokens');
+    el.innerHTML = '<div class="more-head">More</div><div class="mainC more-body">' +
+      music.map(row).join('') +
+      (tokens.length ? '<div class="more-group">Earn credits to promote a track</div>' + tokens.map(row).join('') : '') +
+      '</div>';
+    // colours through the CSSOM, not style="" (the CSP allows no inline styles)
+    list.forEach(it => {
+      const b = el.querySelector('[data-more="' + CSS.escape(it.label) + '"]');
+      if (b && it.accent) b.style.setProperty('--accent', it.accent);
+    });
   },
 
   // newhere.js calls this when it learns the answer, and again when it flips
   refreshForNewHere(){
-    if (!this.mobile) return;
     this.render();
-    this.showMobile(this._mActive || 'player');
+    if (this.mobile) this.showMobile(this._mActive || 'player');
   },
 
-  // mobile: show exactly one view — 'player' (the deck) or a panel by label
+  // mobile: show exactly one view — 'player' (the deck), 'More', or a panel by label
   showMobile(label){
-    // a panel opened from somewhere other than the tab bar (the tour, a
-    // hint, the DJ) must have a tab to come back from
-    if (label !== 'player' && this.newHereTrim() && !this.FIRST_MINUTE.includes(label)){
-      this._moreOpen = true;
-      this.render();
-    }
+    if (label === 'More') this.renderMore();
     this._mActive = label;
     document.body.classList.toggle('m-view-panel', label !== 'player');
     // YouTube: the player must be visible while it plays. Leaving the Player
@@ -318,7 +358,11 @@ var dock = {
       if (window.player) player.resume();
     }
     this.items.forEach(it => { if (it.el) it.el.classList.toggle('m-active', it.label === label); });
-    if (this._mBtns) this._mBtns.forEach(([l, b]) => b.classList.toggle('active', l === label));
+    if (this.moreEl) this.moreEl.classList.toggle('m-active', label === 'More');
+    // a panel reached from the More page (or from the tour, a hint, the DJ) lights More
+    const tabbed = label === 'player' || label === 'More' || (this.mainTabs().includes(label));
+    const lit = tabbed ? label : 'More';
+    if (this._mBtns) this._mBtns.forEach(([l, b]) => b.classList.toggle('active', l === lit));
   },
 
   setMode(isMobile){
@@ -500,8 +544,9 @@ dock.build([
   // saved layout and opens full-screen on a phone.
   { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:'#d98cff' },
   // ── tokens: earn, then spend ──
-  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d' },
-  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
+  // Mine and Promote appear once someone has made their first mix (needsMix, see notYet)
+  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', accent:'#e0a34d', needsMix:true },
+  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d', needsMix:true },
   // Your promotions is its own window, opened from the Promote panel and when a
   // campaign starts — so it has no dock button, like Track info
   { icon:'📣', label:'Your promotions', el: promoBoss.mine, startHidden:true, noButton:true, group:'tokens', accent:'#ffcc4d' },

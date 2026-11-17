@@ -280,6 +280,43 @@ var plBoss = {
      going. The one thing that changes is SAME_PLAYLIST, which is derived
      live from playlistTracks, and that is correct: it isn't in the
      playlist any more. */
+  /* A track in an auto mix won't play. Ask riffrolled for one more track
+     in the same styles and put it in the same place, so the mix keeps
+     its length; the server also notes the block, and once enough
+     listeners hit it, auto mixes stop choosing it. Any other playlist
+     (or no answer): the usual removal with Undo. */
+  async swapOrDrop(ytId, reason, code){
+    const plId = this.playingId || this.activeId;
+    let pl = null;
+    try { pl = plId ? await db.playlists.get(plId) : null; } catch(e){}
+    const styles = pl && pl.automix && pl.automix.styles;
+    if (!styles || !styles.length) return this.dropUnplayable(ytId, reason);
+    const row = this.queue.find(t => t.ytId === ytId);
+    let track = null;
+    try {
+      const joins = await db.playlistTracks.where('playlistId').equals(plId).toArray();
+      const exclude = [];
+      for (const j of joins){ const t = await db.tracks.get(j.trackId); if (t && t.ytId) exclude.push(t.ytId); }
+      const r = await fetch('/api/automix/swap', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ytId, styles, exclude, report: code === 101 || code === 150 }) });
+      const j = r.ok ? await r.json() : null;
+      track = j && j.track && /^[A-Za-z0-9_-]{11}$/.test(j.track.ytId || '') ? j.track : null;
+    } catch(e){ track = null; }
+    if (!track || !row || row.joinId == null) return this.dropUnplayable(ytId, reason);
+    try {
+      const old = await db.playlistTracks.get(row.joinId);
+      const tid = await dbBoss.createTrack(track.ytId, track.name);
+      if (track.artist){ try { const t = await dbBoss.getTrack(track.ytId); if (t && !t.artist) await dbBoss.updateTrackMeta(track.ytId, { artist: track.artist }); } catch(e){} }
+      const dupe = await db.playlistTracks.where({ playlistId: plId, trackId: tid }).first();
+      await db.playlistTracks.delete(row.joinId);
+      if (!dupe) await db.playlistTracks.add({ playlistId: plId, trackId: tid, addedAt: Date.now(), order: old ? old.order : 9999 });
+      await this.refreshAll();
+      if (window.appToast) appToast('“' + (window.cleanTitle ? cleanTitle(row.name) : row.name) + '” can’t play here — swapped in “' + (window.cleanTitle ? cleanTitle(track.name, track.artist) : track.name) + '”', '');
+    } catch(e){
+      return this.dropUnplayable(ytId, reason);
+    }
+  },
+
   async dropUnplayable(ytId, reason){
     const row = this.queue.find(t => t.ytId === ytId);
     const joinId = row && row.joinId;
@@ -728,7 +765,7 @@ var plBoss = {
         <span class="track-handle" title="Drag to reorder">⠿</span>
         <span class="track-num">${i+1}</span>
         ${ t.ytId === player.currentYtId ? `<span class="now-dot">♪</span>` : '' }
-        <span class="name">${ t.artist ? `<span class="track-artist">${escapeHtml(t.artist)}</span>` : '' }${escapeHtml(t.name)}</span>
+        <span class="name" title="${escapeHtml(t.name)}">${ t.artist ? `<span class="track-artist">${escapeHtml(t.artist)}</span>` : '' }${escapeHtml(window.cleanTitle ? cleanTitle(t.name, t.artist) : t.name)}</span>
         ${ promoted.has(t.ytId) ? `<span class="promo-tag" title="Promoted: somebody spent riff tokens to put this track in front of people. It is in your playlist because you or your AI chose to add it.">promoted</span>` : '' }
         <button class="info-btn" data-yt="${escapeHtml(t.ytId)}" title="Track info — title, artist, tags">ℹ</button>
         <button class="del-btn" data-join="${t.joinId}" title="Remove from playlist">✕</button>

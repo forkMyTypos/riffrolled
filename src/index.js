@@ -11,7 +11,7 @@ import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
 import { handleChannelImport, handlePlaylistImport } from './routes/channel.js';
 import { handleResolve } from './routes/resolve.js';
-import { handleAutomix, handleAutomixStatus } from './routes/automix.js';
+import { handleAutomix, handleAutomixStatus, handleAutomixSwap } from './routes/automix.js';
 import { handleSavePlaylist } from './routes/playlists.js';
 import { handleListMixes, handleGetMix, handleShareMix, handleMixPlay, handleMixReport, handleMyMixes } from './routes/mixes.js';
 import { handleMineChallenge, handleMineSubmit, handleWallet, handleLedger } from './routes/mine.js';
@@ -21,6 +21,9 @@ import { handleStats } from './routes/stats.js';
 import { sweep } from './sweep.js';
 import { grow } from './grow.js';
 import { refresh } from './refresh.js';
+import { discover, harvest } from './channels.js';
+import { callBudget } from './services/youtube.js';
+import { getConfig } from './config.js';
 
 const ROUTES = [
   ['GET',  /^\/api\/config$/,       (req, env) => handlePublicConfig(req, env)],
@@ -30,6 +33,7 @@ const ROUTES = [
   ['POST', /^\/api\/track$/,  (req, env) => handleAddTrack(req, env)],
   ['POST', /^\/api\/resolve$/, (req, env) => handleResolve(req, env)],
   ['POST', /^\/api\/automix$/, (req, env) => handleAutomix(req, env)],
+  ['POST', /^\/api\/automix\/swap$/, (req, env) => handleAutomixSwap(req, env)],
   ['GET',  /^\/api\/automix$/, (req, env) => handleAutomixStatus(req, env)],
   ['POST', /^\/api\/playlist\/save$/, (req, env) => handleSavePlaylist(req, env)],
   ['GET',  /^\/api\/mixes$/,            (req, env, url) => handleListMixes(req, env, url)],
@@ -106,6 +110,9 @@ export default {
     console.log('sweep: deleted ' + done.campaigns + ' finished campaigns'
       + (done.offers ? ', pruned offers' : '')
       + (done.rate ? ', pruned mint rate' : ''));
+    // one budget of outside requests for the whole run (the free plan allows 50)
+    try { callBudget.left = (await getConfig(env)).CRON_CALLS; } catch (err) { callBudget.left = 40; }
+
     // the 30-day refresh first: keeping what we have honest comes before adding more
     try {
       const f = await refresh(env);
@@ -113,6 +120,16 @@ export default {
         + ', ' + f.renamed + ' renamed, ' + f.struck + ' hidden, ' + f.deleted + ' deleted, ' + f.units + ' units');
     } catch (err) {
       console.error('refresh failed:', err && err.message);
+    }
+    // whole channels: find and describe them, then read the approved ones
+    try {
+      const d = await discover(env);
+      const h = await harvest(env);
+      console.log('channels: ' + d.added + ' new candidates, ' + d.described + ' described, ' + d.auto + ' auto-approved, '
+        + d.resolved + ' added by hand; read ' + h.added + ' tracks, ' + (d.units + h.units) + ' units'
+        + (h.channels.length ? ' — ' + h.channels.join(', ') : '') + (h.skipped ? ' (' + h.skipped + ')' : ''));
+    } catch (err) {
+      console.error('channels failed:', err && err.message);
     }
     // the catalogue grower: its own step, so a YouTube hiccup can't stop the sweep
     try {
@@ -122,5 +139,6 @@ export default {
     } catch (err) {
       console.error('grow failed:', err && err.message);
     }
+    callBudget.left = Infinity;      // the same isolate may answer requests next: they have no such limit
   },
 };

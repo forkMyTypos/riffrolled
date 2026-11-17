@@ -115,10 +115,30 @@ export const SCHEMA = {
     note: 'YouTube searches a day, site-wide, when /api/search falls through to YouTube. Each costs 100 of 10,000 quota units. 0 = catalogue only.' },
 
   // ── AI DJ resolution (dormant) ──
-  AI_YT_DAILY:          { type: 'num', def: 40, min: 0,  max: 100,
+  AI_YT_DAILY:          { type: 'num', def: 20, min: 0,  max: 100,
     note: 'YouTube search.list calls a day, site-wide. Each costs 100 of 10,000 quota units.' },
   AI_YT_PER_REQUEST:    { type: 'num', def: 8,  min: 0,  max: 30,
     note: 'YouTube searches allowed within one resolve request.' },
+
+  // ── the hourly job's outside requests (refresh, channels, grower share them) ──
+  CRON_CALLS:           { type: 'num', def: 45, min: 5, max: 900,
+    note: 'YouTube calls one hourly run may make. The free Workers plan allows 50 outside requests a run; on the $5 plan this can go to a few hundred.' },
+
+  // ── whole channels (src/channels.js, hourly) ──
+  CHANNEL_ON:           { type: 'bool', def: true,
+    note: 'Find channels behind catalogue tracks, and import the approved ones.' },
+  CHANNEL_UNITS_DAILY:  { type: 'num', def: 2000, min: 0, max: 9000,
+    note: 'YouTube quota units a day for channels. ~2 units per 50 tracks, so 2,000 ≈ 50,000 tracks.' },
+  CHANNELS_PER_RUN:     { type: 'num', def: 2, min: 1, max: 20,
+    note: 'Approved channels read per hourly run.' },
+  CHANNEL_PAGES_PER_RUN:{ type: 'num', def: 8, min: 1, max: 200,
+    note: 'Pages of 50 read from one channel per run while catching up (each costs ~2 outside requests).' },
+  CHANNEL_MAX_TRACKS:   { type: 'num', def: 1000, min: 50, max: 20000,
+    note: 'Newest uploads read from a channel the first time. After that, only new uploads.' },
+  CHANNEL_AUTO_TOPIC:   { type: 'bool', def: true,
+    note: '"Artist - Topic" channels (only songs) approve themselves once CHANNEL_AUTO_LIKES of their tracks are liked here. Off = you approve every channel.' },
+  CHANNEL_AUTO_LIKES:   { type: 'num', def: 3, min: 1, max: 1000,
+    note: 'Likes here before a Topic channel approves itself.' },
 
   // ── the 30-day refresh (src/refresh.js, hourly) ──
   REFRESH_ON:           { type: 'bool', def: true,
@@ -151,6 +171,10 @@ export const SCHEMA = {
     note: 'Auto mixes a day, whole site. Keeps it inside the free Workers AI allowance (10,000 neurons a day).' },
   AUTOMIX_NEW:          { type: 'num', def: 4,   min: 0, max: 8,
     note: 'New tracks one auto mix may look up on YouTube (shares AI_YT_DAILY). Doubled when the catalogue has almost nothing for the request.' },
+  AUTOMIX_BLOCKS:       { type: 'num', def: 2,   min: 1, max: 50,
+    note: 'Different listeners who must find a track blocked in an auto mix before auto mixes stop choosing it. It stays in the catalogue.' },
+  AUTOMIX_CHECK:        { type: 'bool', def: true,
+    note: 'Check a finished auto mix with videos.list (1 quota unit per mix): public, embeddable, 1 to GROW_MAX_MINUTES minutes. Failures are swapped for other catalogue tracks.' },
 
   /* ── not wired up yet ───────────────────────────────────────────────
      Seeded now so the admin tool can show them, the ranges are agreed

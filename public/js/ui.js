@@ -110,3 +110,37 @@ function makeDraggableEle(panel,handle){
     document.onmouseup=()=>{ if(d){ d=false; if(window.dock){ if(dock.markPlaced) dock.markPlaced(panel); if(dock.saveLayoutSoon) dock.saveLayoutSoon(); } } };
   };
 }
+
+/* ── tidy a YouTube title for display ──
+   Only what is SHOWN changes: the stored name (and the shared catalogue's)
+   stays exactly as it was, and the full title is kept as a tooltip.
+   Drops bracketed noise — (Official Video), [HD], (Full EP), (Lyrics) —
+   the " | Label / channel" tail many uploads carry, and, when the artist
+   is shown beside it, a leading "Artist - ". Never returns an empty
+   string: if tidying would leave nothing, the original comes back. */
+var TITLE_NOISE = /\b(official|officiel|music|video|videoclip|clip|audio|lyrics?|visuali[sz]er|hd|hq|4k|1080p|720p|remaster(?:ed)?|full\s+(?:ep|album)|ep|album|mv|m\/v|out\s+now|free\s+download|premiere|explicit|color\s*coded)\b/i;
+function cleanTitle(name, artist){
+  var raw = String(name || '').trim();
+  if (!raw) return raw;
+  var s = raw;
+  // bracketed bits that are only noise (keep "(Remix)", "(feat. X)", "(Live at …)")
+  s = s.replace(/\s*[\(\[【]([^\)\]】]{0,60})[\)\]】]/g, function(all, inner){
+    var left = inner.replace(new RegExp(TITLE_NOISE.source, 'gi'), '').replace(/[\s\-–—:|\/&+,.0-9]+/g, '');
+    return left.length ? all : '';
+  });
+  // " | Label Records", " // channel junk", " • Topic" tails
+  s = s.replace(/\s+(\||\/\/|•|·)\s+.*$/, '');
+  // unbracketed trailing noise: "Song - Official Video", "Song Full EP", "Song HD"
+  for (var k = 0; k < 3; k++){
+    s = s.replace(/[\s\-–—:]+(official\s+(music\s+)?(video|audio|visuali[sz]er|lyric\s+video)|lyric\s+video|lyrics|full\s+(ep|album)|hd|hq|4k|out\s+now)\s*$/i, '');
+  }
+  // the artist is shown beside the title: drop a leading "Artist - "
+  var a = String(artist || '').replace(/\s*-\s*Topic$/i, '').trim();
+  if (a){
+    var esc = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var t = s.replace(new RegExp('^' + esc + '\\s*[-–—:]\\s*', 'i'), '');
+    if (t.trim()) s = t;
+  }
+  s = s.replace(/\s{2,}/g, ' ').replace(/^[\s\-–—:|]+|[\s\-–—:|]+$/g, '').trim();
+  return s || raw;
+}

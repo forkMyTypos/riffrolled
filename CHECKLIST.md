@@ -2,6 +2,18 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: audit fixes, no Haiku yet (17 Nov, schema 35)
+- [x] **Share to X / Facebook.** Send this playlist / Send the track: the share menu turns into a link card: the link (already copied), Copy link, Post on X, Share on Facebook, and on a phone "More apps…" (the phone's share sheet). Counted as `share_x` / `share_fb`.
+- [x] "Say what kind of music first" clears the moment a style is added (`dj-menu.js`).
+- [x] **Tidy titles** on the deck and in playlists: "(Official Video)", "[Full EP]", "[HD]", " | Label" tails and a leading "Artist - " (when the artist is shown beside it) are dropped from what's shown. Stored names don't change; the full title is on hover. Long titles wrap to two lines (`cleanTitle` in `ui.js`).
+- [x] **Auto mixes keep to songs:** catalogue candidates skip long-form titles (Full EP / album, hour mixes, live sets, compilations) and anything longer than `GROW_MAX_MINUTES` (12) or under 1 minute once its length is known. New column `tracks.secs`, filled for free by the 30-day refresh and by the check below.
+- [x] **Auto mix check (1 unit a mix):** the finished mix goes through videos.list once; a track that's unembeddable or the wrong length is swapped in place for another catalogue candidate (also checked), so the mix keeps its length. Setting `AUTOMIX_CHECK`. Units are logged as `check:<day>` in ai_lookups.
+- [x] **Blocked at play time:** in an auto-mix playlist, a track that won't play (101 / 150) is swapped for one more track in the same styles (`POST /api/automix/swap`, catalogue only, not counted against the 3 a day) instead of just being removed. Each listener's block is counted once; at `AUTOMIX_BLOCKS` (2) listeners auto mixes stop choosing it. It stays in the catalogue.
+- [x] **Mine and Promote wait for a first mix:** new visitors don't see them until they've made a mix (AUTO or TEXT) or played a ready-made one. Then one line: "New in the dock: ⛏ Mine and Promote — earn credits to promote a track". Anyone who was already listening keeps them.
+- [x] **Phone ⋯ More tab, always:** the tab bar is Player, DJ AI, Playlist, Mixes, Search (just DJ AI, Playlist, Search while new) and More. More is a page listing History, Import, Database, About, and under "Earn credits to promote a track", Mine and Promote.
+- [ ] Next: Haiku two-step flow (pick freely → match to the catalogue → guess the link → oEmbed check), then measure the hit rate before deciding on Serper.
+- [ ] Ten premade daily mixes for the Mixes panel; first-visit mix picker to replace the tour; TRACK ROLLED one-click with Haiku.
+
 ## 0 · Decided (22 Oct)
 - [x] **Promote vs Share:** split. The gig flyer stays the **Promote** dock icon (spend credits so strangers see a track); the cassette-and-arrow is the **Share** button, right after prev / play / next (send a track, playlist or mix to a person).
 - [x] **Promoting a mix:** single tracks only for now. Revisit after launch.
@@ -72,6 +84,15 @@ Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Da
 7. [ ] **Put a free campaign on a couple of good tracks** (admin → Promotions → "Promote a track for free", pop-up + DJ brief), then open `riffrolled.com/?promo=now` in a private window and see the record appear. (Admin campaigns never wait for review.)
 8. [ ] **Quiet launch first.** Send the link to 3 to 5 people, ask them to try the player, Promote and a shared mix link. Watch admin → Activity for a day before telling more people.
 9. [ ] Remember in every post and message: riffrolled supplies no music. It all plays from YouTube; riffrolled is the player and discovery layer.
+
+## 30 Oct: whole channels
+- [x] **Every track now records the YouTube channel that uploaded it.** It comes free with every YouTube answer (searches, imports, the grower); the 30-day refresh fills it in for older tracks.
+- [x] **Channels become candidates by themselves** (`src/channels.js`, hourly). Once a day the site counts how each channel's tracks do here (tracks, likes, plays); YouTube's own facts about each — subscribers, video count, topic labels like "Electronic music" — cost 1 unit per 50 channels and are refreshed every 25 days. "Artist – Topic" channels (only songs) approve themselves once 3 of their tracks are liked here (`CHANNEL_AUTO_TOPIC`, `CHANNEL_AUTO_LIKES`); everything else waits for you.
+- [x] **Admin → Channels**: candidates best first (likes and plays here, tracks here, Topic, subscribers), with Approve / Reject, a filter for Approved / Rejected, and **Add channel** (paste a youtube.com/@name or /channel/ link; the site looks it up within the hour for 1 unit).
+- [x] **Approved channels are imported**: newest first, a few pages per run, up to 1,000 tracks each (`CHANNEL_MAX_TRACKS`), then checked daily for new uploads. Only videos YouTube files under Music (anything song-length from a Topic channel), embeddable, 1–12 minutes, no covers/reactions/loops. Filed under the channel's genre. At most **2,000 quota units a day** (`CHANNEL_UNITS_DAILY`) ≈ 50,000 tracks.
+- [x] **New quota split** (of 10,000 a day): listener searches 3,000 · AI track lookups 2,000 (`AI_YT_DAILY` 40 → 20) · grower 1,500 · channels 2,000 · refresh ~250 · ~1,250 spare.
+- [x] **One budget of outside requests per hourly run** (`CRON_CALLS`, 45): the refresh, channels and the grower share it and stop cleanly when it runs out, so the free plan's 50-a-run limit is never hit. **On the $5 plan**, set `CRON_CALLS` to 300 and `CHANNEL_PAGES_PER_RUN` to 40 and channels are read much faster.
+- [ ] After deploying: `/api/health` → `"schema":34`. The Channels tab fills in over the first day (tracks need their channel first; the refresh does older ones as it goes). Approve a few good ones; check back the next day for "Imported".
 
 ## 30 Oct: the 30-day refresh
 - [x] **Every track is re-checked with YouTube at least every 25 days** (`src/refresh.js`, the hourly Cron Trigger). It uses videos.list — 50 tracks per call, 1 quota unit — rather than oEmbed (one request per track), so it keeps up however big the catalogue gets: 10,000 tracks ≈ 9 units a day, 300,000 ≈ 250. If the day's quota is gone it checks 20 with oEmbed instead (free).

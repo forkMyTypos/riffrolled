@@ -111,6 +111,17 @@
                                 <button class="t-mi" data-s="mine" role="menuitem" data-testid="share-mine">
                                     <span class="t-mi-ico">📈</span><span class="t-mi-txt">Your shared mixes and their plays</span>
                                 </button>
+                                <!-- after a link is made the menu shows it, ready to post -->
+                                <div class="sm-link" hidden data-testid="share-link-card">
+                                    <div class="sm-link-what"></div>
+                                    <input class="sm-link-url" type="text" readonly aria-label="Your link" data-testid="share-link-url">
+                                    <div class="sm-link-btns">
+                                        <button type="button" class="sm-lb sm-copy" data-testid="share-copy">Copy link</button>
+                                        <a class="sm-lb sm-x" target="_blank" rel="noopener noreferrer" data-testid="share-x">Post on X</a>
+                                        <a class="sm-lb sm-fb" target="_blank" rel="noopener noreferrer" data-testid="share-fb">Share on Facebook</a>
+                                        <button type="button" class="sm-lb sm-more" hidden data-testid="share-more">More apps…</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <!-- what happens when a track or the playlist ends.

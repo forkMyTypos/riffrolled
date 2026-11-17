@@ -97,3 +97,17 @@ body.mobile .dock-btn.dock-more .dock-ico-more { font-size:22px; line-height:1; 
 
 /* the video stays at YouTube's 200px on a phone; resizing is a desktop thing */
 body.mobile #deck { --vid:200px !important; }
+
+/* ⋯ More: the page listing everything that isn't a tab (dock.js renderMore) */
+body:not(.mobile) #mMoreView { display:none !important; }
+#mMoreView { flex-direction:column; background:#14141c; color:#fff; }
+#mMoreView .more-head { font-size:15px; font-weight:700; padding:14px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.08); }
+#mMoreView .more-body { display:flex; flex-direction:column; padding:6px 0 12px; overflow-y:auto; }
+#mMoreView .more-group { font-size:11.5px; color:rgba(255,255,255,0.55); padding:14px 16px 4px; letter-spacing:.02em; }
+#mMoreView .more-row { display:flex; align-items:center; gap:14px; width:100%; padding:13px 16px; background:none; border:0;
+  border-bottom:1px solid rgba(255,255,255,0.05); color:#fff; font-size:15px; text-align:left; cursor:pointer; }
+#mMoreView .more-row:active { background:rgba(255,255,255,0.06); }
+#mMoreView .more-ico { width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--accent, #fff); }
+#mMoreView .more-ico svg { width:24px; height:24px; }
+#mMoreView .more-lbl { flex:1; }
+#mMoreView .more-go { color:rgba(255,255,255,0.35); font-size:20px; }

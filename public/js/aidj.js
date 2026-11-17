@@ -1840,6 +1840,7 @@ var djAi = {
       });
     } catch(e){ /* the playlist is what matters */ }
 
+    if (window.newHere && newHere.markMixed) newHere.markMixed();   // a first mix: Mine and Promote come into the dock
     return {
       playlistId: plId, name: name, count: playable.length,
       skipped: parsed.items.length - playable.length,

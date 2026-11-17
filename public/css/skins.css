@@ -304,3 +304,17 @@ body.mobile #deck .remote .transport { gap:9px; }
 #shareMenu .t-mi.sm-main { color:#fff; background:rgba(70,224,255,0.08); border:1px solid rgba(70,224,255,0.3); }
 #shareMenu .t-mi.sm-main:hover { background:rgba(70,224,255,0.16); }
 #shareMenu .t-mi.sm-main .t-mi-ico { color:#46e0ff; }
+
+/* the link card: what the share menu becomes once a link is made */
+#shareMenu.link-mode > .t-mi, #shareMenu.link-mode > .t-mi-sep, #shareMenu.link-mode > .sm-pl { display:none; }
+#shareMenu .sm-lb[hidden], #shareMenu .sm-link[hidden] { display:none; }
+#shareMenu .sm-link { padding:4px 6px 6px; min-width:250px; }
+#shareMenu .sm-link-what { font-size:11px; color:rgba(255,255,255,0.6); margin:2px 0 6px; }
+#shareMenu .sm-link-url { width:100%; box-sizing:border-box; font:12px/1.3 monospace; color:#fff; background:rgba(0,0,0,0.35);
+  border:1px solid rgba(70,224,255,0.35); border-radius:6px; padding:7px 8px; margin-bottom:8px; }
+#shareMenu .sm-link-btns { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+#shareMenu .sm-lb { display:block; text-align:center; font-size:12px; font-weight:700; padding:8px 6px; border-radius:6px; cursor:pointer;
+  text-decoration:none; color:#fff; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); }
+#shareMenu .sm-lb:hover { background:rgba(255,255,255,0.14); }
+#shareMenu .sm-copy { background:rgba(70,224,255,0.12); border-color:rgba(70,224,255,0.4); }
+#shareMenu .sm-more { grid-column:1 / -1; }

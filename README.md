@@ -704,6 +704,14 @@ reply `{name, picks:[codes], new:[{artist,title}]}`) → picks validated against
 `GET /api/automix` → `{on, left, limit}`. Counted in `automix_daily` (hashed visitor + '*' for the site).
 Client: `djMenuBoss.autoMix()` saves it through `djAi.importPlaylist()`.
 
+**Channels** (`src/channels.js`, schema 34, hourly after the refresh). `tracks.channel_id` (from search
+snippet.channelId, playlistItems videoOwnerChannelId, videos.list, refresh). `discover()`: daily candidates +
+tracks/likes/plays_here; `channelInfo` (1/50: subs, videos, uploads, topicCategories → genre) when info_at
+> 25 days; auto-approve Topic channels (likes_here ≥ CHANNEL_AUTO_LIKES); `channel_adds` resolved (1 unit).
+`harvest()`: approved, `backfilled = 0` first, `playlistPage` × CHANNEL_PAGES_PER_RUN resuming at `backfill_token`;
+then daily one page, stopping at a known track. Filter: music category (or Topic), embeddable, 60 s–GROW_MAX_MINUTES.
+Units in `ai_lookups` 'chan:<day>'. `callBudget` (services/youtube.js) caps YouTube calls per cron run (`CRON_CALLS`).
+
 **30-day refresh** (`src/refresh.js`, schema 33, hourly before the grower). `tracks.checked_at` ('' = never)
 and `gone_at`. Due = older than REFRESH_DAYS/2; batch = enough to cycle in REFRESH_DAYS (≥50, ≤REFRESH_MAX_CALLS×50).
 `videoDetails` per 50 → ok: checked_at = now (+ name/artist from YouTube for sources search/channel/playlist);

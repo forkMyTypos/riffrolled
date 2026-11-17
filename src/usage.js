@@ -28,7 +28,7 @@ export const EVENTS = new Set([
   // playlists
   'playlist_new', 'playlist_from_selection', 'playlist_window',
   // sharing
-  'share_track', 'share_link', 'share_community', 'mix_open',
+  'share_track', 'share_link', 'share_community', 'share_x', 'share_fb', 'mix_open',
   // search
   'search_catalogue', 'search_youtube',
   // credits and promotion

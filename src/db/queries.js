@@ -27,6 +27,7 @@ function clampTrack(t) {
     genre:  g.genre,
     genre_raw: g.raw,
     url:    t.url,
+    channelId: String(t.channelId || ''),
   };
 }
 
@@ -76,6 +77,7 @@ export async function listTracks(db, genre, limit) {
  * Works whether or not the unique index exists.
  */
 const SOURCES = new Set(['search', 'channel', 'playlist', 'paste', 'ai', 'mix']);
+export const CHANNEL_RE = /^UC[A-Za-z0-9_-]{20,}$/;
 
 /**
  * @param verified 1 when something has confirmed each video exists (the
@@ -97,11 +99,19 @@ export async function insertTracks(db, tracks, source = '', verified = 0) {
   // NOT EXISTS keeps the first arrival's timestamp: re-adding never rewrites history
   // a row YouTube just confirmed counts as checked now (src/refresh.js); others wait their turn
   const stmt = db.prepare(
-    `INSERT INTO tracks (name, artist, genre, genre_raw, url, added_at, source, verified, checked_at)
-     SELECT ?1, ?2, ?3, ?8, ?4, ?5, ?6, ?7, CASE WHEN ?7 = 1 THEN ?5 ELSE '' END
+    `INSERT INTO tracks (name, artist, genre, genre_raw, url, added_at, source, verified, checked_at, channel_id)
+     SELECT ?1, ?2, ?3, ?8, ?4, ?5, ?6, ?7, CASE WHEN ?7 = 1 THEN ?5 ELSE '' END, ?9
       WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE url = ?4)`
   );
-  await db.batch(clean.map((t) => stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok, t.genre_raw)));
+  // which channel uploaded it, when YouTube said (src/channels.js); fills a blank on a row we already had
+  const chan = db.prepare(`UPDATE tracks SET channel_id = ?2 WHERE url = ?1 AND channel_id = ''`);
+  const stmts = [];
+  for (const t of clean) {
+    const cid = CHANNEL_RE.test(t.channelId || '') ? t.channelId : '';
+    stmts.push(stmt.bind(t.name, t.artist, t.genre, t.url, now, src, ok, t.genre_raw, cid));
+    if (cid) stmts.push(chan.bind(t.url, cid));
+  }
+  await db.batch(stmts);
   return clean.length;
 }
 

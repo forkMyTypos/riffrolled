@@ -35,6 +35,8 @@ import { getConfig } from '../config.js';
 import { normalizeGenre } from '../genres.js';
 import { resolveItems } from './resolve.js';
 import { wantMore } from '../grow.js';
+import { videoDetails, YouTubeError } from '../services/youtube.js';
+import { addAiLookups } from '../db/queries.js';
 
 /* Small, fast instruct models on Workers AI, best first. If one is
    unavailable on the account's plan, the next is tried. */
@@ -99,8 +101,19 @@ export function keywords(text) {
 
 function likeParam(w) { return '%' + w.replace(/[\\%_]/g, (c) => '\\' + c) + '%'; }
 
-/** Catalogue tracks that fit: by broad genre, or by a word anywhere useful. */
-export async function candidates(db, genres, words, limit = MAX_CANDIDATES) {
+/* Uploads that aren't one song: EPs, albums, hour-long mixes, live sets.
+   Same idea as the channel harvester's 1–12 minute rule, for titles —
+   free, and it catches what the length check hasn't measured yet. */
+export const LONGFORM = /\b(full\s+(ep|album|set|mixtape)|\d+\s*hours?\b|hour\s+(mix|long)|non-?stop|compilation|live\s+set|dj\s+set|mixtape|megamix|album\s+stream)\b/i;
+const LONGFORM_SQL = ['%full ep%', '%full album%', '%full mixtape%', '% hour mix%', '%1 hour%', '%2 hour%', '%3 hour%', '%10 hour%',
+  '%hours of%', '%compilation%', '%nonstop%', '%non-stop%', '%live set%', '%dj set%', '%megamix%'];
+
+/** Catalogue tracks that fit: by broad genre, or by a word anywhere useful.
+ *  Songs only — 1 minute to maxSecs when the length is known, no long-form
+ *  titles — and nothing enough listeners found blocked (`blocks`). */
+export async function candidates(db, genres, words, limit = MAX_CANDIDATES, opts = {}) {
+  const maxSecs = opts.maxSecs || 12 * 60;
+  const blocks = opts.blocks || 2;
   const ors = [], binds = [];
   for (const g of genres) { binds.push(g); ors.push(`genre = ?${binds.length}`); }
   for (const w of words) {
@@ -116,11 +129,18 @@ export async function candidates(db, genres, words, limit = MAX_CANDIDATES) {
      everything filed under House). Strong ones come first. */
   const wordOrs = ors.slice(genres.length);
   const strong = wordOrs.length ? `CASE WHEN (${wordOrs.join(' OR ')}) THEN 1 ELSE 0 END` : '1';
+  const songOnly = [];
+  for (const pat of LONGFORM_SQL) { binds.push(pat); songOnly.push(`name NOT LIKE ?${binds.length} COLLATE NOCASE`); }
+  binds.push(maxSecs); const kMax = binds.length;
+  binds.push(blocks); const kBlk = binds.length;
   binds.push(limit);
   const { results } = await db.prepare(
     `SELECT id, name, artist, genre, url, ${strong} AS strong
        FROM tracks
       WHERE verified = 1 AND (${ors.join(' OR ')})
+        AND ${songOnly.join(' AND ')}
+        AND (secs = 0 OR (secs >= 60 AND secs <= ?${kMax}))
+        AND blocked < ?${kBlk}
       ORDER BY strong DESC, (likes * 3 + plays - dislikes * 4) + (abs(random()) % 25) DESC
       LIMIT ?${binds.length}`
   ).bind(...binds).all();
@@ -216,7 +236,8 @@ export async function handleAutomix(request, env) {
     .filter(Boolean).join(' · ');
   const genres = [...new Set(styles.concat(ask ? [ask] : []).map((s) => normalizeGenre(s).genre).filter(Boolean))];
   const words = keywords(styles.join(' ') + ' ' + ask);
-  const cands = await candidates(env.DB, genres, words);
+  const songRules = { maxSecs: cfg.GROW_MAX_MINUTES * 60, blocks: cfg.AUTOMIX_BLOCKS };
+  const cands = await candidates(env.DB, genres, words, MAX_CANDIDATES, songRules);
   const thin = cands.length < 12;
   const newCap = Math.min(8, cfg.AUTOMIX_NEW * (thin ? 2 : 1));
 
@@ -266,6 +287,7 @@ export async function handleAutomix(request, env) {
       const have = new Set(picks.map((t) => t.url));
       lookups.results.forEach((r, i) => {
         if (!r || !r.ok || have.has(r.url)) return;
+        if (LONGFORM.test(r.name || '') || LONGFORM.test(wanted[i].title || '')) return;   // an EP or a mix, not a song
         have.add(r.url);
         added.push({ url: r.url, name: wanted[i].title || r.name, artist: wanted[i].artist || r.artist, genre: genres[0] || '', fresh: r.via === 'youtube' });
       });
@@ -283,6 +305,12 @@ export async function handleAutomix(request, env) {
     const at = Math.min(out.length, Math.round(((k + 1) * out.length) / (added.length + 1)) + k);
     out.splice(at, 0, t);
   });
+
+  // ── 3. one cheap check of the finished mix (1 unit): embeddable, 1–12 min ──
+  let checked = null;
+  if (cfg.AUTOMIX_CHECK && env.YT_API_KEY && out.length) {
+    checked = await checkMix(env, out, cands, songRules, day);
+  }
 
   // short of what was asked: the catalogue grower looks for more of this within the hour (src/grow.js)
   if (out.length < n) {
@@ -315,7 +343,114 @@ export async function handleAutomix(request, env) {
     catalogue_matches: cands.length,
     new_found: added.length,
     new_asked: wanted.length,
+    ...(checked ? { swapped: checked.swapped } : {}),
     left: Math.max(0, Math.min(cfg.AUTOMIX_PER_DAY - c.mine - 1, cfg.AUTOMIX_DAILY - c.site - 1)),
     limit: cfg.AUTOMIX_PER_DAY,
+  });
+}
+
+/* ── the check ────────────────────────────────────────────────────────
+   videos.list answers for 50 videos in one unit: public? embeddable? how
+   long? A track that fails is swapped, in place, for the next catalogue
+   candidate that isn't in the mix (checked the same way, one more unit at
+   most), so a mix keeps the length it was asked for. What it learns is
+   kept: every length goes into tracks.secs, and a video YouTube says
+   can't be embedded is never chosen for an auto mix again. If YouTube is
+   out of quota the mix goes out unchecked — the player still skips a
+   track that won't play, and the swap below fills its place. */
+async function checkMix(env, out, cands, rules, day) {
+  const res = { swapped: 0, units: 0 };
+  const inMix = new Set(out.map((t) => t.url));
+  const spare = cands.filter((t) => !inMix.has(t.url));
+  const learn = [];
+  const verdict = async (urls) => {
+    const ids = urls.map(ytIdOf).filter(Boolean);
+    const got = await videoDetails(env, ids);
+    res.units += Math.max(1, Math.ceil(ids.length / 50));
+    const good = new Map();
+    for (const url of urls) {
+      const v = got.get(ytIdOf(url));
+      if (v) learn.push({ url, secs: v.secs || 0, blocked: !v.ok });
+      good.set(url, !!(v && v.ok && v.secs >= 60 && v.secs <= rules.maxSecs));
+    }
+    return good;
+  };
+  try {
+    const first = await verdict(out.map((t) => t.url));
+    const bad = out.map((t, i) => (first.get(t.url) ? -1 : i)).filter((i) => i >= 0);
+    if (bad.length && spare.length) {
+      const tryList = spare.slice(0, Math.min(50, bad.length * 3));
+      const second = await verdict(tryList.map((t) => t.url));
+      const ok = tryList.filter((t) => second.get(t.url));
+      for (const i of bad) {
+        const r = ok.shift();
+        if (!r) break;
+        out[i] = { url: r.url, name: r.name, artist: r.artist, genre: r.genre || '' };
+        res.swapped++;
+      }
+    }
+    // anything still bad comes out: a short mix beats one that skips
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (first.has(out[i].url) && !first.get(out[i].url)) out.splice(i, 1);
+    }
+  } catch (err) {
+    if (!(err instanceof YouTubeError)) console.error('automix: check failed: ' + (err && err.message));
+  }
+  try {
+    if (learn.length) {
+      const st = env.DB.prepare(
+        `UPDATE tracks SET secs = CASE WHEN ?2 > 0 THEN ?2 ELSE secs END,
+                           blocked = CASE WHEN ?3 = 1 THEN MAX(blocked, ?4) ELSE blocked END WHERE url = ?1`);
+      await env.DB.batch(learn.map((x) => st.bind(x.url, x.secs, x.blocked ? 1 : 0, rules.blocks)));
+    }
+    if (res.units) await addAiLookups(env.DB, 'check:' + day, res.units, nowIso());
+  } catch (err) { console.error('automix: check bookkeeping: ' + (err && err.message)); }
+  return res;
+}
+
+/* ── POST /api/automix/swap ────────────────────────────────────────────
+   A track in an auto mix wouldn't play for this listener (YouTube error
+   101 / 150: the owner blocks embeds, often only in some countries, which
+   videos.list can't see). The browser asks for one replacement so the mix
+   keeps its length, and says which track failed: once AUTOMIX_BLOCKS
+   different listeners have hit it, auto mixes stop choosing it. Catalogue
+   only, so it costs no quota beyond one optional check, and it isn't
+   counted against the daily auto mix limit.
+   Body: { ytId, styles: [..], exclude: [ytIds already in the mix] } */
+export async function handleAutomixSwap(request, env) {
+  const cfg = await getConfig(env);
+  const body = await readJson(request);
+  const ytId = String(body?.ytId || '');
+  if (!/^[A-Za-z0-9_-]{11}$/.test(ytId)) return errorJson(env, 'Missing ytId', 400);
+  const url = 'https://www.youtube.com/watch?v=' + ytId;
+  const styles = (Array.isArray(body?.styles) ? body.styles : []).map((s) => cleanText(s, 60)).filter(Boolean).slice(0, 3);
+  const exclude = new Set((Array.isArray(body?.exclude) ? body.exclude : []).slice(0, 100).map(String));
+  exclude.add(ytId);
+  const day = nowIso().slice(0, 10);
+
+  // one listener counts once per track; only an embed block (101 / 150) is a block
+  if (body?.report !== false) try {
+    const who = await visitor(request, env, 'swap');
+    const r = await env.DB.prepare(`INSERT OR IGNORE INTO automix_blocks (url, who, at) VALUES (?1, ?2, ?3)`).bind(url, who, nowIso()).run();
+    if (r && r.meta && r.meta.changes) await env.DB.prepare(`UPDATE tracks SET blocked = blocked + 1 WHERE url = ?1`).bind(url).run();
+  } catch (err) { console.error('automix swap: block note: ' + (err && err.message)); }
+
+  if (!styles.length) return json(env, { track: null });
+  const rules = { maxSecs: cfg.GROW_MAX_MINUTES * 60, blocks: cfg.AUTOMIX_BLOCKS };
+  const genres = [...new Set(styles.map((s) => normalizeGenre(s).genre).filter(Boolean))];
+  const cands = (await candidates(env.DB, genres, keywords(styles.join(' ')), 40, rules))
+    .filter((t) => !exclude.has(ytIdOf(t.url)));
+  let pick = null;
+  if (cands.length && cfg.AUTOMIX_CHECK && env.YT_API_KEY) {
+    try {
+      const look = cands.slice(0, 10);
+      const got = await videoDetails(env, look.map((t) => ytIdOf(t.url)));
+      await addAiLookups(env.DB, 'check:' + day, 1, nowIso());
+      pick = look.find((t) => { const v = got.get(ytIdOf(t.url)); return v && v.ok && v.secs >= 60 && v.secs <= rules.maxSecs; }) || null;
+    } catch (err) { pick = null; }
+  }
+  if (!pick && cands.length) pick = cands[0];
+  return json(env, {
+    track: pick ? { ytId: ytIdOf(pick.url), name: pick.name, artist: pick.artist, genre: pick.genre || '' } : null,
   });
 }

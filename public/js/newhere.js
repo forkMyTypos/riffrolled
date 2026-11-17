@@ -26,14 +26,30 @@
 
 var newHere = {
   SETTING: 'firstPlayDone',
+  MIX_SETTING: 'firstMixDone',
   on: false,        // true while the person is still new
+  mixed: true,      // false until they have made (or played) their first mix
   known: false,     // false until the stored answer has been read
 
+  /* A second question, asked the same way: have they made their first
+     mix? Until then Mine and Promote stay out of the dock (dock.js
+     notYet). Someone who was listening before this question existed has
+     no answer stored but has history: they keep everything. A brand-new
+     browser stores '0', and the first mix turns it to '1' for good. */
   async init(){
+    var history = 0;
+    try { history = await db.playHistory.count(); } catch(e){}
     try {
       if (await dbBoss.getSetting(this.SETTING)) this.on = false;
-      else this.on = (await db.playHistory.count()) === 0;
+      else this.on = history === 0;
     } catch(e){ this.on = false; }     // when in doubt, show everything
+    try {
+      var m = await dbBoss.getSetting(this.MIX_SETTING);
+      if (m === '1') this.mixed = true;
+      else if (m === '0') this.mixed = false;
+      else if (history > 0) this.mixed = true;
+      else { this.mixed = false; await dbBoss.setSetting(this.MIX_SETTING, '0'); }
+    } catch(e){ this.mixed = true; }
     this._publish();
     this.known = true;
     document.body.classList.add('nh-known');
@@ -51,5 +67,22 @@ var newHere = {
     if (window.dock && dock.refreshForNewHere) dock.refreshForNewHere();
   },
 
-  _publish(){ document.documentElement.setAttribute('data-rr-new-here', this.on ? '1' : '0'); }
+  /** A mix was made (DJ AI, an auto mix) or a ready-made one played.
+      Mine and Promote come into the dock, with one line saying why. */
+  markMixed(){
+    if (this.mixed) return;
+    this.mixed = true;
+    try { dbBoss.setSetting(this.MIX_SETTING, '1'); } catch(e){}
+    this._publish();
+    if (window.dock && dock.refreshForNewHere) dock.refreshForNewHere();
+    var where = window.dock && dock.mobile ? 'More' : 'the dock';
+    setTimeout(function(){
+      if (window.appToast) appToast('New in ' + where + ': ⛏ Mine and Promote — earn credits to promote a track', '');
+    }, 4000);
+  },
+
+  _publish(){
+    document.documentElement.setAttribute('data-rr-new-here', this.on ? '1' : '0');
+    document.documentElement.setAttribute('data-rr-mixed', this.mixed ? '1' : '0');
+  }
 };

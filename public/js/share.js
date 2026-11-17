@@ -46,6 +46,7 @@ var shareBoss = {
       var mi = e.target.closest('.t-mi');
       if (!mi || mi.disabled) return;
       var plId = self.forPl;
+      self.lastAnchor = self.anchor;
       self.close();
       self.act(mi.dataset.s, plId);
     });
@@ -59,6 +60,15 @@ var shareBoss = {
       if (e.key === 'Escape' && !menu.hidden){ e.preventDefault(); e.stopImmediatePropagation(); var a = self.anchor; self.close(); if (a) a.focus(); }
     }, true);
     window.addEventListener('resize', function(){ if (!menu.hidden) self.place(); });
+    var card = menu.querySelector('.sm-link');
+    if (card){
+      card.querySelector('.sm-copy').addEventListener('click', function(){ self.copyLink(); });
+      card.querySelector('.sm-more').addEventListener('click', function(){ self.nativeShare(); });
+      card.querySelector('.sm-link-url').addEventListener('focus', function(){ this.select(); });
+      ['.sm-x', '.sm-fb'].forEach(function(q){
+        card.querySelector(q).addEventListener('click', function(){ if (window.riffUsage) riffUsage.count(q === '.sm-x' ? 'share_x' : 'share_fb'); });
+      });
+    }
     this.handleUrl();
   },
 
@@ -77,6 +87,7 @@ var shareBoss = {
     var id = plId || this.playlistId();
     var pl = id ? await db.playlists.get(id) : null;
     this.forPl = pl ? pl.id : null;
+    this.linkMode(false);
     var tr = menu.querySelector('[data-s=track]');
     tr.disabled = !player.currentYtId;
     var head = menu.querySelector('.sm-pl');
@@ -90,6 +101,7 @@ var shareBoss = {
 
   close(){
     this.menu.hidden = true;
+    this.linkMode(false);
     if (this.btn) this.btn.setAttribute('aria-expanded', 'false');
     this.anchor = null;
   },
@@ -199,22 +211,63 @@ var shareBoss = {
 
   linkForMix(slug){ return location.origin + '/?m=' + slug; },
 
-  /** hand over a link: the phone's share sheet, else the clipboard — and the
-      link stays on screen with a Copy button, in case the clipboard said no */
+  /** hand over a link: the share menu turns into a link card — the link,
+      Copy, Post on X, Share on Facebook, and on a phone "More apps…" (the
+      phone's own share sheet). The link is also copied straight away. */
   async giveLink(slug, name){
     var link = this.linkForMix(slug);
-    if (navigator.share && document.body.classList.contains('mobile')){
-      try { await navigator.share({ title: name || 'A playlist on riffrolled', text: (name || 'A playlist') + ' — on riffrolled', url: link }); return link; }
-      catch(e){ if (e && e.name === 'AbortError') return link; }
-    }
-    var copied = false;
-    try { await navigator.clipboard.writeText(link); copied = true; } catch(e){}
-    appNotify((copied ? 'Link copied — paste it to anyone: ' : 'Your link: ') + link.replace(/^https?:\/\//, ''), '', {
-      label: copied ? 'Copy again' : 'Copy link',
-      run: function(){ return navigator.clipboard.writeText(link).then(function(){ appToast('Link copied', 'ok'); }); }
-    });
+    await this.showLink(link, name || 'A playlist', 'playlist');
     document.documentElement.setAttribute('data-rr-last-link', link);
     return link;
+  },
+
+  /* the words that go with the link on X / Facebook / the share sheet */
+  postText(title, type){
+    title = String(title || '').trim();
+    return type === 'track'
+      ? (title ? '♪ ' + title + ' — rolled on riffrolled' : 'A track on riffrolled')
+      : (title ? 'My mix “' + title + '” — rolled on riffrolled' : 'A mix on riffrolled');
+  },
+
+  linkMode(on){
+    var card = this.menu && this.menu.querySelector('.sm-link');
+    if (!card) return;
+    card.hidden = !on;
+    this.menu.classList.toggle('link-mode', !!on);
+  },
+
+  async showLink(link, title, type){
+    var menu = this.menu;
+    this.last = { link: link, title: title, type: type, text: this.postText(title, type) };
+    var card = menu.querySelector('.sm-link');
+    card.querySelector('.sm-link-what').textContent = (type === 'track' ? 'Link to “' : 'Link to your playlist “') + title + '”';
+    card.querySelector('.sm-link-url').value = link;
+    var u = encodeURIComponent(link), t = encodeURIComponent(this.last.text);
+    card.querySelector('.sm-x').href = 'https://x.com/intent/post?text=' + t + '&url=' + u;
+    card.querySelector('.sm-fb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + u;
+    card.querySelector('.sm-more').hidden = !(navigator.share && document.body.classList.contains('mobile'));
+    var copied = false;
+    try { await navigator.clipboard.writeText(link); copied = true; } catch(e){}
+    card.querySelector('.sm-copy').textContent = copied ? 'Copied ✓' : 'Copy link';
+    // reopen the menu where it was (it closed when the menu item was pressed)
+    var anchor = (this.lastAnchor && document.body.contains(this.lastAnchor)) ? this.lastAnchor : this.btn;
+    menu.hidden = false;
+    this.anchor = anchor;
+    this.linkMode(true);
+    if (this.btn) this.btn.setAttribute('aria-expanded', anchor === this.btn ? 'true' : 'false');
+    this.place();
+  },
+
+  async copyLink(){
+    if (!this.last) return;
+    var b = this.menu.querySelector('.sm-copy');
+    try { await navigator.clipboard.writeText(this.last.link); b.textContent = 'Copied ✓'; appToast('Link copied', 'ok'); }
+    catch(e){ var i = this.menu.querySelector('.sm-link-url'); i.focus(); i.select(); appToast('Press Ctrl+C to copy', ''); }
+  },
+
+  async nativeShare(){
+    if (!this.last || !navigator.share) return;
+    try { await navigator.share({ title: this.last.title, text: this.last.text, url: this.last.link }); } catch(e){}
   },
 
   linkForTrack(ytId){ return location.origin + '/?t=' + ytId; },
@@ -227,16 +280,7 @@ var shareBoss = {
     if (window.linksLog) linksLog.add({ kind: 'sent', type: 'track', url: link, ytId: id,
       title: (player.el && player.el.title && player.el.title.textContent) || id });
     var title = (player.el && player.el.title && player.el.title.textContent) || 'A track';
-    if (navigator.share && document.body.classList.contains('mobile')){
-      try { await navigator.share({ title: title, text: title + ' — on riffrolled', url: link }); return; }
-      catch(e){ if (e && e.name === 'AbortError') return; }
-    }
-    try {
-      await navigator.clipboard.writeText(link);
-      appToast('Link copied — ' + link.replace(/^https?:\/\//, ''), 'ok');
-    } catch(e){
-      appNotify('Copy this link: ' + link, 'ok');
-    }
+    await this.showLink(link, title, 'track');
   },
 
   /* ── opening a track link: riffrolled.com/?t=<id> ── */

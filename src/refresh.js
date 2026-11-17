@@ -58,8 +58,10 @@ export function batchSize(total, days, maxCalls) {
 /** The verdicts as database writes. Returns the counts. */
 async function apply(db, rows, verdict, now) {
   const out = { fresh: 0, renamed: 0, struck: 0, deleted: 0 };
-  const ok = db.prepare(`UPDATE tracks SET checked_at = ?2, gone_at = '' WHERE id = ?1`);
-  const rename = db.prepare(`UPDATE tracks SET checked_at = ?2, gone_at = '', name = ?3, artist = ?4 WHERE id = ?1`);
+  // which channel uploaded it comes with every answer: kept for src/channels.js
+  // and how long it is (secs; the oEmbed fallback doesn't say, so 0 keeps what was there): for the auto mix's 1–12 minute rule
+  const ok = db.prepare(`UPDATE tracks SET checked_at = ?2, gone_at = '', channel_id = CASE WHEN ?3 != '' THEN ?3 ELSE channel_id END, secs = CASE WHEN ?4 > 0 THEN ?4 ELSE secs END WHERE id = ?1`);
+  const rename = db.prepare(`UPDATE tracks SET checked_at = ?2, gone_at = '', name = ?3, artist = ?4, channel_id = CASE WHEN ?5 != '' THEN ?5 ELSE channel_id END, secs = CASE WHEN ?6 > 0 THEN ?6 ELSE secs END WHERE id = ?1`);
   // struck: hidden now, and back at the front of the queue ('') so the next runs look again
   const strike = db.prepare(`UPDATE tracks SET checked_at = '', gone_at = ?2, verified = 0 WHERE id = ?1`);
   const wait = db.prepare(`UPDATE tracks SET checked_at = '' WHERE id = ?1`);
@@ -73,8 +75,8 @@ async function apply(db, rows, verdict, now) {
       const fromYt = FROM_YOUTUBE.has(r.source);
       const name = (v.title || '').slice(0, 300), artist = (v.channel || '').slice(0, 200);
       if (fromYt && name && (name !== r.name || (artist && artist !== r.artist))) {
-        stmts.push(rename.bind(r.id, now, name, artist || r.artist)); out.renamed++;
-      } else stmts.push(ok.bind(r.id, now));
+        stmts.push(rename.bind(r.id, now, name, artist || r.artist, v.channelId || '', v.secs || 0)); out.renamed++;
+      } else stmts.push(ok.bind(r.id, now, v.channelId || '', v.secs || 0));
       out.fresh++;
     } else if (r.gone_at && Date.parse(now) - Date.parse(r.gone_at) >= DAY) {
       stmts.push(delMix.bind(r.id), del.bind(r.id)); out.deleted++;     // second strike
@@ -117,6 +119,7 @@ export async function refresh(env, now = new Date().toISOString()) {
       info = await videoDetails(env, batch.map((r) => idOf(r.url)));
       out.units++;
     } catch (err) {
+      if (err instanceof YouTubeError && err.kind === 'budget') { out.skipped = 'budget'; return out; }
       if (err instanceof YouTubeError && (err.kind === 'quota' || err.kind === 'rate_limit' || err.kind === 'config')) { quotaGone = true; break; }
       out.skipped = 'error: ' + (err && err.message);
       return out;

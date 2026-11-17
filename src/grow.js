@@ -26,7 +26,7 @@
 import { getConfig } from './config.js';
 import { GENRES, normalizeGenre } from './genres.js';
 import { insertTracks, knownUrls, countAiLookups, addAiLookups } from './db/queries.js';
-import { searchYouTubePlaylists, fetchChannelUploads, videoDetails, YouTubeError } from './services/youtube.js';
+import { searchYouTubePlaylists, fetchChannelUploads, videoDetails, YouTubeError, callBudget } from './services/youtube.js';
 import { IMPOSTOR } from './routes/resolve.js';
 
 const COST_SEARCH = 100;
@@ -109,7 +109,7 @@ export async function growStyle(env, want, cfg) {
     const v = info.get(ids[i]);
     return v && v.ok && v.secs >= 60 && v.secs <= maxS;
   }).map((r) => ({
-    name: r.name, artist: r.artist,
+    name: r.name, artist: r.artist, channelId: r.channelId,
     // filed under the style's broad genre (if it has one); the style itself
     // is kept as what it "came in as", so a search for it finds them
     genre: want.style,
@@ -140,6 +140,7 @@ export async function grow(env, now = new Date().toISOString()) {
 
   for (const want of results || []) {
     if (spent + COST_SEARCH + 20 > cfg.GROW_UNITS_DAILY) break;
+    if (callBudget.left < 8) { out.skipped = out.skipped || 'budget'; break; }   // not enough left this run for a whole style
     let r = { units: 0, added: 0, lists: 0 };
     try {
       r = await growStyle(env, want, cfg);
@@ -153,7 +154,7 @@ export async function grow(env, now = new Date().toISOString()) {
     await env.DB.prepare(
       `UPDATE grow_wants SET done_at = ?2, added = added + ?3, runs = runs + 1 WHERE style = ?1`
     ).bind(want.style, now, r.added).run();
-    if (out.skipped === 'quota' || out.skipped === 'rate_limit') break;   // YouTube said stop: stop
+    if (out.skipped === 'quota' || out.skipped === 'rate_limit' || out.skipped === 'budget') break;   // stop
   }
   return out;
 }

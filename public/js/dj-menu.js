@@ -407,6 +407,8 @@ var djMenuBoss = {
       if (await djAi.addSimpleStyle(v)){
         var inp = this.el.querySelector('.dj-simple-in'); if (inp){ inp.value = ''; inp.focus(); }
         this.renderSimple(); this.sync();
+        var said = this.el.querySelector('.dj-auto-status');
+        if (said && said.textContent === this.NEED_STYLE) this.autoSay('');
       }
     } catch(e){ this.status(e.message, 'err'); }
   },
@@ -1052,7 +1054,11 @@ var djMenuBoss = {
       return;
     }
     if (simple){
-      root.querySelector('.dj-copy-note').textContent = (djAi.state.simpleStyles || []).length ? '' : 'say what kind of music first — or the DJ chooses';
+      var hasStyle = (djAi.state.simpleStyles || []).length > 0;
+      root.querySelector('.dj-copy-note').textContent = hasStyle ? '' : 'say what kind of music first — or the DJ chooses';
+      // the "say what kind of music first" error is answered the moment a style is added
+      var said = root.querySelector('.dj-auto-status');
+      if (hasStyle && said && said.textContent === this.NEED_STYLE) this.autoSay('');
       return;
     }
     var missing = this.mainCats().filter(function(x){ return !djAi.picked(x.key); }).length;
@@ -1108,7 +1114,7 @@ var djMenuBoss = {
     var st = (djAi.state.simpleStyles || []).slice();
     var btn = root.querySelector('.dj-auto');
     if (!st.length){
-      this.autoSay('Say what kind of music first — type a style above', 'err');
+      this.autoSay(this.NEED_STYLE, 'err');
       var inp = root.querySelector('.dj-simple-in'); if (inp) inp.focus();
       return null;
     }
@@ -1131,6 +1137,8 @@ var djMenuBoss = {
       var saved = await djAi.importPlaylist(parsed, '');
       if (!saved){ this.autoSay('Those tracks couldn’t be saved — try again', 'err'); return null; }
       if (window.riffUsage) riffUsage.count('automix');
+      // remembered so a track that turns out blocked can be swapped for one in the same styles (plBoss.swapOrDrop)
+      try { await db.playlists.update(saved.playlistId, { automix: { styles: st } }); } catch(e){}
       await plBoss.setActivePlaylist(saved.playlistId);
       plBoss.renderPlaylists();
       if (window.searchBoss) searchBoss.render();
@@ -1157,6 +1165,8 @@ var djMenuBoss = {
       btn.textContent = '✨ MAKE MY MIX';
     }
   },
+
+  NEED_STYLE: 'Say what kind of music first — type a style above',
 
   autoSay(msg, kind){
     var el = this.el.querySelector('.dj-auto-status');

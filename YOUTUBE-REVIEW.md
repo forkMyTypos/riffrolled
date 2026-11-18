@@ -9,7 +9,7 @@ Functionality. Not legal advice; it's a working checklist.
 |---|---|---|
 | Player at least 200 × 200 px | ✅ | `.screen` is fixed at 200 × 200 (`deck.css`); `ytGuard` warns if it ever shrinks |
 | Nothing over the player | ✅ | Deck laid out around the video; floating cards ask `ytGuard` first and an audit runs every couple of seconds |
-| No background player (not on the screen the user is viewing) | ✅ **fixed this round** | Phone: the video stays pinned at the top of every tab once a track is loaded (`mobile.css`). Any device: playback pauses when the tab is hidden and carries on when it's back (`bgGuard` in `player.js`) |
+| No background player (not on the screen the user is viewing) | ✅ **fixed this round** | Phone: the video stays pinned at the top of every tab once a track is loaded (`mobile.css`). Any device: by default playback pauses when the tab is hidden and carries on when it's back (`bgGuard` in `player.js`); listeners can opt in to "Background play" with a switch under the deck |
 | No autoplay unless the player is visible | ✅ | Follows from the two rows above |
 | Player not modified; YouTube links in it not hidden | ✅ | Plain IFrame API, standard `playerVars` only |
 | HTTP Referer sent | ✅ | `Referrer-Policy: strict-origin-when-cross-origin` (`_headers`); no `noreferrer` on YouTube links |
@@ -33,4 +33,4 @@ Functionality. Not legal advice; it's a working checklist.
 
 ## The one product trade-off
 
-Pausing when the tab is hidden means music stops if you switch tabs or lock the phone. That is the strict reading of "not displayed in the page, tab, or screen that the user is viewing". To allow background listening anyway, set `bgGuard.ON = false` in `public/js/player.js`, but expect the review to object.
+By default music pauses when the tab is hidden (another tab, the window minimised or fully covered, the phone locked): the strict reading of "not displayed in the page, tab, or screen that the user is viewing". Listeners who want background listening can turn on the **Background play** switch under the deck; it's off unless they choose it, and remembered per browser. That opt-in is a grey area for the review: if the reviewer objects, remove the switch (`#bgToggleWrap` in `index.html`) and the default behaviour stays.

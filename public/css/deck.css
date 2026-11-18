@@ -379,7 +379,8 @@ body:not(.mobile) .panel { z-index:10; }
 .spin-side .spin-label { font-size:11px; }
 
 /* Awake keeps a phone screen on; a desktop has no use for it */
-.np-toggles { display:none; }
+.np-toggles { display:flex; justify-content:center; gap:18px; }
+body:not(.mobile) #wakeToggleWrap { display:none; }   /* Awake is for phones */
 
 /* "More from this artist" in Track info */
 .ti-more { margin:8px 0 2px; }

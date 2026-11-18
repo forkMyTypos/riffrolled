@@ -290,21 +290,33 @@ wakeBoss.init();
 /* ── bgGuard ─────────────────────────────────────────────────────────────
    YouTube's Developer Policies don't allow playing from a "background
    player": one not displayed in the page, tab or screen the user is
-   viewing. So when this tab is hidden (another tab, the window minimised,
-   the phone locked) the video pauses, and it carries on by itself when the
-   tab is visible again. Set ON to false to allow background listening (and
-   expect YouTube's API review to object). */
+   viewing. So by default, when this tab is hidden (another tab, the window
+   minimised or completely covered, the phone locked) the video pauses, and
+   it carries on by itself when the tab is visible again.
+   The listener can choose otherwise: the "Background play" switch under
+   the deck (setting bgPlay) lets music keep playing. Off by default. ── */
 var bgGuard = {
-  ON: true,
+  allowBackground: false,
   resumeOnReturn: false,
   init(){
     var self = this;
+    var box = document.getElementById('bgToggle');
+    if (window.dbBoss && dbBoss.getSetting) {
+      dbBoss.getSetting('bgPlay').then(function(v){
+        self.allowBackground = v === '1';
+        if (box) box.checked = self.allowBackground;
+      });
+    }
+    if (box) box.addEventListener('change', function(){
+      self.allowBackground = box.checked;
+      if (window.dbBoss && dbBoss.setSetting) dbBoss.setSetting('bgPlay', self.allowBackground ? '1' : '0');
+    });
     document.addEventListener('visibilitychange', function(){ self.check(); });
   },
   check(){
-    if (!this.ON || !window.player) return;
+    if (!window.player) return;
     if (document.visibilityState === 'hidden'){
-      if (player.isPlaying){ this.resumeOnReturn = true; player.pause(); }
+      if (!this.allowBackground && player.isPlaying){ this.resumeOnReturn = true; player.pause(); }
     } else if (this.resumeOnReturn){
       this.resumeOnReturn = false;
       if (!player.isPlaying) player.resume();

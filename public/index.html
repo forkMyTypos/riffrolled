@@ -170,8 +170,14 @@
                     </div>
                 </div>
 
-                <!-- phones only: Awake keeps the screen on while music plays -->
+                <!-- Awake (phones only) keeps the screen on while music plays;
+                     Background play (everywhere) lets music carry on when the tab is hidden -->
                 <div class="np-toggles">
+                    <label class="spin-toggle" id="bgToggleWrap" title="Off: music pauses when you switch tab, minimise or cover the window, and carries on when you're back (YouTube's rules ask for this). On: it keeps playing.">
+                        <input type="checkbox" id="bgToggle" data-testid="bg-toggle">
+                        <span class="spin-track"><span class="spin-thumb"></span></span>
+                        <span class="spin-label">Background play</span>
+                    </label>
                     <label class="spin-toggle" id="wakeToggleWrap" title="Keep the screen on while music plays (uses more battery). Phones pause YouTube when the screen turns off.">
                         <input type="checkbox" id="wakeToggle">
                         <span class="spin-track"><span class="spin-thumb"></span></span>

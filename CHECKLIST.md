@@ -2,6 +2,9 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: Background play switch (18 Nov, still schema 36)
+- [x] "Background play" switch under the deck (desktop) / next to Awake (phones). Off by default: music pauses when the tab is hidden and resumes on return. On: keeps playing. Saved as setting `bgPlay`. Files: `public/index.html`, `public/js/player.js`, `public/css/deck.css`.
+
 ## Round: homepage legal footer for the YouTube review (18 Nov, still schema 36)
 - [x] Always-visible footer on the homepage: Terms · Privacy · Videos play on YouTube · Contact (`index.html` #siteFoot, styles in `features.css`). Bottom-left on desktop; above the tab bar on the phone's Player view.
 - [x] Evidence files for the YouTube audit form made from the deployed pages (privacy PNG, terms PDF/PNG, homepage PNG).

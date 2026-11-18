@@ -2,6 +2,10 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: homepage legal footer for the YouTube review (18 Nov, still schema 36)
+- [x] Always-visible footer on the homepage: Terms · Privacy · Videos play on YouTube · Contact (`index.html` #siteFoot, styles in `features.css`). Bottom-left on desktop; above the tab bar on the phone's Player view.
+- [x] Evidence files for the YouTube audit form made from the deployed pages (privacy PNG, terms PDF/PNG, homepage PNG).
+
 ## Round: free link finding, one-click Haiku, YouTube review (17 Nov, still schema 36)
 - [x] **Three new free link steps** (`src/ai/automix-ai.js`): `discogs` (the release's own YouTube videos; free token), `brave` (Brave web search; stops at `AI_BRAVE_MONTHLY`, 900, to stay inside Brave's free $5 a month), `musicbrainz` (official YouTube links on recordings; free, slow, off by default). Every link still has to pass the oEmbed title + channel check.
 - [x] **One call budget per mix** (`AI_CALL_BUDGET`, 40): every link step and every oEmbed check takes from it, so the Workers free plan's 50 outside requests are never exceeded. (Replaces a module-level counter that two mixes at once could share.)

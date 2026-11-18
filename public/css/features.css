@@ -1027,3 +1027,13 @@ body.mobile .pl-mb.pl-beside { display:none; }
 
 /* playlist rows: long titles wrap to two lines instead of one cut-off line */
 .track-item .name { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; line-height:1.3; word-break:break-word; }
+
+
+/* ── the legal footer (index.html #siteFoot) ───────────────────────────
+   Small, always on screen: Terms, Privacy, YouTube as the source. On
+   phones it sits above the tab bar on the Player view only. */
+.site-foot { position:fixed; left:14px; bottom:10px; z-index:5; font-size:11px; color:rgba(255,255,255,0.45); pointer-events:auto; }
+.site-foot a { color:rgba(255,255,255,0.6); text-decoration:none; }
+.site-foot a:hover { color:#fff; text-decoration:underline; }
+body.mobile .site-foot { left:0; right:0; text-align:center; bottom:calc(66px + env(safe-area-inset-bottom)); }
+body.mobile.m-view-panel .site-foot { display:none; }

@@ -371,15 +371,15 @@ var plBoss = {
     if (!el) return;
     if (!player.currentYtId){
       this.currentEl.classList.remove('pl-is-playing');
-      el.textContent = '■ Stopped'; el.style.color = 'rgba(255,255,255,0.4)'; return;
+      el.textContent = '■ Stopped'; el.style.color = 'rgba(var(--ink), max(0.4, var(--tx-floor)))'; return;
     }
     const inThis = plBoss.playingId === this.activeId && plBoss.queue.some(t => t.ytId === player.currentYtId);
     this.currentEl.classList.toggle('pl-is-playing', inThis);
     if (player.isPlaying){
       el.textContent = inThis ? '▶ Playing' : '▶ Playing (another playlist)';
-      el.style.color = '#5ab88a';
+      el.style.color = 'rgb(var(--ok))';
     } else {
-      el.textContent = '❚❚ Paused'; el.style.color = '#d8a657';
+      el.textContent = '❚❚ Paused'; el.style.color = 'rgb(var(--a4-lt))';
     }
   },
 
@@ -387,7 +387,7 @@ var plBoss = {
     const m = this.currentEl && this.currentEl.querySelector('.active-pl-msg');
     if (!m) return;
     m.textContent = text || '';
-    m.style.color = kind === 'err' ? '#d46060' : kind === 'ok' ? '#5ab88a' : 'rgba(255,255,255,0.45)';
+    m.style.color = kind === 'err' ? 'rgb(var(--bad))' : kind === 'ok' ? 'rgb(var(--ok))' : 'rgba(var(--ink), max(0.45, var(--tx-floor)))';
     if (text){ clearTimeout(this._msgT); this._msgT = setTimeout(()=>{ if (m.textContent === text) m.textContent=''; }, 4000); }
   },
 

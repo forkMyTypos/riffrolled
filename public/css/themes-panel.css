@@ -1,0 +1,72 @@
+/* riffrolled — themes-panel.css
+   The 🎨 Themes panel and the theme-wide odds and ends that are not variables.
+   The variables themselves are in themes.css. */
+
+:root { color-scheme: dark; }
+:root[data-light] { color-scheme: light; }
+:root[data-font="mono"] button, :root[data-font="mono"] input, :root[data-font="mono"] select, :root[data-font="mono"] textarea { font-family: var(--font-ui); }
+/* the logo burnt into the page: its inner square follows the surfaces */
+.brand-burn svg rect[fill="#11111f"] { fill: rgb(var(--sur2)); }
+
+/* ═══ the 🎨 Themes panel (js/themes.js) ═══ */
+.th-body { display:flex; flex-direction:column; gap:10px; padding:10px 12px 14px; }
+.th-pick[hidden], .th-edit[hidden], .th-mine-wrap[hidden] { display:none; }
+.th-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-bottom:10px; }
+.th-card { position:relative; }
+.th-pickbtn { display:flex; flex-direction:column; align-items:stretch; gap:5px; width:100%; padding:5px 5px 6px; border-radius:9px;
+  background:rgba(var(--ink), 0.04); border:1px solid rgba(var(--ink), 0.1); color:rgba(var(--ink), max(0.8, var(--tx-floor))); white-space:normal; }
+.th-pickbtn:hover { background:rgba(var(--ink), 0.08); border-color:rgba(var(--ink), 0.22); color:rgb(var(--ink)); }
+.th-card.on .th-pickbtn { border-color:var(--accent, rgb(var(--a12))); box-shadow:0 0 0 1px var(--accent, rgb(var(--a12))), 0 0 12px rgba(var(--a12), calc(0.35 * var(--glow))); color:rgb(var(--ink)); }
+.th-pickbtn:focus-visible { outline:2px solid rgb(var(--a1)); outline-offset:2px; }
+/* the swatch: a tiny page with a tiny panel on it, its three accents and a line of text */
+.th-sw { display:block; height:46px; border-radius:6px; padding:7px 9px 0 7px; background:var(--sw-bg); border:1px solid rgba(var(--ink), 0.08); overflow:hidden; }
+.th-sw-panel { display:flex; flex-wrap:wrap; align-items:center; gap:4px; height:100%; padding:6px 6px 0; border-radius:4px 4px 0 0; background:var(--sw-panel);
+  box-shadow:0 0 10px color-mix(in srgb, var(--sw-1) calc(var(--sw-glow) * 40%), transparent); }
+.th-sw-panel i { display:block; width:9px; height:9px; border-radius:50%; }
+.th-sw-panel .d1 { background:var(--sw-1); } .th-sw-panel .d2 { background:var(--sw-2); } .th-sw-panel .d3 { background:var(--sw-3); }
+.th-sw-panel b { display:block; flex:1 0 100%; height:3px; border-radius:2px; background:var(--sw-ink); opacity:.7; margin-top:1px; }
+.th-name { font-size:11px; font-weight:600; line-height:1.2; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 2px; }
+.th-tick { position:absolute; top:3px; right:4px; width:16px; height:16px; border-radius:50%; font-size:10px; line-height:16px; text-align:center;
+  background:var(--accent, rgb(var(--a12))); color:rgb(var(--on-acc)); opacity:0; transform:scale(.6); transition:opacity .15s, transform .15s; }
+.th-card.on .th-tick { opacity:1; transform:none; }
+.th-acts { display:flex; justify-content:center; gap:2px; margin-top:3px; }
+.th-act { padding:1px 6px; font-size:11px; line-height:1.4; background:transparent; border-color:transparent; color:rgba(var(--ink), max(0.5, var(--tx-floor))); }
+.th-act:hover { background:rgba(var(--ink), 0.1); color:rgb(var(--ink)); }
+.th-act.th-del:hover { color:rgb(var(--bad-tx)); background:rgba(var(--bad), 0.16); }
+.th-make { width:100%; padding:9px 10px; font-size:13px; font-weight:700; color:rgb(var(--ink)); border-radius:8px;
+  background:linear-gradient(135deg, rgba(var(--a2), 0.4), rgba(var(--a1), 0.4)); border:1px solid rgba(var(--a2), 0.6);
+  box-shadow:0 0 14px rgba(var(--a2), calc(0.25 * var(--glow))); }
+.th-make:hover { color:rgb(var(--ink)); filter:brightness(1.1); background:linear-gradient(135deg, rgba(var(--a2), 0.55), rgba(var(--a1), 0.55)); }
+.th-paste { display:flex; gap:6px; margin-top:10px; }
+.th-paste .th-code { flex:1; min-width:0; }
+.th-foot { margin-top:10px; font-size:11px; line-height:1.45; color:rgba(var(--ink), max(0.4, var(--tx-floor))); }
+
+/* the editor */
+.th-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(var(--ink), 0.06); font-size:12px; color:rgba(var(--ink), max(0.85, var(--tx-floor))); }
+.th-lbl { flex:1; min-width:0; display:flex; flex-direction:column; }
+.th-lbl small { font-size:10px; color:rgba(var(--ink), max(0.42, var(--tx-floor))); }
+.th-namerow .th-namein { flex:1.6; min-width:0; }
+.th-col { width:46px; height:28px; padding:2px; border-radius:6px; border:1px solid rgba(var(--ink), 0.2); background:rgba(var(--ink), 0.05); cursor:pointer; }
+.th-col::-webkit-color-swatch-wrapper { padding:0; }
+.th-col::-webkit-color-swatch { border:0; border-radius:4px; }
+.th-col::-moz-color-swatch { border:0; border-radius:4px; }
+.th-hex, .th-auto { width:62px; font:11px/1.2 ui-monospace, Consolas, monospace; color:rgba(var(--ink), max(0.5, var(--tx-floor))); }
+.th-auto { display:flex; align-items:center; gap:4px; font-family:inherit; cursor:pointer; }
+.th-auto input, .th-fonts input { accent-color:rgb(var(--a1)); }
+.th-glow { width:110px; accent-color:rgb(var(--a2)); }
+.th-fonts { display:flex; gap:12px; }
+.th-fonts label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+.th-mono { font-family:ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.th-note { min-height:0; font-size:11px; line-height:1.4; color:rgb(var(--a4-tx)); }
+.th-note.on { margin-top:8px; padding:6px 8px; border-radius:6px; background:rgba(var(--a4), 0.1); border:1px solid rgba(var(--a4), 0.3); }
+.th-btns { display:flex; gap:8px; margin-top:12px; }
+.th-btns button { flex:1; padding:8px; font-size:13px; font-weight:600; border-radius:7px; }
+.th-save { color:rgb(var(--ink)); background:linear-gradient(135deg, rgba(var(--a2), 0.4), rgba(var(--a1), 0.4)); border:1px solid rgba(var(--a2), 0.6); }
+.th-save:hover { color:rgb(var(--ink)); filter:brightness(1.1); background:linear-gradient(135deg, rgba(var(--a2), 0.55), rgba(var(--a1), 0.55)); }
+body.mobile .th-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+body.mobile .th-row { padding:8px 0; }
+
+/* light themes, phone: the first-visit hint's buttons overlap the top of the
+   (always dark) record player, so they get solid page-coloured backs */
+:root[data-light] body.mobile .deck-hint .dh-own, :root[data-light] body.mobile .deck-hint .dh-tour { background-color:rgb(var(--sur3)); }
+:root[data-light] body.mobile .deck-hint .dh-go { background:linear-gradient(rgba(var(--a1-lt), 0.2), rgba(var(--a1-lt), 0.2)), rgb(var(--sur3)); }

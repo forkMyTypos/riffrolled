@@ -6,44 +6,44 @@
 
 .tour-card {
   position:fixed; z-index:2400; width:min(360px, calc(100vw - 32px));
-  background:#1a1a2e; border:1px solid rgba(255,255,255,0.1);
-  border-top:2px solid #ff9de2; border-radius:0.7rem;
-  box-shadow:0 14px 44px rgba(0,0,0,0.6);
-  padding:16px 18px 12px; color:#e0e0e0;
+  background:rgb(var(--sur3)); border:1px solid rgba(var(--ink), 0.1);
+  border-top:2px solid rgb(var(--a2)); border-radius:0.7rem;
+  box-shadow:0 14px 44px rgba(var(--shade), calc(0.6 * var(--shade-k)));
+  padding:16px 18px 12px; color:rgba(var(--ink), max(0.878, var(--tx-floor)));
 }
 
 .tour-card[hidden] { display:none; }
 
 .tt-x {
   position:absolute; top:8px; right:8px; background:transparent; border:0;
-  color:rgba(255,255,255,0.35); font-size:14px; line-height:1; padding:3px 5px; border-radius:5px; cursor:pointer;
+  color:rgba(var(--ink), max(0.35, var(--tx-floor))); font-size:14px; line-height:1; padding:3px 5px; border-radius:5px; cursor:pointer;
 }
 
-.tt-x:hover { color:#fff; background:rgba(255,255,255,0.12); }
+.tt-x:hover { color:rgb(var(--ink)); background:rgba(var(--ink), 0.12); }
 
-.tt-step { font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.3); }
+.tt-step { font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:rgba(var(--ink), max(0.3, var(--tx-floor))); }
 
-.tt-title { font-size:17px; font-weight:650; margin:4px 0 8px; color:#fff; }
+.tt-title { font-size:17px; font-weight:650; margin:4px 0 8px; color:rgb(var(--ink)); }
 
-.tt-body { font-size:13px; line-height:1.55; color:rgba(255,255,255,0.72); }
+.tt-body { font-size:13px; line-height:1.55; color:rgba(var(--ink), max(0.72, var(--tx-floor))); }
 
-.tt-body b { color:#fff; font-weight:600; }
+.tt-body b { color:rgb(var(--ink)); font-weight:600; }
 
-.tt-body i { color:rgba(255,255,255,0.85); font-style:italic; }
+.tt-body i { color:rgba(var(--ink), max(0.85, var(--tx-floor))); font-style:italic; }
 
-.tt-dim { color:rgba(255,255,255,0.4); font-size:12px; }
+.tt-dim { color:rgba(var(--ink), max(0.4, var(--tx-floor))); font-size:12px; }
 
 /* the mental model, on the last step */
 .tt-loop { display:flex; flex-direction:column; gap:4px; margin:2px 0 12px; }
 
 .tt-loop span {
-  font-size:15px; font-weight:650; color:#fff; letter-spacing:0.01em;
+  font-size:15px; font-weight:650; color:rgb(var(--ink)); letter-spacing:0.01em;
   padding-left:14px; position:relative;
 }
 
 .tt-loop span::before {
   content:'↓'; position:absolute; left:0; top:-1px;
-  color:#ff9de2; font-size:12px; font-weight:400;
+  color:rgb(var(--a2)); font-size:12px; font-weight:400;
 }
 
 .tt-loop span:first-child::before { content:'▸'; }
@@ -54,31 +54,31 @@
 
 .tt-dot {
   width:7px; height:7px; padding:0; border-radius:50%; border:0;
-  background:rgba(255,255,255,0.18); cursor:pointer;
+  background:rgba(var(--ink), 0.18); cursor:pointer;
 }
 
-.tt-dot:hover { background:rgba(255,255,255,0.4); }
+.tt-dot:hover { background:rgba(var(--ink), 0.4); }
 
-.tt-dot.on { background:#ff9de2; }
+.tt-dot.on { background:rgb(var(--a2)); }
 
 .tt-next { font-size:12px; padding:7px 12px; }
 
 .tour-card.tt-final .tt-next {
-  background:rgba(255,157,226,0.22); border-color:rgba(255,157,226,0.5); color:#fff; font-weight:600;
+  background:rgba(var(--a2), 0.22); border-color:rgba(var(--a2), 0.5); color:rgb(var(--ink)); font-weight:600;
 }
 
-.tt-back { font-size:11px; color:rgba(255,255,255,0.45); }
+.tt-back { font-size:11px; color:rgba(var(--ink), max(0.45, var(--tx-floor))); }
 
 /* whichever panel this step is about */
 .tour-spot {
-  outline:2px solid rgba(255,157,226,0.65);
+  outline:2px solid rgba(var(--a2), 0.65);
   outline-offset:2px;
   animation:ttpulse 2.4s ease-in-out infinite;
 }
 
 @keyframes ttpulse {
-  0%, 100% { outline-color:rgba(255,157,226,0.25); }
-  50%      { outline-color:rgba(255,157,226,0.8); }
+  0%, 100% { outline-color:rgba(var(--a2), 0.25); }
+  50%      { outline-color:rgba(var(--a2), 0.8); }
 }
 
 /* the deck isn't a panel, so outline it without the offset covering the video */
@@ -104,19 +104,19 @@ body.mobile .tour-spot { outline:none; animation:none; }
 .tour-card .tt-action {
   display:block; width:100%; margin:4px 0 12px; padding:11px 14px;
   font-size:13px; font-weight:700; letter-spacing:.03em; cursor:pointer;
-  color:#fff; border:1px solid rgba(255,255,255,0.14); border-radius:9px;
-  background:linear-gradient(135deg, #ff9de2 0%, #8a7bff 100%);
-  box-shadow:0 4px 16px rgba(138,123,255,0.3);
+  color:rgb(var(--on-acc)); border:1px solid rgba(var(--ink), 0.14); border-radius:9px;
+  background:linear-gradient(135deg, rgb(var(--a2)) 0%, rgb(var(--a1)) 100%);
+  box-shadow:0 4px 16px rgba(var(--a1), calc(0.3 * var(--glow)));
   transition:transform .1s ease, box-shadow .15s ease, filter .15s ease;
 }
 
-.tour-card .tt-action:hover:not(:disabled) { filter:brightness(1.08); box-shadow:0 6px 20px rgba(138,123,255,0.42); }
+.tour-card .tt-action:hover:not(:disabled) { filter:brightness(1.08); box-shadow:0 6px 20px rgba(var(--a1), calc(0.42 * var(--glow))); }
 
 .tour-card .tt-action:active:not(:disabled) { transform:translateY(1px); }
 
 .tour-card .tt-action:disabled { opacity:.6; cursor:default; }
 
 .tour-card .tt-action.done {
-  background:linear-gradient(135deg, #5ab88a 0%, #46a0a8 100%);
-  box-shadow:0 4px 16px rgba(90,184,138,0.28);
+  background:linear-gradient(135deg, rgb(var(--ok)) 0%, rgb(var(--a3-md)) 100%);
+  box-shadow:0 4px 16px rgba(var(--ok), calc(0.28 * var(--glow)));
 }

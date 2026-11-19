@@ -277,6 +277,18 @@ Everything the page needs comes from this site: Dexie lives in `public/vendor/` 
 
 Panels start closed, and stay invisible (`html:not(.rr-up) .panel`) until `dock.js` has given each its state. `dock.js` also remembers any panel opened or closed before the saved layout finished loading, and the restore leaves those alone. To upgrade Dexie, replace the file in `vendor/` and keep the version in its filename comment.
 
+## Colour themes (`css/themes.css`, `js/theme-boot.js`, `js/themes.js`)
+
+Every colour in the app's stylesheets is a variable holding `r,g,b` (`color: rgb(var(--a1))`, `background: rgba(var(--ink), 0.06)`). Their values in `css/themes.css` are Neon Noir, the default. **When you write new CSS, use these variables, not hex**: the theme editor depends on it. The names: `ink` (text and white-ish overlays), `sur0`…`sur4` (surfaces, deepest to most raised; `sur1` page, `sur3` panels), `shade` / `shade-k` (shadows), `glow` (multiplier on coloured glows), `tx-floor` (faintest alpha text may use), `on-acc` (text on a filled accent), accents `a1 a12 a2 a3 a4 ok bad`, each with `-lt -tx -md -dk -dk2`.
+
+- **`theme-boot.js`** runs in `<head>` without `defer`, so the saved theme is there before the first paint. A theme is ~8 picks (background, optional panel and text, accents 1–3, highlight, glow, font); `derive()` turns them into all the variables and pushes text and accents lighter or darker until they pass a contrast check. Values go on `<html>` with `style.setProperty` (CSSOM, allowed by the CSP).
+- **P and D sets:** each variable exists as `--P-x` (the page) and `--D-x` (the record player, always a dark object, even in Paper). `themes.css` points plain `--x` at the right one: the plinth on a desktop and the control bar on a phone use D; their pop-up menus use P.
+- **Never themed:** the turntable hardware (vinyl, tone arm, video frame) and the skins' own finishes in `css/skins.css`. The record-player skins and the colour themes are separate choices.
+- **Panel colours:** `dock.js` gives each panel `--accent: var(--pa-<slug>, <its Neon Noir hue>)`; every other theme maps `--pa-*` to its accents.
+- **Storage:** `localStorage` `rr.theme` (the theme in use) and `rr.themes.custom` (your own). Backups carry your own themes (`themes` in the export); a restore adds missing ones and never replaces.
+- **Sharing:** `riffrolled.com/#theme=v1~<name>~bg~panel~ink~a1~a2~a3~a4~glow%~s|m` (hex without `#`, `-` = auto). Opening one previews it with a "Keep it?" banner; nothing is sent anywhere.
+- **Presets:** Neon Noir, Void, Amber Drive, Ice Circuit, Blood Moon, Gunmetal, Soft Terminal (mono font), Toxic, Paper (light). A new one is one line in `PRESETS`.
+
 ## Driving riffrolled from code
 
 There is a small, versioned API on `window.riffrolled` (`public/js/agent.js`).

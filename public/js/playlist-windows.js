@@ -108,7 +108,7 @@ var plWins = {
     var p = plBoss.spawn(++this._n);
     var el = p.currentEl;
     el.classList.add('pl-win');
-    el.style.setProperty('--accent', '#9d8cff');      // the Playlist panel's own colour
+    el.style.setProperty('--accent', 'var(--pa-playlist, #9d8cff)');      // the Playlist panel's own colour
     el.setAttribute('data-testid', 'pl-win');
     w = { p: p, el: el, minimized: false,
           get id(){ return p.activeId; },

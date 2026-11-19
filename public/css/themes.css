@@ -1,0 +1,336 @@
+/* riffrolled — themes.css  (generated once when the theme system went in; hand-kept since)
+   EVERY colour in the app's stylesheets is one of these variables. Their
+   values here are Neon Noir, the default theme. js/theme-boot.js overrides
+   them inline on <html> for any other theme (and for themes people make).
+
+   Each variable holds "r,g,b", so a stylesheet can choose its own alpha:
+       color: rgb(var(--a1));        background: rgba(var(--ink), 0.06);
+
+   THE NAMES
+     ink                 text and the white-ish overlays (light themes flip it dark)
+     sur0 … sur4         surfaces, deepest to most raised (sur1 page, sur3 panels)
+     shade, shade-k      shadow colour and strength (light themes soften shadows)
+     glow                multiplier on every coloured glow (0 = flat)
+     tx-floor            the faintest alpha text may use (keeps hints readable)
+     on-acc              text on a filled accent button
+     a1 a12 a2 a3 a4     accents: a1 main, a2 second, a12 between them, a3 third,
+                         a4 highlight (credits, warnings)
+     ok bad              good / bad
+     each accent has -lt (lighter), -tx (for text), -dk and -dk2 (deep, for fills)
+
+   P- and D-: every name exists twice. --P-x is the page, --D-x the record
+   player, which stays a dark object even in Paper. In a dark theme they
+   match. Below, plain --x is pointed at the right one for each place.
+
+   NEVER THEMED: the record player's hardware (turntable, vinyl, tone arm,
+   the video frame) and the skins' own finishes (css/skins.css). Writing a
+   new rule? Use these variables, not hex: the theme editor depends on it. */
+
+:root {
+  --P-sur0: 10,10,18;
+  --P-sur1: 17,17,17;
+  --P-sur2: 21,21,29;
+  --P-sur3: 26,26,46;
+  --P-sur4: 32,32,58;
+  --P-ink: 255,255,255;
+  --P-shade: 0,0,0;
+  --P-shade-k: 1;
+  --P-glow: 1;
+  --P-tx-floor: 0;
+  --P-on-acc: 255,255,255;
+  --P-a1: 138,123,255;
+  --P-a1-lt: 157,140,255;
+  --P-a1-tx: 195,182,255;
+  --P-a1-md: 108,92,231;
+  --P-a1-dk: 60,50,120;
+  --P-a1-dk2: 44,40,69;
+  --P-a12: 217,140,255;
+  --P-a12-lt: 205,157,243;
+  --P-a12-tx: 233,198,255;
+  --P-a12-md: 168,120,205;
+  --P-a12-dk: 107,79,129;
+  --P-a12-dk2: 56,44,66;
+  --P-a2: 255,157,226;
+  --P-a2-lt: 255,180,234;
+  --P-a2-tx: 255,198,238;
+  --P-a2-md: 255,102,196;
+  --P-a2-dk: 255,51,221;
+  --P-a2-dk2: 69,48,63;
+  --P-a3: 70,224,255;
+  --P-a3-lt: 122,162,247;
+  --P-a3-tx: 143,227,255;
+  --P-a3-md: 70,160,168;
+  --P-a3-dk: 44,121,136;
+  --P-a3-dk2: 29,63,69;
+  --P-a4: 255,204,77;
+  --P-a4-lt: 255,184,107;
+  --P-a4-tx: 255,217,142;
+  --P-a4-md: 224,163,77;
+  --P-a4-dk: 185,119,14;
+  --P-a4-dk2: 69,58,30;
+  --P-ok: 90,184,138;
+  --P-ok-lt: 84,230,140;
+  --P-ok-tx: 143,220,178;
+  --P-ok-md: 47,143,91;
+  --P-ok-dk: 54,101,78;
+  --P-ok-dk2: 33,54,44;
+  --P-bad: 212,96,96;
+  --P-bad-lt: 232,112,95;
+  --P-bad-tx: 226,148,148;
+  --P-bad-md: 192,57,43;
+  --P-bad-dk: 115,57,57;
+  --P-bad-dk2: 60,34,34;
+  --D-sur0: 10,10,18;
+  --D-sur1: 17,17,17;
+  --D-sur2: 21,21,29;
+  --D-sur3: 26,26,46;
+  --D-sur4: 32,32,58;
+  --D-ink: 255,255,255;
+  --D-shade: 0,0,0;
+  --D-shade-k: 1;
+  --D-glow: 1;
+  --D-tx-floor: 0;
+  --D-on-acc: 255,255,255;
+  --D-a1: 138,123,255;
+  --D-a1-lt: 157,140,255;
+  --D-a1-tx: 195,182,255;
+  --D-a1-md: 108,92,231;
+  --D-a1-dk: 60,50,120;
+  --D-a1-dk2: 44,40,69;
+  --D-a12: 217,140,255;
+  --D-a12-lt: 205,157,243;
+  --D-a12-tx: 233,198,255;
+  --D-a12-md: 168,120,205;
+  --D-a12-dk: 107,79,129;
+  --D-a12-dk2: 56,44,66;
+  --D-a2: 255,157,226;
+  --D-a2-lt: 255,180,234;
+  --D-a2-tx: 255,198,238;
+  --D-a2-md: 255,102,196;
+  --D-a2-dk: 255,51,221;
+  --D-a2-dk2: 69,48,63;
+  --D-a3: 70,224,255;
+  --D-a3-lt: 122,162,247;
+  --D-a3-tx: 143,227,255;
+  --D-a3-md: 70,160,168;
+  --D-a3-dk: 44,121,136;
+  --D-a3-dk2: 29,63,69;
+  --D-a4: 255,204,77;
+  --D-a4-lt: 255,184,107;
+  --D-a4-tx: 255,217,142;
+  --D-a4-md: 224,163,77;
+  --D-a4-dk: 185,119,14;
+  --D-a4-dk2: 69,58,30;
+  --D-ok: 90,184,138;
+  --D-ok-lt: 84,230,140;
+  --D-ok-tx: 143,220,178;
+  --D-ok-md: 47,143,91;
+  --D-ok-dk: 54,101,78;
+  --D-ok-dk2: 33,54,44;
+  --D-bad: 212,96,96;
+  --D-bad-lt: 232,112,95;
+  --D-bad-tx: 226,148,148;
+  --D-bad-md: 192,57,43;
+  --D-bad-dk: 115,57,57;
+  --D-bad-dk2: 60,34,34;
+}
+
+/* the page */
+:root {
+  --sur0: var(--P-sur0);
+  --sur1: var(--P-sur1);
+  --sur2: var(--P-sur2);
+  --sur3: var(--P-sur3);
+  --sur4: var(--P-sur4);
+  --ink: var(--P-ink);
+  --shade: var(--P-shade);
+  --shade-k: var(--P-shade-k);
+  --glow: var(--P-glow);
+  --tx-floor: var(--P-tx-floor);
+  --on-acc: var(--P-on-acc);
+  --a1: var(--P-a1);
+  --a1-lt: var(--P-a1-lt);
+  --a1-tx: var(--P-a1-tx);
+  --a1-md: var(--P-a1-md);
+  --a1-dk: var(--P-a1-dk);
+  --a1-dk2: var(--P-a1-dk2);
+  --a12: var(--P-a12);
+  --a12-lt: var(--P-a12-lt);
+  --a12-tx: var(--P-a12-tx);
+  --a12-md: var(--P-a12-md);
+  --a12-dk: var(--P-a12-dk);
+  --a12-dk2: var(--P-a12-dk2);
+  --a2: var(--P-a2);
+  --a2-lt: var(--P-a2-lt);
+  --a2-tx: var(--P-a2-tx);
+  --a2-md: var(--P-a2-md);
+  --a2-dk: var(--P-a2-dk);
+  --a2-dk2: var(--P-a2-dk2);
+  --a3: var(--P-a3);
+  --a3-lt: var(--P-a3-lt);
+  --a3-tx: var(--P-a3-tx);
+  --a3-md: var(--P-a3-md);
+  --a3-dk: var(--P-a3-dk);
+  --a3-dk2: var(--P-a3-dk2);
+  --a4: var(--P-a4);
+  --a4-lt: var(--P-a4-lt);
+  --a4-tx: var(--P-a4-tx);
+  --a4-md: var(--P-a4-md);
+  --a4-dk: var(--P-a4-dk);
+  --a4-dk2: var(--P-a4-dk2);
+  --ok: var(--P-ok);
+  --ok-lt: var(--P-ok-lt);
+  --ok-tx: var(--P-ok-tx);
+  --ok-md: var(--P-ok-md);
+  --ok-dk: var(--P-ok-dk);
+  --ok-dk2: var(--P-ok-dk2);
+  --bad: var(--P-bad);
+  --bad-lt: var(--P-bad-lt);
+  --bad-tx: var(--P-bad-tx);
+  --bad-md: var(--P-bad-md);
+  --bad-dk: var(--P-bad-dk);
+  --bad-dk2: var(--P-bad-dk2);
+}
+
+/* the record player: the plinth on a desktop; the control bar on a phone
+   (there the title, toggles and hint sit on the page itself) */
+body:not(.mobile) #deck .plinth, body.mobile #deck .remote {
+  --sur0: var(--D-sur0);
+  --sur1: var(--D-sur1);
+  --sur2: var(--D-sur2);
+  --sur3: var(--D-sur3);
+  --sur4: var(--D-sur4);
+  --ink: var(--D-ink);
+  --shade: var(--D-shade);
+  --shade-k: var(--D-shade-k);
+  --glow: var(--D-glow);
+  --tx-floor: var(--D-tx-floor);
+  --on-acc: var(--D-on-acc);
+  --a1: var(--D-a1);
+  --a1-lt: var(--D-a1-lt);
+  --a1-tx: var(--D-a1-tx);
+  --a1-md: var(--D-a1-md);
+  --a1-dk: var(--D-a1-dk);
+  --a1-dk2: var(--D-a1-dk2);
+  --a12: var(--D-a12);
+  --a12-lt: var(--D-a12-lt);
+  --a12-tx: var(--D-a12-tx);
+  --a12-md: var(--D-a12-md);
+  --a12-dk: var(--D-a12-dk);
+  --a12-dk2: var(--D-a12-dk2);
+  --a2: var(--D-a2);
+  --a2-lt: var(--D-a2-lt);
+  --a2-tx: var(--D-a2-tx);
+  --a2-md: var(--D-a2-md);
+  --a2-dk: var(--D-a2-dk);
+  --a2-dk2: var(--D-a2-dk2);
+  --a3: var(--D-a3);
+  --a3-lt: var(--D-a3-lt);
+  --a3-tx: var(--D-a3-tx);
+  --a3-md: var(--D-a3-md);
+  --a3-dk: var(--D-a3-dk);
+  --a3-dk2: var(--D-a3-dk2);
+  --a4: var(--D-a4);
+  --a4-lt: var(--D-a4-lt);
+  --a4-tx: var(--D-a4-tx);
+  --a4-md: var(--D-a4-md);
+  --a4-dk: var(--D-a4-dk);
+  --a4-dk2: var(--D-a4-dk2);
+  --ok: var(--D-ok);
+  --ok-lt: var(--D-ok-lt);
+  --ok-tx: var(--D-ok-tx);
+  --ok-md: var(--D-ok-md);
+  --ok-dk: var(--D-ok-dk);
+  --ok-dk2: var(--D-ok-dk2);
+  --bad: var(--D-bad);
+  --bad-lt: var(--D-bad-lt);
+  --bad-tx: var(--D-bad-tx);
+  --bad-md: var(--D-bad-md);
+  --bad-dk: var(--D-bad-dk);
+  --bad-dk2: var(--D-bad-dk2);
+}
+
+/* …but its pop-up menus float over the page, so they wear the page's colours */
+#deck #shareMenu, #deck #ctlMenu {
+  --sur0: var(--P-sur0);
+  --sur1: var(--P-sur1);
+  --sur2: var(--P-sur2);
+  --sur3: var(--P-sur3);
+  --sur4: var(--P-sur4);
+  --ink: var(--P-ink);
+  --shade: var(--P-shade);
+  --shade-k: var(--P-shade-k);
+  --glow: var(--P-glow);
+  --tx-floor: var(--P-tx-floor);
+  --on-acc: var(--P-on-acc);
+  --a1: var(--P-a1);
+  --a1-lt: var(--P-a1-lt);
+  --a1-tx: var(--P-a1-tx);
+  --a1-md: var(--P-a1-md);
+  --a1-dk: var(--P-a1-dk);
+  --a1-dk2: var(--P-a1-dk2);
+  --a12: var(--P-a12);
+  --a12-lt: var(--P-a12-lt);
+  --a12-tx: var(--P-a12-tx);
+  --a12-md: var(--P-a12-md);
+  --a12-dk: var(--P-a12-dk);
+  --a12-dk2: var(--P-a12-dk2);
+  --a2: var(--P-a2);
+  --a2-lt: var(--P-a2-lt);
+  --a2-tx: var(--P-a2-tx);
+  --a2-md: var(--P-a2-md);
+  --a2-dk: var(--P-a2-dk);
+  --a2-dk2: var(--P-a2-dk2);
+  --a3: var(--P-a3);
+  --a3-lt: var(--P-a3-lt);
+  --a3-tx: var(--P-a3-tx);
+  --a3-md: var(--P-a3-md);
+  --a3-dk: var(--P-a3-dk);
+  --a3-dk2: var(--P-a3-dk2);
+  --a4: var(--P-a4);
+  --a4-lt: var(--P-a4-lt);
+  --a4-tx: var(--P-a4-tx);
+  --a4-md: var(--P-a4-md);
+  --a4-dk: var(--P-a4-dk);
+  --a4-dk2: var(--P-a4-dk2);
+  --ok: var(--P-ok);
+  --ok-lt: var(--P-ok-lt);
+  --ok-tx: var(--P-ok-tx);
+  --ok-md: var(--P-ok-md);
+  --ok-dk: var(--P-ok-dk);
+  --ok-dk2: var(--P-ok-dk2);
+  --bad: var(--P-bad);
+  --bad-lt: var(--P-bad-lt);
+  --bad-tx: var(--P-bad-tx);
+  --bad-md: var(--P-bad-md);
+  --bad-dk: var(--P-bad-dk);
+  --bad-dk2: var(--P-bad-dk2);
+}
+
+/* each panel wears a colour: Neon Noir keeps its rainbow, every other theme
+   draws them from its own accents (js/dock.js sets --accent: var(--pa-…)) */
+:root[data-theme]:not([data-theme="neon-noir"]) {
+  --pa-dj-ai: rgb(var(--P-a2));
+  --pa-playlist: rgb(var(--P-a1-lt));
+  --pa-mixes: rgb(var(--P-a4-lt));
+  --pa-search: rgb(var(--P-a3-lt));
+  --pa-import: rgb(var(--P-bad-lt));
+  --pa-database: rgb(var(--P-a3));
+  --pa-random-mix: rgb(var(--P-ok-lt));
+  --pa-history: rgba(var(--P-ink), 0.55);
+  --pa-track-info: rgb(var(--P-a12));
+  --pa-your-promotions: rgb(var(--P-a4));
+  --pa-mine: rgb(var(--P-a4));
+  --pa-promote: rgb(var(--P-a4));
+  --pa-themes: rgb(var(--P-a12));
+  --pa-about-legal: rgba(var(--P-ink), 0.5);
+}
+
+/* Soft Terminal (or any theme set to mono) */
+:root[data-font="mono"] { --font-ui: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; }
+
+/* switching themes: colours glide across for half a second, then the
+   transitions are taken off again so nothing else is slowed */
+html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after {
+  transition: background-color .45s ease, color .45s ease, border-color .45s ease, box-shadow .45s ease, fill .45s ease !important;
+}

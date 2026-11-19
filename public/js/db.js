@@ -445,12 +445,23 @@ var dbBoss = {
     out.plays = (await db.playHistory.toArray()).map(h => ({ ytId: h.ytId, ts: h.ts }));
     out.sharedLinks = (await db.sharedLinks.toArray()).map(l => ({ ts: l.ts, kind: l.kind, type: l.type, url: l.url, title: l.title || '', slug: l.slug || '', ytId: l.ytId || '' }));
     out.adHistory = (await db.adHistory.toArray()).map(a => { const c = Object.assign({}, a); delete c.id; return c; });
+    // colour themes you made (they live in localStorage, see theme-boot.js)
+    if (window.rrTheme) out.themes = { active: rrTheme.current(), custom: rrTheme.customs() };
     return out;
   },
 
   // merge an exported object into the current data — no duplicates
   importData: async function(obj){
     if(!obj || (!obj.playlists && !obj.library)) throw new Error('unrecognised file');
+    // your own colour themes: add the ones this browser doesn't have (never replaces or deletes)
+    if (obj.themes && Array.isArray(obj.themes.custom) && window.rrTheme){
+      const have = rrTheme.customs(), ids = have.map(t => t.id);
+      obj.themes.custom.forEach(t => {
+        if (t && t.id && t.picks && ids.indexOf(String(t.id)) < 0 && rrTheme.decode(rrTheme.encode(t.name, t.picks)))
+          have.push({ id: String(t.id).slice(0, 24), name: String(t.name || 'Theme').replace(/[<>]/g, '').slice(0, 40), picks: rrTheme.decode(rrTheme.encode(t.name, t.picks)).picks });
+      });
+      rrTheme.saveCustoms(have);
+    }
     let addedTracks = 0, addedPlaylists = 0, addedJoins = 0, addedLinks = 0;
 
     if (Array.isArray(obj.library)){

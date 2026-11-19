@@ -17,8 +17,8 @@ body.mobile .rightM {
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
   scrollbar-width:none; scroll-snap-type:x proximity;
-  border-left:0; border-top:1px solid rgba(255,255,255,0.09);
-  background:rgba(11,11,23,0.94); backdrop-filter:blur(10px);
+  border-left:0; border-top:1px solid rgba(var(--ink), 0.09);
+  background:rgba(var(--sur1), 0.94); backdrop-filter:blur(10px);
 }
 
 body.mobile .rightM::-webkit-scrollbar { display:none; }
@@ -31,9 +31,9 @@ body.mobile .dock-btn {
 
 body.mobile .dock-btn svg { width:21px; height:21px; }
 
-body.mobile .dock-btn .dock-lbl { font-size:9px; letter-spacing:0.2px; line-height:1; color:rgba(255,255,255,0.85); }
+body.mobile .dock-btn .dock-lbl { font-size:9px; letter-spacing:0.2px; line-height:1; color:rgba(var(--ink), max(0.85, var(--tx-floor))); }
 
-body.mobile .dock-btn.active { background:color-mix(in srgb, var(--accent,#8a7bff) 18%, transparent); }
+body.mobile .dock-btn.active { background:color-mix(in srgb, var(--accent,rgb(var(--a1))) 18%, transparent); }
 
 body.mobile .dock-btn.dock-bottom { margin:0; }
 
@@ -79,7 +79,7 @@ body.mobile .panel-close { display:none; }
 /* touch has no hover, so keep delete visible; handle is the touch reorder grip */
 body.mobile .del-btn { opacity:.55; }
 
-body.mobile .track-handle { color:rgba(255,255,255,0.45); font-size:16px; padding:2px 4px; }
+body.mobile .track-handle { color:rgba(var(--ink), max(0.45, var(--tx-floor))); font-size:16px; padding:2px 4px; }
 
 /* phones: Awake gets its own row under the transport */
 body.mobile .np-toggles { display:flex; justify-content:center; }
@@ -92,7 +92,7 @@ body.mobile .spin-side { left:10px; bottom:10px; }
 body.mobile:not(.nh-known) .rightM { visibility:hidden; }
 
 /* the ⋯ tab */
-body.mobile .dock-btn.dock-more { color:rgba(255,255,255,0.75); }
+body.mobile .dock-btn.dock-more { color:rgba(var(--ink), max(0.75, var(--tx-floor))); }
 body.mobile .dock-btn.dock-more .dock-ico-more { font-size:22px; line-height:1; letter-spacing:1px; }
 
 /* the video stays at YouTube's 200px on a phone; resizing is a desktop thing */
@@ -100,17 +100,17 @@ body.mobile #deck { --vid:200px !important; }
 
 /* ⋯ More: the page listing everything that isn't a tab (dock.js renderMore) */
 body:not(.mobile) #mMoreView { display:none !important; }
-#mMoreView { flex-direction:column; background:#14141c; color:#fff; }
-#mMoreView .more-head { font-size:15px; font-weight:700; padding:14px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.08); }
+#mMoreView { flex-direction:column; background:rgb(var(--sur2)); color:rgb(var(--ink)); }
+#mMoreView .more-head { font-size:15px; font-weight:700; padding:14px 16px 8px; border-bottom:1px solid rgba(var(--ink), 0.08); }
 #mMoreView .more-body { display:flex; flex-direction:column; padding:6px 0 12px; overflow-y:auto; }
-#mMoreView .more-group { font-size:11.5px; color:rgba(255,255,255,0.55); padding:14px 16px 4px; letter-spacing:.02em; }
+#mMoreView .more-group { font-size:11.5px; color:rgba(var(--ink), max(0.55, var(--tx-floor))); padding:14px 16px 4px; letter-spacing:.02em; }
 #mMoreView .more-row { display:flex; align-items:center; gap:14px; width:100%; padding:13px 16px; background:none; border:0;
-  border-bottom:1px solid rgba(255,255,255,0.05); color:#fff; font-size:15px; text-align:left; cursor:pointer; }
-#mMoreView .more-row:active { background:rgba(255,255,255,0.06); }
-#mMoreView .more-ico { width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--accent, #fff); }
+  border-bottom:1px solid rgba(var(--ink), 0.05); color:rgb(var(--ink)); font-size:15px; text-align:left; cursor:pointer; }
+#mMoreView .more-row:active { background:rgba(var(--ink), 0.06); }
+#mMoreView .more-ico { width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--accent, rgb(var(--ink))); }
 #mMoreView .more-ico svg { width:24px; height:24px; }
 #mMoreView .more-lbl { flex:1; }
-#mMoreView .more-go { color:rgba(255,255,255,0.35); font-size:20px; }
+#mMoreView .more-go { color:rgba(var(--ink), max(0.35, var(--tx-floor))); font-size:20px; }
 
 /* ── the video stays on screen on every tab ─────────────────────────────
    YouTube's Developer Policies forbid playing from a player that isn't

@@ -26,7 +26,7 @@ body:not(.mobile) .panel { z-index:10; }
 
 .plinth {
   width:calc(var(--vid) + 376px); height:calc(var(--vid) + 376px);   /* 576px at the 200px default, growing 1:1 with the video */
- box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+ box-shadow: 0 8px 32px rgba(var(--shade), calc(0.6 * var(--shade-k)));
  margin:2em 2em 2em 5em;      /* a little right of centre: the skin arrows (skins.js) hang off the left edge */
   border-radius:1rem;
   display:flex; align-items:center; justify-content:center;
@@ -74,28 +74,28 @@ body:not(.mobile) .panel { z-index:10; }
 /* Transport */
 .np-area { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); width:28rem; max-width:92vw; display:flex; flex-direction:column; align-items:center; gap:7px; z-index:5; }
 
-.np-title { font-size:12px; color:rgba(255,255,255,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
+.np-title { font-size:12px; color:rgba(var(--ink), max(0.45, var(--tx-floor))); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
 
 #npTitle { display:flex; align-items:center; justify-content:center; gap:6px; }
 
-#npTitle .np-ico { width:14px; height:14px; flex-shrink:0; color:#8a7bff; opacity:.9; }
+#npTitle .np-ico { width:14px; height:14px; flex-shrink:0; color:rgb(var(--a1)); opacity:.9; }
 
 #npTitle .np-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 
 .np-meta { display:flex; gap:6px; width:100%; }
 
-.np-meta input { flex:1; min-width:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); border-radius:7px; padding:5px 9px; font-size:12px; }
+.np-meta input { flex:1; min-width:0; background:rgba(var(--ink), 0.05); border:1px solid rgba(var(--ink), 0.12); color:rgba(var(--ink), max(0.8, var(--tx-floor))); border-radius:7px; padding:5px 9px; font-size:12px; }
 
-.np-meta input:focus { outline:none; border-color:rgba(122,162,247,0.5); }
+.np-meta input:focus { outline:none; border-color:rgba(var(--a3-lt), 0.5); }
 
 .np-react { display:flex; gap:8px; }
-.np-plays { display:flex; align-items:center; gap:5px; font-size:13px; color:rgba(255,255,255,0.5); padding:5px 4px; cursor:default; }
-.np-plays .count { color:rgba(255,255,255,0.75); }
+.np-plays { display:flex; align-items:center; gap:5px; font-size:13px; color:rgba(var(--ink), max(0.5, var(--tx-floor))); padding:5px 4px; cursor:default; }
+.np-plays .count { color:rgba(var(--ink), max(0.75, var(--tx-floor))); }
 
 /* Current Track panel body (same elements, laid out for a panel instead of the deck) */
 .ct-body { display:flex; flex-direction:column; gap:11px; padding:12px 13px; }
 
-.ct-body .np-title { font-size:14px; color:rgba(255,255,255,0.92); font-weight:600; white-space:normal; text-align:left; line-height:1.35; }
+.ct-body .np-title { font-size:14px; color:rgba(var(--ink), max(0.92, var(--tx-floor))); font-weight:600; white-space:normal; text-align:left; line-height:1.35; }
 
 .ct-body .np-meta { flex-direction:column; gap:8px; }
 
@@ -103,13 +103,13 @@ body:not(.mobile) .panel { z-index:10; }
 
 .ct-titlebar { display:flex; flex-direction:column; gap:3px; }
 
-.ct-tlabel { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
+.ct-tlabel { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:rgba(var(--ink), max(0.35, var(--tx-floor))); }
 
-.ct-title-edit { font-size:14px; font-weight:600; color:#fff; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:7px; padding:6px 8px; width:100%; }
+.ct-title-edit { font-size:14px; font-weight:600; color:rgb(var(--ink)); background:rgba(var(--ink), 0.04); border:1px solid rgba(var(--ink), 0.1); border-radius:7px; padding:6px 8px; width:100%; }
 
-.ct-autopop { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(255,255,255,0.6); cursor:pointer; margin-top:2px; }
+.ct-autopop { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(var(--ink), max(0.6, var(--tx-floor))); cursor:pointer; margin-top:2px; }
 
-.ct-autopop input { accent-color:#8a7bff; }
+.ct-autopop input { accent-color:rgb(var(--a1)); }
 
 /* ── Track info panel ─────────────────────────────────────────────────
    Wider and taller than the old Current Track strip, because the panel
@@ -125,7 +125,7 @@ body:not(.mobile) .panel { z-index:10; }
 .ti-art {
   position:relative; width:84px; height:84px; flex-shrink:0;
   border-radius:50%; overflow:hidden;
-  background:#0c0c12; box-shadow:0 2px 10px rgba(0,0,0,0.5);
+  background:rgb(var(--sur0)); box-shadow:0 2px 10px rgba(var(--shade), calc(0.5 * var(--shade-k)));
 }
 .ti-thumb { width:100%; height:100%; object-fit:cover; display:block; opacity:0.92; }
 /* the spindle hole, which is what makes it read as a record */
@@ -138,37 +138,37 @@ body:not(.mobile) .panel { z-index:10; }
 /* the one animation anybody is likely to have opted out of */
 @media (prefers-reduced-motion: reduce){
   .ti-art.spinning .ti-thumb { animation:none; }
-  .ti-art.spinning { box-shadow:0 0 0 2px rgba(217,140,255,0.5); }
+  .ti-art.spinning { box-shadow:0 0 0 2px rgba(var(--a12), calc(0.5 * var(--glow))); }
 }
 
 .ti-head { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
 .ti-head .np-artist {
-  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
-  color:rgba(255,255,255,0.85); border-radius:7px; padding:5px 8px; font-size:12px; width:100%;
+  background:rgba(var(--ink), 0.04); border:1px solid rgba(var(--ink), 0.1);
+  color:rgba(var(--ink), max(0.85, var(--tx-floor))); border-radius:7px; padding:5px 8px; font-size:12px; width:100%;
 }
-.ti-head .np-artist:focus, .ct-title-edit:focus { outline:none; border-color:rgba(217,140,255,0.55); }
+.ti-head .np-artist:focus, .ct-title-edit:focus { outline:none; border-color:rgba(var(--a12), 0.55); }
 
 .ti-facts {
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  font-size:10.5px; color:rgba(255,255,255,0.4);
+  font-size:10.5px; color:rgba(var(--ink), max(0.4, var(--tx-floor)));
 }
-.ti-facts .ti-yt { color:#ff5d6c; text-decoration:none; }
+.ti-facts .ti-yt { color:rgb(var(--bad-lt)); text-decoration:none; }
 .ti-facts .ti-yt:hover { text-decoration:underline; }
 
 /* only on screen while the panel is pinned to something else */
 .ti-elsewhere {
   display:flex; align-items:center; justify-content:space-between; gap:8px;
-  font-size:10.5px; color:#ffd98e;
-  background:rgba(255,217,142,0.08); border:1px solid rgba(255,217,142,0.25);
+  font-size:10.5px; color:rgb(var(--a4-tx));
+  background:rgba(var(--a4-tx), 0.08); border:1px solid rgba(var(--a4-tx), 0.25);
   border-radius:7px; padding:6px 8px;
 }
 .ti-elsewhere[hidden] { display:none; }
 .ti-back {
   font:inherit; font-size:10.5px; cursor:pointer; white-space:nowrap;
-  background:none; border:1px solid rgba(255,217,142,0.4); color:#ffd98e;
+  background:none; border:1px solid rgba(var(--a4-tx), 0.4); color:rgb(var(--a4-tx));
   border-radius:5px; padding:2px 7px;
 }
-.ti-back:hover { background:rgba(255,217,142,0.18); }
+.ti-back:hover { background:rgba(var(--a4-tx), 0.18); }
 
 /* ── tags as chips ──
    A comma-separated text box asked you to get punctuation right and
@@ -179,24 +179,24 @@ body:not(.mobile) .panel { z-index:10; }
 .ti-tag {
   display:inline-flex; align-items:center; gap:3px;
   font-size:10.5px; line-height:1; padding:4px 4px 4px 7px; border-radius:11px;
-  background:rgba(217,140,255,0.14); border:1px solid rgba(217,140,255,0.4); color:#e9c6ff;
+  background:rgba(var(--a12), 0.14); border:1px solid rgba(var(--a12), 0.4); color:rgb(var(--a12-tx));
 }
 .ti-tag-x {
   font:inherit; font-size:9px; line-height:1; cursor:pointer;
-  background:none; border:none; color:rgba(233,198,255,0.6); padding:0 2px;
+  background:none; border:none; color:rgba(var(--a12-tx), 0.6); padding:0 2px;
 }
-.ti-tag-x:hover { color:#fff; }
-.ti-notags { font-size:10.5px; color:rgba(255,255,255,0.3); }
+.ti-tag-x:hover { color:rgb(var(--ink)); }
+.ti-notags { font-size:10.5px; color:rgba(var(--ink), max(0.3, var(--tx-floor))); }
 
 .ti-taginput {
   display:flex; align-items:center; gap:0;
-  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  background:rgba(var(--ink), 0.04); border:1px solid rgba(var(--ink), 0.1);
   border-radius:7px; padding:0 8px;
 }
-.ti-taginput:focus-within { border-color:rgba(217,140,255,0.55); }
-.ti-hash { font-size:12px; color:rgba(217,140,255,0.7); font-weight:700; padding-right:2px; }
+.ti-taginput:focus-within { border-color:rgba(var(--a12), 0.55); }
+.ti-hash { font-size:12px; color:rgba(var(--a12), 0.7); font-weight:700; padding-right:2px; }
 .ti-tagnew {
-  flex:1; min-width:0; background:none; border:none; color:rgba(255,255,255,0.85);
+  flex:1; min-width:0; background:none; border:none; color:rgba(var(--ink), max(0.85, var(--tx-floor)));
   font-size:12px; padding:6px 2px;
 }
 .ti-tagnew:focus { outline:none; }
@@ -204,18 +204,18 @@ body:not(.mobile) .panel { z-index:10; }
 /* the info button that opens this panel for a track you are not playing */
 .info-btn {
   font:inherit; font-size:11px; line-height:1; flex-shrink:0; cursor:pointer;
-  background:none; border:none; color:rgba(255,255,255,0.25); padding:2px 4px;
+  background:none; border:none; color:rgba(var(--ink), max(0.25, var(--tx-floor))); padding:2px 4px;
 }
-.info-btn:hover { color:#d98cff; }
+.info-btn:hover { color:rgb(var(--a12)); }
 
 /* ── RIFFROLLED: roll feature + brand accents ── */
 /* the logo dice tumble like they're mid-roll; each die pivots about its own centre */
 /* a real roll: dice spin fully */
 .transport { display:flex; gap:10px; align-items:center; }
 
-.t-btn { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.65); border-radius:50%; width:36px; height:36px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
+.t-btn { background:rgba(var(--ink), 0.07); border:1px solid rgba(var(--ink), 0.14); color:rgba(var(--ink), max(0.65, var(--tx-floor))); border-radius:50%; width:36px; height:36px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
 
-.t-btn:hover { background:rgba(255,255,255,0.14); color:white; }
+.t-btn:hover { background:rgba(var(--ink), 0.14); color:rgb(var(--ink)); }
 
 .t-btn.play { width:46px; height:46px; font-size:18px; }
 
@@ -227,36 +227,36 @@ body:not(.mobile) .panel { z-index:10; }
    without opening anything. */
 .t-ctl { position:relative; }
 .t-btn.t-ctl-btn { width:30px; height:30px; font-size:12px; }
-.t-btn.t-ctl-btn.on { color:#d98cff; border-color:rgba(217,140,255,0.45); }
+.t-btn.t-ctl-btn.on { color:rgb(var(--a12)); border-color:rgba(var(--a12), 0.45); }
 
 .t-menu {
   position:absolute; bottom:calc(100% + 8px); right:0; z-index:40;
   min-width:250px; padding:5px;
-  background:#15151f; border:1px solid rgba(255,255,255,0.14);
-  border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6);
+  background:rgb(var(--sur2)); border:1px solid rgba(var(--ink), 0.14);
+  border-radius:10px; box-shadow:0 10px 30px rgba(var(--shade), calc(0.6 * var(--shade-k)));
 }
 .t-menu[hidden] { display:none; }
 
 .t-mi {
   display:flex; align-items:center; gap:8px; width:100%;
   font:inherit; font-size:11.5px; text-align:left; cursor:pointer;
-  background:none; border:none; color:rgba(255,255,255,0.72);
+  background:none; border:none; color:rgba(var(--ink), max(0.72, var(--tx-floor)));
   padding:7px 8px; border-radius:7px;
 }
-.t-mi:hover { background:rgba(255,255,255,0.08); color:#fff; }
-.t-mi.on { color:#d98cff; }
-.t-mi.on .t-mi-ico { color:#d98cff; }
-.t-mi-ico { width:16px; flex-shrink:0; text-align:center; font-size:12px; color:rgba(255,255,255,0.4); }
+.t-mi:hover { background:rgba(var(--ink), 0.08); color:rgb(var(--ink)); }
+.t-mi.on { color:rgb(var(--a12)); }
+.t-mi.on .t-mi-ico { color:rgb(var(--a12)); }
+.t-mi-ico { width:16px; flex-shrink:0; text-align:center; font-size:12px; color:rgba(var(--ink), max(0.4, var(--tx-floor))); }
 .t-mi-txt { flex:1; min-width:0; }
 /* The chosen mode is marked with a tick, not only a colour. Colour alone
    is not a state anyone can read if they cannot see that colour — and
    two of the three rows are emoji, which cannot be recoloured at all. */
-.t-mi-tick { flex-shrink:0; font-size:11px; opacity:0; color:#d98cff; }
+.t-mi-tick { flex-shrink:0; font-size:11px; opacity:0; color:rgb(var(--a12)); }
 .t-mi.on .t-mi-tick { opacity:1; }
-.t-mi-sep { height:1px; margin:4px 2px; background:rgba(255,255,255,0.08); }
+.t-mi-sep { height:1px; margin:4px 2px; background:rgba(var(--ink), 0.08); }
 .t-mi-lbl {
   font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
-  color:rgba(255,255,255,0.3); padding:5px 8px 3px;
+  color:rgba(var(--ink), max(0.3, var(--tx-floor))); padding:5px 8px 3px;
 }
 
 /* at phone width the menu would overflow the deck pinned to the right */
@@ -266,12 +266,12 @@ body:not(.mobile) .panel { z-index:10; }
 }
 
 /* ── spin on/off switch under the deck ── */
-.spin-toggle { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(255,255,255,0.55); user-select:none; cursor:pointer; margin-top:8px; }
+.spin-toggle { display:flex; align-items:center; gap:7px; font-size:11px; color:rgba(var(--ink), max(0.55, var(--tx-floor))); user-select:none; cursor:pointer; margin-top:8px; }
 
 /* the record icon beside the switch: it turns while spin is on, so the
    control demonstrates what it controls instead of only naming it */
-.spin-ico { display:flex; align-items:center; color:rgba(255,255,255,0.4); }
-.spin-toggle.on .spin-ico { color:#d98cff; }
+.spin-ico { display:flex; align-items:center; color:rgba(var(--ink), max(0.4, var(--tx-floor))); }
+.spin-toggle.on .spin-ico { color:rgb(var(--a12)); }
 .spin-toggle.on .spin-ico svg { animation:spin-ico-turn 3.2s linear infinite; }
 @keyframes spin-ico-turn { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion: reduce){
@@ -282,13 +282,13 @@ body:not(.mobile) .panel { z-index:10; }
 
 .spin-track {
   position:relative; width:46px; height:24px; border-radius:999px; flex-shrink:0;
-  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.14);
+  background:rgba(var(--ink), 0.1); border:1px solid rgba(var(--ink), 0.14);
   transition:background .2s, border-color .2s, box-shadow .2s;
 }
 
 .spin-thumb {
   position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
-  background:#cfcfcf; color:#333; font-size:10px;
+  background:rgba(var(--ink), 0.812); color:rgb(var(--sur4)); font-size:10px;
   display:flex; align-items:center; justify-content:center;
   transition:left .2s, background .2s;
 }
@@ -296,16 +296,16 @@ body:not(.mobile) .panel { z-index:10; }
 .spin-thumb::before { content:'♪'; }
 
 .spin-toggle input:checked + .spin-track {
-  background:linear-gradient(90deg,#6c5ce7,#8a7bff);
-  border-color:rgba(140,123,255,0.65);
-  box-shadow:0 0 10px rgba(140,123,255,0.5);
+  background:linear-gradient(90deg,rgb(var(--a1-md)),rgb(var(--a1)));
+  border-color:rgba(var(--a1), 0.65);
+  box-shadow:0 0 10px rgba(var(--a1), calc(0.5 * var(--glow)));
 }
 
 .spin-toggle input:checked + .spin-track .spin-thumb {
-  left:24px; background:#fff; animation:thumbspin 2.4s linear infinite;
+  left:24px; background:rgb(var(--ink)); animation:thumbspin 2.4s linear infinite;
 }
 
-.spin-toggle input:focus-visible + .spin-track { outline:2px solid #8a7bff; outline-offset:2px; }
+.spin-toggle input:focus-visible + .spin-track { outline:2px solid rgb(var(--a1)); outline-offset:2px; }
 
 @keyframes thumbspin { to { transform:rotate(360deg); } }
 
@@ -317,29 +317,29 @@ body:not(.mobile) .panel { z-index:10; }
 
 .deck-hint[hidden] { display:none; }
 
-.dh-title { font-size:15px; font-weight:700; color:rgba(255,255,255,0.9); }
+.dh-title { font-size:15px; font-weight:700; color:rgba(var(--ink), max(0.9, var(--tx-floor))); }
 
-.dh-sub { font-size:12px; color:rgba(255,255,255,0.5); max-width:280px; line-height:1.45; }
+.dh-sub { font-size:12px; color:rgba(var(--ink), max(0.5, var(--tx-floor))); max-width:280px; line-height:1.45; }
 
 .dh-go { margin-top:4px; font-size:12px; height:32px; padding:0 16px;
-  background:rgba(157,140,255,0.2); border:1px solid rgba(157,140,255,0.5); color:#d3caff; }
+  background:rgba(var(--a1-lt), 0.2); border:1px solid rgba(var(--a1-lt), 0.5); color:rgb(var(--a1-tx)); }
 
-.dh-go:hover { background:rgba(157,140,255,0.34); }
+.dh-go:hover { background:rgba(var(--a1-lt), 0.34); }
 
 /* the quieter of the two: adding music is the main road, the tour is the offer */
-.dh-tour { font-size:11px; height:28px; padding:0 12px; color:rgba(255,255,255,0.5);
-  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); }
+.dh-tour { font-size:11px; height:28px; padding:0 12px; color:rgba(var(--ink), max(0.5, var(--tx-floor)));
+  background:rgba(var(--ink), 0.05); border:1px solid rgba(var(--ink), 0.12); }
 
-.dh-own { font-size:11px; height:28px; padding:0 12px; color:rgba(255,255,255,0.7);
-  background:transparent; border:1px solid rgba(255,255,255,0.18); border-radius:8px; cursor:pointer; }
-.dh-own:hover { color:#fff; background:rgba(255,255,255,0.08); }
+.dh-own { font-size:11px; height:28px; padding:0 12px; color:rgba(var(--ink), max(0.7, var(--tx-floor)));
+  background:transparent; border:1px solid rgba(var(--ink), 0.18); border-radius:8px; cursor:pointer; }
+.dh-own:hover { color:rgb(var(--ink)); background:rgba(var(--ink), 0.08); }
 .dh-own[hidden] { display:none; }
-.dh-tour:hover { color:#fff; background:rgba(255,157,226,0.18); border-color:rgba(255,157,226,0.45); }
+.dh-tour:hover { color:rgb(var(--ink)); background:rgba(var(--a2), 0.18); border-color:rgba(var(--a2), 0.45); }
 
 /* reactions on the deck itself — the most common thing you want while a
    record is spinning, so it shouldn't need a panel open */
 .deck-react { justify-content:center; gap:10px; margin-top:2px; }
-.deck-react .react-btn { padding:4px 14px; font-size:12px; background:rgba(0,0,0,0.35); }
+.deck-react .react-btn { padding:4px 14px; font-size:12px; background:rgba(var(--shade), calc(0.35 * var(--shade-k))); }
 
 /* ── deck layout ────────────────────────────────────────────────────────
    YouTube's rule: nothing may sit on top of the player, and it must stay at
@@ -361,7 +361,7 @@ body:not(.mobile) .panel { z-index:10; }
 .np-titlerow { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-width:0; }
 .np-titlerow .np-title { width:auto; flex:0 1 auto; min-width:0; }
 .deck-react { flex-shrink:0; gap:6px; margin:0; }
-.deck-react .react-btn { padding:2px 9px; font-size:11px; background:rgba(0,0,0,0.35); }
+.deck-react .react-btn { padding:2px 9px; font-size:11px; background:rgba(var(--shade), calc(0.35 * var(--shade-k))); }
 
 /* the first-run hint ends 16px above the video */
 .deck-hint { inset:auto 0 calc(50% + var(--vid) / 2 + 16px) 0; }
@@ -385,9 +385,9 @@ body:not(.mobile) #wakeToggleWrap { display:none; }   /* Awake is for phones */
 /* "More from this artist" in Track info */
 .ti-more { margin:8px 0 2px; }
 .ti-more[hidden] { display:none; }
-.ti-more-btn { width:100%; min-height:32px; padding:6px 10px; font-size:12px; color:#fff; cursor:pointer;
-  background:rgba(217,140,255,0.16); border:1px solid rgba(217,140,255,0.4); border-radius:9px; text-align:left; }
-.ti-more-btn:hover { background:rgba(217,140,255,0.28); }
+.ti-more-btn { width:100%; min-height:32px; padding:6px 10px; font-size:12px; color:rgb(var(--ink)); cursor:pointer;
+  background:rgba(var(--a12), 0.16); border:1px solid rgba(var(--a12), 0.4); border-radius:9px; text-align:left; }
+.ti-more-btn:hover { background:rgba(var(--a12), 0.28); }
 .ti-more-btn:disabled { opacity:.55; cursor:default; }
 
 
@@ -407,9 +407,9 @@ body:not(.mobile) #wakeToggleWrap { display:none; }   /* Awake is for phones */
 }
 /* on hover, a faint corner grip that follows the player's rounded edge */
 .screen-grip:hover, .deck.resizing .screen-grip {
-  background:linear-gradient(135deg, transparent 0 55%, rgba(255,255,255,0.18) 55% 60%, transparent 60% 70%, rgba(255,255,255,0.18) 70% 75%, transparent 75%);
+  background:linear-gradient(135deg, transparent 0 55%, rgba(var(--ink), 0.18) 55% 60%, transparent 60% 70%, rgba(var(--ink), 0.18) 70% 75%, transparent 75%);
 }
-.screen-grip:focus-visible { outline:2px solid #8a7bff; outline-offset:-2px; }
+.screen-grip:focus-visible { outline:2px solid rgb(var(--a1)); outline-offset:-2px; }
 .deck.resizing .screen iframe { pointer-events:none; }
 .deck.resizing, .deck.resizing * { cursor:nwse-resize !important; user-select:none; }
 body.mobile .screen-grip { display:none; }
@@ -419,21 +419,21 @@ body.mobile .screen-grip { display:none; }
    playing. Clicking it edits the title — on this device only; the shared
    catalogue keeps the name it has. The dotted underline on hover is the
    only hint: it should read as text at rest, not as a form field. */
-.np-titlerow .np-title { font-size:17px; font-weight:600; color:rgba(255,255,255,0.88); cursor:text; border-bottom:1px dotted transparent; }
-.np-titlerow .np-title:hover { border-bottom-color:rgba(255,255,255,0.35); color:#fff; }
+.np-titlerow .np-title { font-size:17px; font-weight:600; color:rgba(var(--ink), max(0.88, var(--tx-floor))); cursor:text; border-bottom:1px dotted transparent; }
+.np-titlerow .np-title:hover { border-bottom-color:rgba(var(--ink), 0.35); color:rgb(var(--ink)); }
 .np-titlerow .np-title.empty { cursor:default; border-bottom-color:transparent; }
 .np-title-edit {
-  flex:1 1 auto; min-width:0; font:inherit; font-size:17px; font-weight:600; color:#fff;
-  background:rgba(0,0,0,0.5); border:1px solid rgba(217,140,255,0.6); border-radius:7px; padding:3px 8px;
+  flex:1 1 auto; min-width:0; font:inherit; font-size:17px; font-weight:600; color:rgb(var(--ink));
+  background:rgba(var(--shade), calc(0.5 * var(--shade-k))); border:1px solid rgba(var(--a12), 0.6); border-radius:7px; padding:3px 8px;
 }
-.np-title-edit:focus { outline:none; box-shadow:0 0 0 2px rgba(217,140,255,0.25); }
+.np-title-edit:focus { outline:none; box-shadow:0 0 0 2px rgba(var(--a12), calc(0.25 * var(--glow))); }
 .np-title-edit[hidden] { display:none; }
 .np-titlerow.editing .np-title, .np-titlerow.editing .deck-react { display:none; }
 
 /* The controls' looks, the plinth's finish and the skins live in skins.css. */
 .ti-more-btn[hidden] { display:none; }
-.ti-journey-btn { width:100%; min-height:32px; margin-top:6px; padding:6px 10px; font-size:12px; color:#fff; cursor:pointer; text-align:left;
-  background:linear-gradient(135deg, rgba(255,204,77,0.16), rgba(255,138,61,0.16)); border:1px solid rgba(255,184,107,0.5); border-radius:9px; }
+.ti-journey-btn { width:100%; min-height:32px; margin-top:6px; padding:6px 10px; font-size:12px; color:rgb(var(--ink)); cursor:pointer; text-align:left;
+  background:linear-gradient(135deg, rgba(var(--a4), 0.16), rgba(var(--a4), 0.16)); border:1px solid rgba(var(--a4-lt), 0.5); border-radius:9px; }
 .ti-journey-btn:hover { filter:brightness(1.2); }
 
 /* long titles: two lines, then an ellipsis (the full title is on hover) */

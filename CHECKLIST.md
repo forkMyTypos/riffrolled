@@ -2,6 +2,16 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: colour themes, and making your own (19 Nov, still schema 36, frontend only)
+- [x] **Every colour is a theme variable.** ~1,100 colours in the main stylesheets now read from `css/themes.css` (defaults = Neon Noir, looking as it did; a few near-identical shades were merged). The record player's hardware and skins are left alone, and the record player stays dark in light themes.
+- [x] **Nine themes:** Neon Noir (default), Void, Amber Drive, Ice Circuit, Blood Moon, Gunmetal (was "Chrome": a skin already has that name), Soft Terminal (mono font), Toxic, Paper (light mode). Cut from Grok's twelve as near-copies: Hotline, Deep Current, Ghost (any of them can come back as one line in `PRESETS`).
+- [x] **🎨 Themes panel:** in the dock just above About; on phones on the More page. A card per theme, ✓ on the one in use; switching fades across for half a second.
+- [x] **Make your own:** name, background, text (auto or picked), accents 1–3, highlight, glow, font. The whole site changes live; Cancel puts the old theme back. A readability guard pushes text and accents until they read and says so ("Text colour adjusted so it stays readable").
+- [x] **Share / paste:** ⤴ on your theme copies `riffrolled.com/#theme=v1~…`; opening it previews the theme with "Keep it?". Paste a link or code in the panel to add one. Edit ✎ and delete ✕ (with Undo).
+- [x] Saved in this browser (`localStorage`), applied before the first paint; backups now carry your own themes. Panel colours follow the theme. Self-test still 27 / 27 (default and Paper).
+- [ ] Dan: after deploying, open 🎨 Themes and click through the nine; try Paper on the phone.
+- [ ] Later, maybe: a Community gallery of shared themes; Studio skin tinted to the theme.
+
 ## Round: one-press sharing, /mix/ links, link previews (19 Nov, still schema 36)
 - [x] **SHARE copies straight away** (deck key and a Playlist window's Share): makes or reuses the playlist's link, copies it ("Playlist link copied" toast, Copy button says "Copied!" for 2 s), and opens the link card. The copy is claimed at the press (ClipboardItem with a promise) so Safari allows it even when the link has to be made first. No playlist yet → the old menu opens. `public/js/share.js`, `public/js/playlist.js`.
 - [x] **Link card:** link + Copy, Share… (the device's share sheet, wherever the browser has one), Post on X, Share on Facebook; under "More": send only the playing track, Share to Community…, your shared mixes. On phones the share sheet opens first. `public/index.html`, `public/css/skins.css`.

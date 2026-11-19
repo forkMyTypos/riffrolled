@@ -23,6 +23,7 @@
 
 <!-- ================================================================= -->
 <!-- ==  STYLES  (was: index.html inline <!-- Styles. Load order matters: base → shared panel chrome → features → mobile. -->
+<link rel="stylesheet" href="css/themes.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/panels.css">
 <link rel="stylesheet" href="css/deck.css">
@@ -33,6 +34,9 @@
 <link rel="stylesheet" href="css/skins.css">
 <link rel="stylesheet" href="css/tutorial.css">
 <link rel="stylesheet" href="css/mobile.css">
+<link rel="stylesheet" href="css/themes-panel.css">
+<!-- the colour theme, before the first paint: not deferred on purpose (theme-boot.js) -->
+<script src="js/theme-boot.js"></script>
 
 <!-- Installable on a phone, which is what makes riffrolled a share target:
      select an AI's reply, Share, riffrolled, and the set imports itself.
@@ -350,6 +354,7 @@
 <script defer src="js/mixes.js"></script>
 <script defer src="js/share.js"></script>
 <script defer src="js/promo-popup.js"></script>
+<script defer src="js/themes.js"></script>
 <script defer src="js/dock.js"></script>
 <script defer src="js/agent.js"></script>
 <script defer src="js/tutorial.js"></script>

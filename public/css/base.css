@@ -3,36 +3,36 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-.react-btn { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.7); border-radius:8px; padding:5px 13px; font-size:13px; cursor:pointer; transition:all 0.15s; }
+.react-btn { display:flex; align-items:center; gap:5px; background:rgba(var(--ink), 0.06); border:1px solid rgba(var(--ink), 0.14); color:rgba(var(--ink), max(0.7, var(--tx-floor))); border-radius:8px; padding:5px 13px; font-size:13px; cursor:pointer; transition:all 0.15s; }
 
-.react-btn.react-like:hover { border-color:rgba(90,184,138,0.55); color:#7fd6a6; }
+.react-btn.react-like:hover { border-color:rgba(var(--ok), 0.55); color:rgb(var(--ok-tx)); }
 
-.react-btn.react-dislike:hover { border-color:rgba(212,96,96,0.55); color:#e08585; }
+.react-btn.react-dislike:hover { border-color:rgba(var(--bad), 0.55); color:rgb(var(--bad-lt)); }
 
 .react-btn .count { font-variant-numeric:tabular-nums; opacity:0.85; }
 
-input[type=text], select { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:5px; color:white; font-size:13px; padding:7px 10px; outline:none; transition:border-color .15s, background .15s; }
+input[type=text], select { background:rgba(var(--ink), 0.04); border:1px solid rgba(var(--ink), 0.1); border-radius:5px; color:rgb(var(--ink)); font-size:13px; padding:7px 10px; outline:none; transition:border-color .15s, background .15s; }
 
-input[type=text]:focus, select:focus { border-color:rgba(140,123,255,0.6); background:rgba(255,255,255,0.06); }
+input[type=text]:focus, select:focus { border-color:rgba(var(--a1), 0.6); background:rgba(var(--ink), 0.06); }
 
-input[type=text]::placeholder { color:rgba(255,255,255,0.28); }
+input[type=text]::placeholder { color:rgba(var(--ink), max(0.28, var(--tx-floor))); }
 
-button { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.11); border-radius:5px; color:rgba(255,255,255,0.7); font-size:12px; padding:6px 8px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+button { background:rgba(var(--ink), 0.07); border:1px solid rgba(var(--ink), 0.11); border-radius:5px; color:rgba(var(--ink), max(0.7, var(--tx-floor))); font-size:12px; padding:6px 8px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
 
-button:hover { background:rgba(255,255,255,0.14); color:white; }
+button:hover { background:rgba(var(--ink), 0.14); color:rgb(var(--ink)); }
 
 /* ================================================================= */
 /* ==  STYLES  (was: styles.css)                                  == */
 /* ================================================================= */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  background: #111;
-  color: #e0e0e0;
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif);
+  background: rgb(var(--sur1));
+  color: rgba(var(--ink), max(0.878, var(--tx-floor)));
   height: 100vh;
   position: relative;
   display: flex;
   flex-direction: column;
-  background-image: radial-gradient(circle at 20% 30%, #1a1a2e 0%, #111 60%);
+  background-image: radial-gradient(circle at 20% 30%, rgb(var(--sur3)) 0%, rgb(var(--sur1)) 60%);
 }
 
 .flex{display: flex;}
@@ -62,9 +62,9 @@ body {
 .bgTrans{background:transparent;}
 
 /* native select popups follow the dark theme (options were white-on-white) */
-select { color-scheme: dark; }
+select { color-scheme: inherit; }
 
-select option { background:#20203a; color:#eee; }
+select option { background:rgb(var(--sur4)); color:rgba(var(--ink), max(0.933, var(--tx-floor))); }
 
 /* No scrollbars anywhere. The page itself never scrolls (everything floats in
    one screen); lists inside panels still scroll with the wheel, trackpad or a
@@ -75,16 +75,16 @@ html, body { overflow:hidden; }
 
 /* self-test overlay (#test only) — classes rather than style="" so the page
    obeys the same strict style-src as everything else */
-.st-line.st-ok  { color:#5ab88a; }
-.st-line.st-bad { color:#d46060; }
-.st-note { margin-top:8px; color:rgba(255,255,255,0.4); }
+.st-line.st-ok  { color:rgb(var(--ok)); }
+.st-line.st-bad { color:rgb(var(--bad)); }
+.st-note { margin-top:8px; color:rgba(var(--ink), max(0.4, var(--tx-floor))); }
 
 /* one action in the banner — "Undo", for when riffrolled has done something
    on the listener's behalf and should offer it back */
 .app-banner .banner-act {
   margin-left:10px; padding:3px 10px; font-size:12px; font-weight:600; cursor:pointer;
-  color:#fff; background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.25);
+  color:rgb(var(--ink)); background:rgba(var(--ink), 0.14); border:1px solid rgba(var(--ink), 0.25);
   border-radius:6px;
 }
-.app-banner .banner-act:hover:not(:disabled) { background:rgba(255,255,255,0.24); }
+.app-banner .banner-act:hover:not(:disabled) { background:rgba(var(--ink), 0.24); }
 .app-banner .banner-act:disabled { opacity:.5; cursor:default; }

@@ -519,6 +519,9 @@ document.addEventListener('click', function(e){
   }
 })();
 
+/* a panel's colour: its own hue in Neon Noir, its theme's accent otherwise (css/themes.css) */
+function pa(slug, hex){ return 'var(--pa-' + slug + ', ' + hex + ')'; }
+
 dock.build([
   // ── music: finding, adding and holding tracks. Each panel owns a hue so
   //    you can tell at a glance which one you're looking at. ──
@@ -526,28 +529,29 @@ dock.build([
   // panel that is visible before the saved layout has loaded flashes at the left
   // edge and then jumps. Nothing open means nothing to jump.
   // DJ AI first: it is riffrolled's best feature
-  { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:'#ff9de2' },
-  { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, startHidden:true, group:'music', accent:'#9d8cff' },
-  { iconSvg: MIXES_SVG, label:'Mixes', el: mixesBoss.el, startHidden:true, group:'music', accent:'#ffb86b' },
-  { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:'#4db8ff' },
-  { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:'#ff5d6c' },
-  { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:'#46e0ff' },
+  { icon:'🤖', iconSvg: DJAI_SVG.replace(/adg/g, 'adgD'), label:'DJ AI', el: djMenuBoss.el, startHidden:true, group:'music', accent:pa('dj-ai', '#ff9de2') },
+  { iconSvg: PLAYLIST_SVG.replace(/plg/g, 'plgD'), label:'Playlist', el: plBoss.currentEl, startHidden:true, group:'music', accent:pa('playlist', '#9d8cff') },
+  { iconSvg: MIXES_SVG, label:'Mixes', el: mixesBoss.el, startHidden:true, group:'music', accent:pa('mixes', '#ffb86b') },
+  { icon:'🔎', label:'Search',           el: searchBoss.el, startHidden:true, group:'music', accent:pa('search', '#4db8ff') },
+  { icon:'▶', iconSvg: YT_ICON_SVG, label:'Import', el: importBoss.el, startHidden:true, group:'music', accent:pa('import', '#ff5d6c') },
+  { icon:'🗄', iconSvg: DB_ICON_SVG.replace(/dbg/g, 'dbgD'), label:'Database', el: dataBoss.el, startHidden:true, group:'music', accent:pa('database', '#46e0ff') },
   // Random Mix lives under Mixes now (its fourth door), so it has no dock button of its own
-  { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, noButton:true, group:'music', accent:'#5ad1a0' },
-  { icon:'🕘', iconSvg: HISTORY_SVG, label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:'#9aa4c0' },
+  { icon:'🎲', iconSvg: MIX_DICE_SVG.replace(/mxg/g, 'mxgD'), label:'Random Mix', el: mixBoss.el, startHidden:true, noButton:true, group:'music', accent:pa('random-mix', '#5ad1a0') },
+  { icon:'🕘', iconSvg: HISTORY_SVG, label:'History', el: djHistoryBoss.el, startHidden:true, group:'music', accent:pa('history', '#9aa4c0') },
   // Track info has no dock button: it is one tap from the ℹ on any
   // playlist row or the deck, and it pops up by itself when a track
   // changes. It is still a registered panel, so it keeps its place in the
   // saved layout and opens full-screen on a phone.
-  { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:'#d98cff' },
+  { icon:'💿', label:'Track info',       el: document.getElementById('ctPanel'), startHidden:true, noButton:true, group:'music', accent:pa('track-info', '#d98cff') },
   // ── tokens: earn, then spend ──
   // Your promotions is its own window, opened from the Promote panel and when a
   // campaign starts — so it has no dock button, like Track info
-  { icon:'📣', label:'Your promotions', el: promoBoss.mine, startHidden:true, noButton:true, group:'tokens', accent:'#ffcc4d' },
+  { icon:'📣', label:'Your promotions', el: promoBoss.mine, startHidden:true, noButton:true, group:'tokens', accent:pa('your-promotions', '#ffcc4d') },
   // ── the bottom of the dock: earn credits, spend them, and About ──
-  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', bottom:true, accent:'#e0a34d' },
-  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:'#ffcc4d' },
-  { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', accent:'#8a90a8' }
+  { icon:'⛏', label:'Mine',             el: mineBoss.el, startHidden:true, group:'tokens', bottom:true, accent:pa('mine', '#e0a34d') },
+  { iconSvg: PROMOTE_SVG, label:'Promote', el: promoBoss.el, startHidden:true, group:'tokens', accent:pa('promote', '#ffcc4d') },
+  { icon:'🎨', label:'Themes',           el: themesBoss.el, startHidden:true, group:'info', accent:pa('themes', '#d98cff') },
+  { icon:'ℹ️', label:'About & Legal',    el: infoBoss.el, startHidden:true, group:'info', accent:pa('about-legal', '#8a90a8') }
 ]);
 
 /* Every panel now has its open/closed state, so the stylesheet may stop

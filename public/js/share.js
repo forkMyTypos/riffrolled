@@ -7,12 +7,18 @@
    Promote: Promote spends riff credits so strangers see a track; Share
    costs nothing.
 
-     🔗 Send this playlist         one press: makes a link-only mix (in no
-                                   list) and copies riffrolled.com/?m=<code>,
-                                   or opens the phone's share sheet. Works
-                                   straight away. The same playlist with the
-                                   same tracks reuses its link.
-     ♪  Send the track that's playing   riffrolled.com/?t=<video id>
+   Pressing SHARE (the deck key, or Share in a Playlist window) does the
+   common thing at once: it makes (or reuses) the playlist's link, copies
+   it, says "Playlist link copied", and opens the link card: the link with
+   Copy, Share… (the phone's or computer's own share sheet), Post on X and
+   Share on Facebook, and under it the other options:
+
+     🔗 Send this playlist         a link-only mix (in no list), at
+                                   riffrolled.com/mix/<code>. Works straight
+                                   away. The same playlist with the same
+                                   tracks reuses its link. (Old links,
+                                   riffrolled.com/?m=<code>, still open.)
+     ♪  Send only the track that's playing   riffrolled.com/?t=<video id>
      🌍 Share to Community…        the Mixes share form (a key's first one
                                    waits for the owner's OK)
      📈 Your shared mixes and their plays
@@ -40,7 +46,7 @@ var shareBoss = {
     var self = this;
     btn.addEventListener('click', function(e){
       e.stopPropagation();
-      if (!menu.hidden && self.anchor === btn) self.close(); else self.open(btn);
+      if (!menu.hidden && self.anchor === btn) self.close(); else self.quickShare(btn);
     });
     menu.addEventListener('click', function(e){
       var mi = e.target.closest('.t-mi');
@@ -63,7 +69,7 @@ var shareBoss = {
     var card = menu.querySelector('.sm-link');
     if (card){
       card.querySelector('.sm-copy').addEventListener('click', function(){ self.copyLink(); });
-      card.querySelector('.sm-more').addEventListener('click', function(){ self.nativeShare(); });
+      card.querySelector('.sm-more').addEventListener('click', function(){ self.nativeShare(true); });
       card.querySelector('.sm-link-url').addEventListener('focus', function(){ this.select(); });
       ['.sm-x', '.sm-fb'].forEach(function(q){
         card.querySelector(q).addEventListener('click', function(){ if (window.riffUsage) riffUsage.count(q === '.sm-x' ? 'share_x' : 'share_fb'); });
@@ -77,6 +83,35 @@ var shareBoss = {
     if (!window.plBoss) return null;
     if (plBoss.playingId && player.currentYtId && plBoss.currentIndex >= 0) return plBoss.playingId;
     return plBoss.activeId || null;
+  },
+
+  /** One press: copy the playlist's link and show it with the other ways
+      to share. With no playlist yet, the plain menu opens instead (it can
+      still send the playing track). */
+  async quickShare(anchor, plId){
+    var id = plId || this.playlistId();
+    if (!id){ return this.open(anchor, plId); }
+    this.lastAnchor = anchor || this.btn;
+    this.forPl = id;
+    /* Copy now, while the press still counts as the person's own action:
+       browsers (Safari above all) refuse a copy that comes after waiting on
+       the network. A ClipboardItem can be handed a promise of the text, so
+       the copy is claimed now and filled in when the link is ready. */
+    var resolveLink, linkReady = new Promise(function(r){ resolveLink = r; });
+    this.pendingCopy = null;
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+        var item = new ClipboardItem({ 'text/plain': linkReady.then(function(t){
+          if (!t) throw new Error('no link');
+          return new Blob([t], { type: 'text/plain' });
+        }) });
+        this.pendingCopy = navigator.clipboard.write([item]).then(function(){ return true; }, function(){ return false; });
+      }
+    } catch(e){ this.pendingCopy = null; }
+    this._resolveLink = resolveLink;          // giveLink hands the link over the moment it exists
+    var link = await this.sendPlaylist(id, { quick: true });
+    if (this._resolveLink){ this._resolveLink(link || ''); this._resolveLink = null; }
+    if (!link) this.pendingCopy = null;
   },
 
   /** Open the menu at `anchor` (the deck's SHARE key, or a Playlist window's
@@ -161,7 +196,8 @@ var shareBoss = {
   },
 
   /* ── Send this playlist: one press, a link that works straight away ── */
-  async sendPlaylist(plId){
+  async sendPlaylist(plId, opts){
+    opts = opts || {};
     var pl = await db.playlists.get(plId);
     if (!pl){ appNotify('That playlist has gone', 'warn'); return; }
     var joins = await db.playlistTracks.where('playlistId').equals(plId).sortBy('order');
@@ -170,7 +206,7 @@ var shareBoss = {
       var t = await db.tracks.get(joins[i].trackId);
       if (t && t.ytId && t.playable !== 0) rows.push(t);
     }
-    if (!rows.length){ appNotify('“' + pl.name + '” has no tracks to send yet', 'warn'); return; }
+    if (!rows.length){ appNotify('“' + pl.name + '” has no tracks to send yet', 'warn'); if (opts.quick) this.open(this.lastAnchor, plId); return; }
     var sig = rows.map(function(t){ return t.ytId; }).join(',');
     if (window.riffUsage) riffUsage.count('share_link');
     // the same tracks as last time: the same link, no new mix
@@ -209,13 +245,16 @@ var shareBoss = {
     }
   },
 
-  linkForMix(slug){ return location.origin + '/?m=' + slug; },
+  // riffrolled.com/mix/<code>: the Worker serves the page there with this
+  // mix's own preview (title, tracks) for X, Discord, iMessage and friends
+  linkForMix(slug){ return location.origin + '/mix/' + slug; },
 
   /** hand over a link: the share menu turns into a link card — the link,
       Copy, Post on X, Share on Facebook, and on a phone "More apps…" (the
       phone's own share sheet). The link is also copied straight away. */
   async giveLink(slug, name){
     var link = this.linkForMix(slug);
+    if (this._resolveLink){ this._resolveLink(link); this._resolveLink = null; }
     await this.showLink(link, name || 'A playlist', 'playlist');
     document.documentElement.setAttribute('data-rr-last-link', link);
     return link;
@@ -245,10 +284,19 @@ var shareBoss = {
     var u = encodeURIComponent(link), t = encodeURIComponent(this.last.text);
     card.querySelector('.sm-x').href = 'https://x.com/intent/post?text=' + t + '&url=' + u;
     card.querySelector('.sm-fb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + u;
-    card.querySelector('.sm-more').hidden = !(navigator.share && document.body.classList.contains('mobile'));
+    card.querySelector('.sm-more').hidden = !navigator.share;
+    // the copy SHARE claimed when it was pressed (quickShare), else copy now
     var copied = false;
-    try { await navigator.clipboard.writeText(link); copied = true; } catch(e){}
-    card.querySelector('.sm-copy').textContent = copied ? 'Copied ✓' : 'Copy link';
+    if (this.pendingCopy){ copied = await this.pendingCopy; this.pendingCopy = null; }
+    if (!copied){ try { await navigator.clipboard.writeText(link); copied = true; } catch(e){} }
+    this.copiedState(copied);
+    if (copied) appToast(type === 'track' ? 'Track link copied' : 'Playlist link copied', 'ok');
+    // phones: the share sheet is where links get sent from (Messages,
+    // WhatsApp, Discord…). If the browser won't open it without a fresh tap,
+    // the card's Share… button is right there.
+    if (navigator.share && document.body.classList.contains('mobile')){
+      this.nativeShare(false);
+    }
     // reopen the menu where it was (it closed when the menu item was pressed)
     var anchor = (this.lastAnchor && document.body.contains(this.lastAnchor)) ? this.lastAnchor : this.btn;
     menu.hidden = false;
@@ -260,14 +308,28 @@ var shareBoss = {
 
   async copyLink(){
     if (!this.last) return;
-    var b = this.menu.querySelector('.sm-copy');
-    try { await navigator.clipboard.writeText(this.last.link); b.textContent = 'Copied ✓'; appToast('Link copied', 'ok'); }
-    catch(e){ var i = this.menu.querySelector('.sm-link-url'); i.focus(); i.select(); appToast('Press Ctrl+C to copy', ''); }
+    try { await navigator.clipboard.writeText(this.last.link); this.copiedState(true); appToast('Link copied', 'ok'); }
+    catch(e){ var i = this.menu.querySelector('.sm-link-url'); i.focus(); i.select(); this.copiedState(false); appToast('Press Ctrl+C to copy', ''); }
   },
 
-  async nativeShare(){
+  /** the Copy button says "Copied!" for 2 seconds, then goes back */
+  copiedState(on){
+    var b = this.menu && this.menu.querySelector('.sm-copy');
+    if (!b) return;
+    clearTimeout(this._copiedT);
+    b.textContent = on ? 'Copied!' : 'Copy';
+    b.classList.toggle('copied', !!on);
+    if (on) this._copiedT = setTimeout(function(){ b.textContent = 'Copy'; b.classList.remove('copied'); }, 2000);
+  },
+
+  /** the device's own share sheet. `fromTap`: pressed Share… just now. */
+  async nativeShare(fromTap){
     if (!this.last || !navigator.share) return;
-    try { await navigator.share({ title: this.last.title, text: this.last.text, url: this.last.link }); } catch(e){}
+    try { await navigator.share({ title: this.last.title, text: this.last.text, url: this.last.link }); }
+    catch(e){
+      // NotAllowedError: the browser wants a fresh tap; the Share… button is in the card
+      if (!fromTap && e && e.name === 'NotAllowedError'){ var m = this.menu.querySelector('.sm-more'); if (m) m.classList.add('nudge'); }
+    }
   },
 
   linkForTrack(ytId){ return location.origin + '/?t=' + ytId; },
@@ -287,7 +349,7 @@ var shareBoss = {
   async handleUrl(){
     var id = new URLSearchParams(location.search).get('t');
     if (id === null) return;
-    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}   // a reload must not add it again
+    try { history.replaceState(null, '', (/^\/mix\//.test(location.pathname) ? '/' : location.pathname) + location.hash); } catch(e){}   // a reload must not add it again
     if (!/^[A-Za-z0-9_-]{11}$/.test(id)){ appNotify('That track link doesn’t look right — it may have been cut short', 'warn'); return; }
     // wait for the Playlist window to know where it is
     var n = 0;

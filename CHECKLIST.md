@@ -2,6 +2,13 @@
 
 Dan's running to-do list. `[ ]` open, `[x]` done, `[?]` needs a decision from Dan first. Bandcamp is parked on purpose.
 
+## Round: one-press sharing, /mix/ links, link previews (19 Nov, still schema 36)
+- [x] **SHARE copies straight away** (deck key and a Playlist window's Share): makes or reuses the playlist's link, copies it ("Playlist link copied" toast, Copy button says "Copied!" for 2 s), and opens the link card. The copy is claimed at the press (ClipboardItem with a promise) so Safari allows it even when the link has to be made first. No playlist yet → the old menu opens. `public/js/share.js`, `public/js/playlist.js`.
+- [x] **Link card:** link + Copy, Share… (the device's share sheet, wherever the browser has one), Post on X, Share on Facebook; under "More": send only the playing track, Share to Community…, your shared mixes. On phones the share sheet opens first. `public/index.html`, `public/css/skins.css`.
+- [x] **Clean links:** `riffrolled.com/mix/<code>`. `/p/<code>`, `/playlist/<code>`, upper case and a trailing slash redirect there (301). Old `/?m=<code>` links still open. After opening, the address goes back to `/`.
+- [x] **Link previews:** `src/routes/mixpage.js` serves index.html at `/mix/<code>` with the mix's name and first tracks in og:/twitter: tags, `<base href="/">` (that page's CSP allows `base-uri 'self'`), and the preview image `public/img/og-card.png` (1200 × 630). The homepage has default preview tags. `wrangler.toml` gains `binding = "ASSETS"`.
+- [ ] Dan: after deploying, paste a /mix/ link into https://www.opengraph.xyz/ or Discord to see the preview. X caches previews, so an old link may show the old (empty) card for a while.
+
 ## Round: Background play switch (18 Nov, still schema 36)
 - [x] "Background play" switch under the deck (desktop) / next to Awake (phones). Off by default: music pauses when the tab is hidden and resumes on return. On: keeps playing. Saved as setting `bgPlay`. Files: `public/index.html`, `public/js/player.js`, `public/css/deck.css`.
 

@@ -9,6 +9,9 @@ compatibility_date = "2026-06-01"
 # static assets; everything else (i.e. /api/*) falls through to the Worker.
 [assets]
 directory = "./public"
+# lets the Worker read index.html to serve it at /mix/<code> with that
+# mix's link preview (src/routes/mixpage.js)
+binding = "ASSETS"
 
 # D1 binding. Create the database in the Cloudflare dashboard
 # (Storage & Databases → D1 → Create), then paste its ID below.

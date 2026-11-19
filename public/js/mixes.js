@@ -386,12 +386,12 @@ var mixesBoss = {
     } catch(err){ box.innerHTML = "<div class='mx-fine'>" + escapeHtml(err.message) + "</div>"; }
   },
 
-  /* ── share links: riffrolled.com/?m=<code> ───────────────────────────
+  /* ── share links: riffrolled.com/mix/<code> (old: /?m=<code>) ─────────
      A link carries an 8-character random code, never a row number. Opening
      one shows that mix on its own, with Play and Save, and nothing plays
      until the person presses it. A mix that is hidden, still waiting for
      approval, or gone says so in words rather than opening empty. */
-  linkFor(slug){ return location.origin + '/?m=' + slug; },
+  linkFor(slug){ return location.origin + '/mix/' + slug; },
 
   async copyLink(slug, name){
     if (!slug){ this.status('That mix has no link yet — try again in a moment', 'warn'); return; }
@@ -410,9 +410,9 @@ var mixesBoss = {
     }
   },
 
-  /** the page was opened with ?m=<code> */
+  /** the page was opened at /mix/<code> (or the old ?m=<code>) */
   async openFromUrl(code){
-    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}   // a reload must not reopen it
+    try { history.replaceState(null, '', '/' + location.hash); } catch(e){}   // a reload must not reopen it
     this.open();
     if (!/^[a-hj-km-np-z2-9]{8}$/.test(code)){ this.status('That link doesn’t look right — it may have been cut short', 'warn'); return; }
     this.status('Opening the shared mix…');
@@ -600,10 +600,12 @@ var mixesBoss = {
   }
 };
 
-/* Opened from a shared link (riffrolled.com/?m=<code>): wait for the saved
-   layout to be restored, then show that mix. */
+/* Opened from a shared link (riffrolled.com/mix/<code>, or the older
+   riffrolled.com/?m=<code>): wait for the saved layout to be restored, then
+   show that mix. */
 (function(){
-  var code = new URLSearchParams(location.search).get('m');
+  var path = /^\/mix\/([^\/?#]*)/.exec(location.pathname);
+  var code = path ? decodeURIComponent(path[1]) : new URLSearchParams(location.search).get('m');
   if (code === null) return;
   var n = 0, t = setInterval(function(){
     if ((window.dock && dock._ready) || ++n > 100){ clearInterval(t); mixesBoss.openFromUrl(code); }

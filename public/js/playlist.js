@@ -580,7 +580,7 @@ var plBoss = {
     root.querySelector('.pl-share').onclick = (e) => {
       e.stopPropagation();
       if (!this.activeId){ appNotify('Pick a playlist to share first', 'warn'); return; }
-      if (window.shareBoss && shareBoss.menu) shareBoss.open(e.currentTarget, this.activeId);
+      if (window.shareBoss && shareBoss.menu) shareBoss.quickShare(e.currentTarget, this.activeId);
       else if (window.mixesBoss) mixesBoss.openShare(this.activeId);
     };
 

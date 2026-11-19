@@ -2130,7 +2130,7 @@ var shareIn = {
     navigator.serviceWorker.register('/sw.js').then(function(){
       // only ask when we were actually opened by a share
       if (new URLSearchParams(location.search).get('shared') === null) return;
-      history.replaceState(null, '', location.pathname);   // don't re-import on reload
+      history.replaceState(null, '', /^\/mix\//.test(location.pathname) ? '/' : location.pathname);   // don't re-import on reload
       navigator.serviceWorker.ready.then(function(reg){
         var sw = reg.active || navigator.serviceWorker.controller;
         if (sw) sw.postMessage({ type: 'riffrolled:take-share' });

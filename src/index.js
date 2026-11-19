@@ -3,6 +3,7 @@
 // /api/* lands here. Framework-free router + one error boundary so the
 // frontend always receives JSON.
 
+import { handleMixPage } from './routes/mixpage.js';
 import { errorJson, handleOptions, json } from './utils/response.js';
 import { ensureSchema, LATEST_MIGRATION } from './db/migrations.js';
 import { BUILD } from './build-info.js';
@@ -26,6 +27,10 @@ import { callBudget } from './services/youtube.js';
 import { getConfig } from './config.js';
 
 const ROUTES = [
+  // a shared mix's own page, with its link preview (GET and HEAD: link
+  // previewers check with either). /p/ and /playlist/ redirect to /mix/.
+  ['GET',  /^\/(mix|p|playlist)\/([A-Za-z0-9]{1,16})\/?$/, (req, env, url, m) => handleMixPage(req, env, url, m)],
+  ['HEAD', /^\/(mix|p|playlist)\/([A-Za-z0-9]{1,16})\/?$/, (req, env, url, m) => handleMixPage(req, env, url, m)],
   ['GET',  /^\/api\/config$/,       (req, env) => handlePublicConfig(req, env)],
   ['POST', /^\/api\/stats$/,        (req, env) => handleStats(req, env)],
   ['GET',  /^\/api\/search$/, (req, env, url) => handleSearch(req, env, url)],

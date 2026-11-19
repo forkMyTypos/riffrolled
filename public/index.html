@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>riffrolled</title>
+<!-- link previews for riffrolled.com itself. A shared mix (/mix/<code>) gets
+     its own: the Worker swaps these for the mix's name and tracks
+     (src/routes/mixpage.js). -->
+<meta name="description" content="Spin YouTube music on a virtual turntable: build playlists, share mixes, or let DJ AI make one for your mood.">
+<meta property="og:site_name" content="riffrolled">
+<meta property="og:type" content="website">
+<meta property="og:title" content="riffrolled — a turntable for YouTube music">
+<meta property="og:description" content="Spin YouTube music on a virtual turntable: build playlists, share mixes, or let DJ AI make one for your mood.">
+<meta property="og:url" content="https://riffrolled.com/">
+<meta property="og:image" content="https://riffrolled.com/img/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://riffrolled.com/img/og-card.png">
+<meta name="theme-color" content="#0b0b17">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2048%2048%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%271%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%238a7bff%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%2346e0ff%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cg%20transform%3D%27rotate%2814%2033.5%2015.5%29%27%3E%3Crect%20x%3D%2723%27%20y%3D%275%27%20width%3D%2721%27%20height%3D%2721%27%20rx%3D%275.5%27%20fill%3D%27%2315152e%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%2F%3E%3Ccircle%20cx%3D%2727.2%27%20cy%3D%279.2%27%20r%3D%271.25%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ccircle%20cx%3D%2739.8%27%20cy%3D%2721.8%27%20r%3D%271.25%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Cellipse%20cx%3D%2731.4%27%20cy%3D%2719.6%27%20rx%3D%272.9%27%20ry%3D%272.2%27%20fill%3D%27url%28%23g%29%27%20transform%3D%27rotate%28-20%2031.4%2019.6%29%27%2F%3E%3Cpath%20d%3D%27M34%2019.2%20L34%2010.6%20C36.6%2011.4%2037.6%2013%2036.8%2015.6%27%20fill%3D%27none%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%271.7%27%20stroke-linecap%3D%27round%27%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%27rotate%28-8%2016%2028%29%27%3E%3Crect%20x%3D%274.5%27%20y%3D%2716.5%27%20width%3D%2723%27%20height%3D%2723%27%20rx%3D%275.5%27%20fill%3D%27%230e0e1c%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%2F%3E%3Ccircle%20cx%3D%279.2%27%20cy%3D%2721.2%27%20r%3D%271.35%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ccircle%20cx%3D%2722.8%27%20cy%3D%2734.8%27%20r%3D%271.35%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Cellipse%20cx%3D%2713.6%27%20cy%3D%2732.6%27%20rx%3D%273.2%27%20ry%3D%272.4%27%20fill%3D%27url%28%23g%29%27%20transform%3D%27rotate%28-20%2013.6%2032.6%29%27%2F%3E%3Cpath%20d%3D%27M16.5%2032.1%20L16.5%2022.4%20C19.4%2023.3%2020.5%2025.1%2019.6%2028%27%20fill%3D%27none%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
 
 <!-- ================================================================= -->
@@ -103,15 +118,30 @@
                              playlist with everyone. Promote is something else: it spends
                              riff credits so strangers see a track (the flyer in the dock). -->
                         <div class="t-share">
-                            <button class="t-btn deck-key key-share" id="btnShare" title="Share a track or a playlist" aria-label="Share"
+                            <button class="t-btn deck-key key-share" id="btnShare" title="Copy a link to this playlist (more ways to share in the menu)" aria-label="Share"
                                     aria-haspopup="true" aria-expanded="false" data-label="SHARE" data-testid="btn-share"><img class="share-ico" src="img/share-icon.webp" alt="" width="16" height="16" draggable="false"></button>
                             <div class="t-menu share-menu" id="shareMenu" hidden role="menu" data-testid="share-menu">
                                 <div class="sm-pl" data-testid="share-pl-name"></div>
+                                <!-- SHARE copies the playlist's link straight away and shows it here,
+                                     ready to post; the other options stay listed underneath -->
+                                <div class="sm-link" hidden data-testid="share-link-card">
+                                    <div class="sm-link-what"></div>
+                                    <div class="sm-link-row">
+                                        <input class="sm-link-url" type="text" readonly aria-label="Your link" data-testid="share-link-url">
+                                        <button type="button" class="sm-lb sm-copy" data-testid="share-copy">Copy</button>
+                                    </div>
+                                    <div class="sm-link-btns">
+                                        <button type="button" class="sm-lb sm-more" hidden data-testid="share-more">Share…</button>
+                                        <a class="sm-lb sm-x" target="_blank" rel="noopener noreferrer" data-testid="share-x">Post on X</a>
+                                        <a class="sm-lb sm-fb" target="_blank" rel="noopener noreferrer" data-testid="share-fb">Share on Facebook</a>
+                                    </div>
+                                    <div class="sm-link-more">More</div>
+                                </div>
                                 <button class="t-mi sm-main" data-s="link" role="menuitem" data-testid="share-pl-link">
                                     <span class="t-mi-ico">🔗</span><span class="t-mi-txt">Send this playlist <small>copies a link — anyone you send it to can play it</small></span>
                                 </button>
                                 <button class="t-mi" data-s="track" role="menuitem" data-testid="share-track">
-                                    <span class="t-mi-ico">♪</span><span class="t-mi-txt">Send the track that's playing <small>copies a link to just this track</small></span>
+                                    <span class="t-mi-ico">♪</span><span class="t-mi-txt">Send only the track that's playing <small>copies a link to just this track</small></span>
                                 </button>
                                 <div class="t-mi-sep"></div>
                                 <button class="t-mi" data-s="everyone" role="menuitem" data-testid="share-pl-everyone">
@@ -120,17 +150,6 @@
                                 <button class="t-mi" data-s="mine" role="menuitem" data-testid="share-mine">
                                     <span class="t-mi-ico">📈</span><span class="t-mi-txt">Your shared mixes and their plays</span>
                                 </button>
-                                <!-- after a link is made the menu shows it, ready to post -->
-                                <div class="sm-link" hidden data-testid="share-link-card">
-                                    <div class="sm-link-what"></div>
-                                    <input class="sm-link-url" type="text" readonly aria-label="Your link" data-testid="share-link-url">
-                                    <div class="sm-link-btns">
-                                        <button type="button" class="sm-lb sm-copy" data-testid="share-copy">Copy link</button>
-                                        <a class="sm-lb sm-x" target="_blank" rel="noopener noreferrer" data-testid="share-x">Post on X</a>
-                                        <a class="sm-lb sm-fb" target="_blank" rel="noopener noreferrer" data-testid="share-fb">Share on Facebook</a>
-                                        <button type="button" class="sm-lb sm-more" hidden data-testid="share-more">More apps…</button>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                         <!-- what happens when a track or the playlist ends.

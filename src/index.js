@@ -7,6 +7,7 @@ import { handleMixPage } from './routes/mixpage.js';
 import { errorJson, handleOptions, json } from './utils/response.js';
 import { ensureSchema, LATEST_MIGRATION } from './db/migrations.js';
 import { BUILD } from './build-info.js';
+import { checkLimits, cacheSeconds, fromEdge, toEdge } from './guard.js';
 
 import { handleSearch } from './routes/search.js';
 import { handleListTracks, handleAddTrack } from './routes/tracks.js';
@@ -67,7 +68,7 @@ const ROUTES = [
 ];
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return handleOptions(env);
     const url = new URL(request.url);
     try {
@@ -84,6 +85,22 @@ export default {
         }, migrated ? 200 : 500, { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
       }
 
+      // the same answer for everybody, asked again within a minute: from the
+      // edge, no database, not counted against anyone (src/guard.js)
+      const keep = cacheSeconds(request, url);
+      if (keep) {
+        const hit = await fromEdge(url);
+        if (hit) return hit;
+      }
+
+      // per-visitor limits — a search that finds nothing reads every track
+      const over = await checkLimits(request, env, url);
+      if (over) {
+        console.warn('rate limited: ' + over.tier + ' ' + request.method + ' ' + url.pathname);
+        return json(env, { error: 'Too many requests — give it a minute and try again', code: 'rate_limited' }, 429,
+          { 'Retry-After': '60', 'Cache-Control': 'no-store' });
+      }
+
       // bring the database up to date before anything touches it — a no-op
       // after the first request in each isolate
       await ensureSchema(env.DB);
@@ -91,7 +108,7 @@ export default {
       for (const [method, pattern, handler] of ROUTES) {
         if (request.method !== method) continue;
         const m = pattern.exec(url.pathname);
-        if (m) return await handler(request, env, url, m);
+        if (m) return toEdge(url, await handler(request, env, url, m), keep, ctx);
       }
       return errorJson(env, 'Not found', 404);
     } catch (err) {

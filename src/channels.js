@@ -61,12 +61,32 @@ export async function discover(env, now = new Date().toISOString()) {
        ON CONFLICT(id) DO NOTHING`
     ).bind(now).run();
     out.added = (r.meta && r.meta.changes) || 0;
-    await db.prepare(
-      `UPDATE channels SET
-         tracks_here = (SELECT COUNT(*) FROM tracks t WHERE t.channel_id = channels.id AND t.verified = 1),
-         likes_here  = (SELECT COALESCE(SUM(t.likes), 0) FROM tracks t WHERE t.channel_id = channels.id),
-         plays_here  = (SELECT COALESCE(SUM(t.plays), 0) FROM tracks t WHERE t.channel_id = channels.id)`
-    ).bind().run();
+    /* One pass over tracks, grouped — not three subqueries per channel.
+       The old form (until 20 Nov 2026) asked "COUNT(*) WHERE channel_id = ?
+       AND verified = 1" once per channel, and with no table statistics
+       SQLite answered it from the verified index: every verified track,
+       for every channel. At ~2,000 channels that one statement read about
+       8 million rows and used up D1's free daily reads at 00:17 UTC. This
+       form reads the catalogue once, and only rewrites channels whose
+       numbers actually moved. */
+    await db.batch([
+      db.prepare(
+        `UPDATE channels SET tracks_here = s.v, likes_here = s.l, plays_here = s.p
+           FROM (SELECT channel_id,
+                        SUM(CASE WHEN verified = 1 THEN 1 ELSE 0 END) AS v,
+                        COALESCE(SUM(likes), 0) AS l,
+                        COALESCE(SUM(plays), 0) AS p
+                   FROM tracks WHERE channel_id != '' GROUP BY channel_id) AS s
+          WHERE s.channel_id = channels.id
+            AND (channels.tracks_here != s.v OR channels.likes_here != s.l OR channels.plays_here != s.p)`
+      ),
+      // channels whose tracks have all gone back to nothing
+      db.prepare(
+        `UPDATE channels SET tracks_here = 0, likes_here = 0, plays_here = 0
+          WHERE (tracks_here != 0 OR likes_here != 0 OR plays_here != 0)
+            AND id NOT IN (SELECT channel_id FROM tracks WHERE channel_id != '')`
+      ),
+    ]);
   }
 
   // 2. YouTube's facts: never fetched, or older than 25 days — the most promising first

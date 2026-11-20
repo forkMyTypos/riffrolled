@@ -42,6 +42,35 @@ binding = "AI"
 [triggers]
 crons = ["17 * * * *"]
 
+# ── per-visitor rate limits (src/guard.js) ──────────────────────────────
+# Added 20 Nov 2026 after a "go as hard as you can" AI road test used up
+# D1's free 5M rows read in a day. Works alongside the dashboard rule on
+# /api/ (30 requests / 10 s per IP): that one stops bursts, these stop a
+# steady stream. Counted per network address (IPv6 per /64), per Cloudflare
+# location. period must be 10 or 60. namespace_id is any number unique to
+# the account. Included on the Workers free plan.
+[[ratelimits]]
+name = "RL_API"            # every /api/* call
+namespace_id = "2611"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+name = "RL_HEAVY"          # searches, track lists, imports, auto mixes: the calls that can read a whole table
+namespace_id = "2612"
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+# ── request logs ────────────────────────────────────────────────────────
+# Every request's path, status and console lines, kept a few days. See them
+# in the dashboard on the riffrolled Worker's Observability (Logs) tab.
+# The free plan includes a daily allowance of log lines; past it, logging
+# pauses for the day and the site carries on.
+[observability]
+enabled = true
+
 [vars]
 # Frontend and API share one origin now, so CORS is same-origin by default.
 # This only matters if you later call the API from another site.
